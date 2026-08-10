@@ -1,0 +1,19 @@
+.env*
+!.env.example
+.DS_Store
+.idea/
+.vscode/
+# Next.js dev tooling generates local AI-agent hints. They are not part of the
+# public product contract.
+AGENTS.md
+CLAUDE.md
+.local/
+.next/
+.vercel/
+node_modules/
+output/
+coverage/
+*.log
+*.tsbuildinfo
+!features/global-conflict-map/data/
+!features/global-conflict-map/data/*.ts

@@ -1,0 +1,42 @@
+name: Bug report
+description: Report a reproducible product or data-presentation issue.
+title: "[Bug]: "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: Do not include credentials or security-sensitive details. Use private vulnerability reporting for security issues.
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: What happened, and what did you expect instead?
+    validations:
+      required: true
+  - type: input
+    id: route
+    attributes:
+      label: Route or event
+      placeholder: https://oddsfront.com/global-conflict-map
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      placeholder: "1. Open ...\n2. Select ...\n3. Observe ..."
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Browser, operating system, viewport, and whether this occurs on production or local development.
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checks
+      options:
+        - label: I removed secrets, wallet data, and personal information from this report.
+          required: true
+        - label: This is not a private security vulnerability.
+          required: true

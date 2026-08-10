@@ -1,0 +1,2628 @@
+[
+  {
+    "featureId": "AFG",
+    "iso2": "AF",
+    "name": "Afghanistan",
+    "aliases": [
+      "Afghanistan",
+      "Islamic State of Afghanistan"
+    ],
+    "continent": "Asia",
+    "region": "Southern Asia",
+    "coordinates": [
+      66.496586,
+      34.164262
+    ]
+  },
+  {
+    "featureId": "AGO",
+    "iso2": "AO",
+    "name": "Angola",
+    "aliases": [
+      "Angola",
+      "People's Republic of Angola"
+    ],
+    "continent": "Africa",
+    "region": "Middle Africa",
+    "coordinates": [
+      17.984249,
+      -12.182762
+    ]
+  },
+  {
+    "featureId": "ALB",
+    "iso2": "AL",
+    "name": "Albania",
+    "aliases": [
+      "Albania",
+      "Republic of Albania"
+    ],
+    "continent": "Europe",
+    "region": "Southern Europe",
+    "coordinates": [
+      20.11384,
+      40.654855
+    ]
+  },
+  {
+    "featureId": "ARE",
+    "iso2": "AE",
+    "name": "United Arab Emirates",
+    "aliases": [
+      "United Arab Emirates"
+    ],
+    "continent": "Asia",
+    "region": "Western Asia",
+    "coordinates": [
+      54.547256,
+      23.466285
+    ]
+  },
+  {
+    "featureId": "ARG",
+    "iso2": "AR",
+    "name": "Argentina",
+    "aliases": [
+      "Argentina",
+      "Argentine Republic"
+    ],
+    "continent": "South America",
+    "region": "South America",
+    "coordinates": [
+      -64.173331,
+      -33.501159
+    ]
+  },
+  {
+    "featureId": "ARM",
+    "iso2": "AM",
+    "name": "Armenia",
+    "aliases": [
+      "Armenia",
+      "Republic of Armenia"
+    ],
+    "continent": "Asia",
+    "region": "Western Asia",
+    "coordinates": [
+      44.800564,
+      40.459077
+    ]
+  },
+  {
+    "featureId": "ATA",
+    "iso2": "AQ",
+    "name": "Antarctica",
+    "aliases": [
+      "Antarctica"
+    ],
+    "continent": "Antarctica",
+    "region": "Antarctica",
+    "coordinates": [
+      35.885455,
+      -79.843222
+    ]
+  },
+  {
+    "featureId": "ATF",
+    "iso2": "TF",
+    "name": "French Southern and Antarctic Lands",
+    "aliases": [
+      "French Southern and Antarctic Lands",
+      "Fr. S. Antarctic Lands",
+      "Territory of the French Southern and Antarctic Lands"
+    ],
+    "continent": "Seven seas (open ocean)",
+    "region": "Seven seas (open ocean)",
+    "coordinates": [
+      69.122136,
+      -49.303721
+    ]
+  },
+  {
+    "featureId": "AUS",
+    "iso2": "AU",
+    "name": "Australia",
+    "aliases": [
+      "Australia",
+      "Commonwealth of Australia"
+    ],
+    "continent": "Oceania",
+    "region": "Australia and New Zealand",
+    "coordinates": [
+      134.04972,
+      -24.129522
+    ]
+  },
+  {
+    "featureId": "AUT",
+    "iso2": "AT",
+    "name": "Austria",
+    "aliases": [
+      "Austria",
+      "Republic of Austria"
+    ],
+    "continent": "Europe",
+    "region": "Western Europe",
+    "coordinates": [
+      14.130515,
+      47.518859
+    ]
+  },
+  {
+    "featureId": "AZE",
+    "iso2": "AZ",
+    "name": "Azerbaijan",
+    "aliases": [
+      "Azerbaijan",
+      "Republic of Azerbaijan"
+    ],
+    "continent": "Asia",
+    "region": "Western Asia",
+    "coordinates": [
+      47.210994,
+      40.402387
+    ]
+  },
+  {
+    "featureId": "BDI",
+    "iso2": "BI",
+    "name": "Burundi",
+    "aliases": [
+      "Burundi",
+      "Republic of Burundi"
+    ],
+    "continent": "Africa",
+    "region": "Eastern Africa",
+    "coordinates": [
+      29.917086,
+      -3.332836
+    ]
+  },
+  {
+    "featureId": "BEL",
+    "iso2": "BE",
+    "name": "Belgium",
+    "aliases": [
+      "Belgium",
+      "Kingdom of Belgium"
+    ],
+    "continent": "Europe",
+    "region": "Western Europe",
+    "coordinates": [
+      4.800448,
+      50.785392
+    ]
+  },
+  {
+    "featureId": "BEN",
+    "iso2": "BJ",
+    "name": "Benin",
+    "aliases": [
+      "Benin",
+      "Republic of Benin"
+    ],
+    "continent": "Africa",
+    "region": "Western Africa",
+    "coordinates": [
+      2.352018,
+      10.324775
+    ]
+  },
+  {
+    "featureId": "BFA",
+    "iso2": "BF",
+    "name": "Burkina Faso",
+    "aliases": [
+      "Burkina Faso"
+    ],
+    "continent": "Africa",
+    "region": "Western Africa",
+    "coordinates": [
+      -1.36388,
+      12.673048
+    ]
+  },
+  {
+    "featureId": "BGD",
+    "iso2": "BD",
+    "name": "Bangladesh",
+    "aliases": [
+      "Bangladesh",
+      "People's Republic of Bangladesh"
+    ],
+    "continent": "Asia",
+    "region": "Southern Asia",
+    "coordinates": [
+      89.684963,
+      24.214956
+    ]
+  },
+  {
+    "featureId": "BGR",
+    "iso2": "BG",
+    "name": "Bulgaria",
+    "aliases": [
+      "Bulgaria",
+      "Republic of Bulgaria"
+    ],
+    "continent": "Europe",
+    "region": "Eastern Europe",
+    "coordinates": [
+      25.15709,
+      42.508785
+    ]
+  },
+  {
+    "featureId": "BHS",
+    "iso2": "BS",
+    "name": "Bahamas",
+    "aliases": [
+      "Bahamas",
+      "The Bahamas",
+      "Bahamas, The",
+      "Commonwealth of the Bahamas"
+    ],
+    "continent": "North America",
+    "region": "Caribbean",
+    "coordinates": [
+      -77.146688,
+      26.401789
+    ]
+  },
+  {
+    "featureId": "BIH",
+    "iso2": "BA",
+    "name": "Bosnia and Herzegovina",
+    "aliases": [
+      "Bosnia and Herzegovina",
+      "Bosnia and Herz."
+    ],
+    "continent": "Europe",
+    "region": "Southern Europe",
+    "coordinates": [
+      18.06841,
+      44.091051
+    ]
+  },
+  {
+    "featureId": "BLR",
+    "iso2": "BY",
+    "name": "Belarus",
+    "aliases": [
+      "Belarus",
+      "Republic of Belarus"
+    ],
+    "continent": "Europe",
+    "region": "Eastern Europe",
+    "coordinates": [
+      28.417701,
+      53.821888
+    ]
+  },
+  {
+    "featureId": "BLZ",
+    "iso2": "BZ",
+    "name": "Belize",
+    "aliases": [
+      "Belize"
+    ],
+    "continent": "North America",
+    "region": "Central America",
+    "coordinates": [
+      -88.712962,
+      17.202068
+    ]
+  },
+  {
+    "featureId": "BOL",
+    "iso2": "BO",
+    "name": "Bolivia",
+    "aliases": [
+      "Bolivia",
+      "Plurinational State of Bolivia"
+    ],
+    "continent": "South America",
+    "region": "South America",
+    "coordinates": [
+      -64.593433,
+      -16.666015
+    ]
+  },
+  {
+    "featureId": "BRA",
+    "iso2": "BR",
+    "name": "Brazil",
+    "aliases": [
+      "Brazil",
+      "Federative Republic of Brazil"
+    ],
+    "continent": "South America",
+    "region": "South America",
+    "coordinates": [
+      -49.55945,
+      -12.098687
+    ]
+  },
+  {
+    "featureId": "BRN",
+    "iso2": "BN",
+    "name": "Brunei Darussalam",
+    "aliases": [
+      "Brunei Darussalam",
+      "Brunei",
+      "Negara Brunei Darussalam"
+    ],
+    "continent": "Asia",
+    "region": "South-Eastern Asia",
+    "coordinates": [
+      114.551943,
+      4.448298
+    ]
+  },
+  {
+    "featureId": "BTN",
+    "iso2": "BT",
+    "name": "Bhutan",
+    "aliases": [
+      "Bhutan",
+      "Kingdom of Bhutan"
+    ],
+    "continent": "Asia",
+    "region": "Southern Asia",
+    "coordinates": [
+      90.040294,
+      27.536685
+    ]
+  },
+  {
+    "featureId": "BWA",
+    "iso2": "BW",
+    "name": "Botswana",
+    "aliases": [
+      "Botswana",
+      "Republic of Botswana"
+    ],
+    "continent": "Africa",
+    "region": "Southern Africa",
+    "coordinates": [
+      24.179216,
+      -22.102634
+    ]
+  },
+  {
+    "featureId": "CAF",
+    "iso2": "CF",
+    "name": "Central African Republic",
+    "aliases": [
+      "Central African Republic",
+      "Central African Rep."
+    ],
+    "continent": "Africa",
+    "region": "Middle Africa",
+    "coordinates": [
+      20.906897,
+      6.989681
+    ]
+  },
+  {
+    "featureId": "CAN",
+    "iso2": "CA",
+    "name": "Canada",
+    "aliases": [
+      "Canada"
+    ],
+    "continent": "North America",
+    "region": "Northern America",
+    "coordinates": [
+      -101.9107,
+      60.324287
+    ]
+  },
+  {
+    "featureId": "CHE",
+    "iso2": "CH",
+    "name": "Switzerland",
+    "aliases": [
+      "Switzerland",
+      "Swiss Confederation"
+    ],
+    "continent": "Europe",
+    "region": "Western Europe",
+    "coordinates": [
+      7.463965,
+      46.719114
+    ]
+  },
+  {
+    "featureId": "CHL",
+    "iso2": "CL",
+    "name": "Chile",
+    "aliases": [
+      "Chile",
+      "Republic of Chile"
+    ],
+    "continent": "South America",
+    "region": "South America",
+    "coordinates": [
+      -72.318871,
+      -38.151771
+    ]
+  },
+  {
+    "featureId": "CHN",
+    "iso2": "CN",
+    "name": "China",
+    "aliases": [
+      "China",
+      "People's Republic of China"
+    ],
+    "continent": "Asia",
+    "region": "Eastern Asia",
+    "coordinates": [
+      106.337289,
+      32.498178
+    ]
+  },
+  {
+    "featureId": "CIV",
+    "iso2": "CI",
+    "name": "Côte d'Ivoire",
+    "aliases": [
+      "Côte d'Ivoire",
+      "Ivory Coast",
+      "Cote D'ivoire",
+      "Republic of Ivory Coast"
+    ],
+    "continent": "Africa",
+    "region": "Western Africa",
+    "coordinates": [
+      -5.568618,
+      7.49139
+    ]
+  },
+  {
+    "featureId": "CMR",
+    "iso2": "CM",
+    "name": "Cameroon",
+    "aliases": [
+      "Cameroon",
+      "Republic of Cameroon"
+    ],
+    "continent": "Africa",
+    "region": "Middle Africa",
+    "coordinates": [
+      12.473488,
+      4.585041
+    ]
+  },
+  {
+    "featureId": "COD",
+    "iso2": "CD",
+    "name": "Democratic Republic of the Congo",
+    "aliases": [
+      "Democratic Republic of the Congo",
+      "Dem. Rep. Congo",
+      "Congo, Democratic Republic of the"
+    ],
+    "continent": "Africa",
+    "region": "Middle Africa",
+    "coordinates": [
+      23.458829,
+      -1.858167
+    ]
+  },
+  {
+    "featureId": "COG",
+    "iso2": "CG",
+    "name": "Republic of the Congo",
+    "aliases": [
+      "Republic of the Congo",
+      "Congo",
+      "Congo, Republic of the"
+    ],
+    "continent": "Africa",
+    "region": "Middle Africa",
+    "coordinates": [
+      15.9005,
+      0.142331
+    ]
+  },
+  {
+    "featureId": "COL",
+    "iso2": "CO",
+    "name": "Colombia",
+    "aliases": [
+      "Colombia",
+      "Republic of Colombia"
+    ],
+    "continent": "South America",
+    "region": "South America",
+    "coordinates": [
+      -73.174347,
+      3.373111
+    ]
+  },
+  {
+    "featureId": "CRI",
+    "iso2": "CR",
+    "name": "Costa Rica",
+    "aliases": [
+      "Costa Rica",
+      "Republic of Costa Rica"
+    ],
+    "continent": "North America",
+    "region": "Central America",
+    "coordinates": [
+      -84.077922,
+      10.0651
+    ]
+  },
+  {
+    "featureId": "CUB",
+    "iso2": "CU",
+    "name": "Cuba",
+    "aliases": [
+      "Cuba",
+      "Republic of Cuba"
+    ],
+    "continent": "North America",
+    "region": "Caribbean",
+    "coordinates": [
+      -77.975855,
+      21.334024
+    ]
+  },
+  {
+    "featureId": "CYN",
+    "iso2": "CN",
+    "name": "Northern Cyprus",
+    "aliases": [
+      "Northern Cyprus",
+      "N. Cyprus",
+      "Turkish Republic of Northern Cyprus"
+    ],
+    "continent": "Asia",
+    "region": "Western Asia",
+    "coordinates": [
+      33.692434,
+      35.216071
+    ]
+  },
+  {
+    "featureId": "CYP",
+    "iso2": "CY",
+    "name": "Cyprus",
+    "aliases": [
+      "Cyprus",
+      "Republic of Cyprus"
+    ],
+    "continent": "Asia",
+    "region": "Western Asia",
+    "coordinates": [
+      33.084182,
+      34.913329
+    ]
+  },
+  {
+    "featureId": "CZE",
+    "iso2": "CZ",
+    "name": "Czech Republic",
+    "aliases": [
+      "Czech Republic",
+      "Czechia"
+    ],
+    "continent": "Europe",
+    "region": "Eastern Europe",
+    "coordinates": [
+      15.377555,
+      49.882364
+    ]
+  },
+  {
+    "featureId": "DEU",
+    "iso2": "DE",
+    "name": "Germany",
+    "aliases": [
+      "Germany",
+      "Federal Republic of Germany"
+    ],
+    "continent": "Europe",
+    "region": "Western Europe",
+    "coordinates": [
+      9.678348,
+      50.961733
+    ]
+  },
+  {
+    "featureId": "DJI",
+    "iso2": "DJ",
+    "name": "Djibouti",
+    "aliases": [
+      "Djibouti",
+      "Republic of Djibouti"
+    ],
+    "continent": "Africa",
+    "region": "Eastern Africa",
+    "coordinates": [
+      42.498825,
+      11.976343
+    ]
+  },
+  {
+    "featureId": "DNK",
+    "iso2": "DK",
+    "name": "Denmark",
+    "aliases": [
+      "Denmark",
+      "Kingdom of Denmark"
+    ],
+    "continent": "Europe",
+    "region": "Northern Europe",
+    "coordinates": [
+      9.018163,
+      55.966965
+    ]
+  },
+  {
+    "featureId": "DOM",
+    "iso2": "DO",
+    "name": "Dominican Republic",
+    "aliases": [
+      "Dominican Republic",
+      "Dominican Rep."
+    ],
+    "continent": "North America",
+    "region": "Caribbean",
+    "coordinates": [
+      -70.653998,
+      19.104137
+    ]
+  },
+  {
+    "featureId": "DZA",
+    "iso2": "DZ",
+    "name": "Algeria",
+    "aliases": [
+      "Algeria",
+      "People's Democratic Republic of Algeria"
+    ],
+    "continent": "Africa",
+    "region": "Northern Africa",
+    "coordinates": [
+      2.808241,
+      27.397406
+    ]
+  },
+  {
+    "featureId": "ECU",
+    "iso2": "EC",
+    "name": "Ecuador",
+    "aliases": [
+      "Ecuador",
+      "Republic of Ecuador"
+    ],
+    "continent": "South America",
+    "region": "South America",
+    "coordinates": [
+      -78.188375,
+      -1.259076
+    ]
+  },
+  {
+    "featureId": "EGY",
+    "iso2": "EG",
+    "name": "Egypt",
+    "aliases": [
+      "Egypt",
+      "Arab Republic of Egypt"
+    ],
+    "continent": "Africa",
+    "region": "Northern Africa",
+    "coordinates": [
+      29.445837,
+      26.186173
+    ]
+  },
+  {
+    "featureId": "ERI",
+    "iso2": "ER",
+    "name": "Eritrea",
+    "aliases": [
+      "Eritrea",
+      "State of Eritrea"
+    ],
+    "continent": "Africa",
+    "region": "Eastern Africa",
+    "coordinates": [
+      38.285566,
+      15.787401
+    ]
+  },
+  {
+    "featureId": "ESP",
+    "iso2": "ES",
+    "name": "Spain",
+    "aliases": [
+      "Spain",
+      "Kingdom of Spain"
+    ],
+    "continent": "Europe",
+    "region": "Southern Europe",
+    "coordinates": [
+      -3.464718,
+      40.090953
+    ]
+  },
+  {
+    "featureId": "EST",
+    "iso2": "EE",
+    "name": "Estonia",
+    "aliases": [
+      "Estonia",
+      "Republic of Estonia"
+    ],
+    "continent": "Europe",
+    "region": "Northern Europe",
+    "coordinates": [
+      25.867126,
+      58.724865
+    ]
+  },
+  {
+    "featureId": "ETH",
+    "iso2": "ET",
+    "name": "Ethiopia",
+    "aliases": [
+      "Ethiopia",
+      "Federal Democratic Republic of Ethiopia"
+    ],
+    "continent": "Africa",
+    "region": "Eastern Africa",
+    "coordinates": [
+      39.0886,
+      8.032795
+    ]
+  },
+  {
+    "featureId": "FIN",
+    "iso2": "FI",
+    "name": "Finland",
+    "aliases": [
+      "Finland",
+      "Republic of Finland"
+    ],
+    "continent": "Europe",
+    "region": "Northern Europe",
+    "coordinates": [
+      27.276449,
+      63.252361
+    ]
+  },
+  {
+    "featureId": "FJI",
+    "iso2": "FJ",
+    "name": "Fiji",
+    "aliases": [
+      "Fiji",
+      "Republic of Fiji"
+    ],
+    "continent": "Oceania",
+    "region": "Melanesia",
+    "coordinates": [
+      177.975427,
+      -17.826099
+    ]
+  },
+  {
+    "featureId": "FLK",
+    "iso2": "FK",
+    "name": "Falkland Islands / Malvinas",
+    "aliases": [
+      "Falkland Islands / Malvinas",
+      "Falkland Islands",
+      "Falkland Is.",
+      "Falkland Islands (Islas Malvinas)"
+    ],
+    "continent": "South America",
+    "region": "South America",
+    "coordinates": [
+      -58.738602,
+      -51.608913
+    ]
+  },
+  {
+    "featureId": "GAB",
+    "iso2": "GA",
+    "name": "Gabon",
+    "aliases": [
+      "Gabon",
+      "Gabonese Republic"
+    ],
+    "continent": "Africa",
+    "region": "Middle Africa",
+    "coordinates": [
+      11.835939,
+      -0.437739
+    ]
+  },
+  {
+    "featureId": "GBR",
+    "iso2": "GB",
+    "name": "United Kingdom",
+    "aliases": [
+      "United Kingdom",
+      "United Kingdom of Great Britain and Northern Ireland"
+    ],
+    "continent": "Europe",
+    "region": "Northern Europe",
+    "coordinates": [
+      -2.116346,
+      54.402739
+    ]
+  },
+  {
+    "featureId": "GEO",
+    "iso2": "GE",
+    "name": "Georgia",
+    "aliases": [
+      "Georgia"
+    ],
+    "continent": "Asia",
+    "region": "Western Asia",
+    "coordinates": [
+      43.735724,
+      41.870087
+    ]
+  },
+  {
+    "featureId": "GHA",
+    "iso2": "GH",
+    "name": "Ghana",
+    "aliases": [
+      "Ghana",
+      "Republic of Ghana"
+    ],
+    "continent": "Africa",
+    "region": "Western Africa",
+    "coordinates": [
+      -1.036941,
+      7.717639
+    ]
+  },
+  {
+    "featureId": "GIN",
+    "iso2": "GN",
+    "name": "Guinea",
+    "aliases": [
+      "Guinea",
+      "Republic of Guinea"
+    ],
+    "continent": "Africa",
+    "region": "Western Africa",
+    "coordinates": [
+      -10.016402,
+      10.618516
+    ]
+  },
+  {
+    "featureId": "GMB",
+    "iso2": "GM",
+    "name": "The Gambia",
+    "aliases": [
+      "The Gambia",
+      "Gambia",
+      "Gambia, The",
+      "Republic of the Gambia"
+    ],
+    "continent": "Africa",
+    "region": "Western Africa",
+    "coordinates": [
+      -14.998318,
+      13.641721
+    ]
+  },
+  {
+    "featureId": "GNB",
+    "iso2": "GW",
+    "name": "Guinea-Bissau",
+    "aliases": [
+      "Guinea-Bissau",
+      "Republic of Guinea-Bissau"
+    ],
+    "continent": "Africa",
+    "region": "Western Africa",
+    "coordinates": [
+      -14.52413,
+      12.163712
+    ]
+  },
+  {
+    "featureId": "GNQ",
+    "iso2": "GQ",
+    "name": "Equatorial Guinea",
+    "aliases": [
+      "Equatorial Guinea",
+      "Eq. Guinea",
+      "Republic of Equatorial Guinea"
+    ],
+    "continent": "Africa",
+    "region": "Middle Africa",
+    "coordinates": [
+      8.9902,
+      2.333
+    ]
+  },
+  {
+    "featureId": "GRC",
+    "iso2": "GR",
+    "name": "Greece",
+    "aliases": [
+      "Greece",
+      "Hellenic Republic"
+    ],
+    "continent": "Europe",
+    "region": "Southern Europe",
+    "coordinates": [
+      21.72568,
+      39.492763
+    ]
+  },
+  {
+    "featureId": "GRL",
+    "iso2": "GL",
+    "name": "Greenland",
+    "aliases": [
+      "Greenland"
+    ],
+    "continent": "North America",
+    "region": "Northern America",
+    "coordinates": [
+      -39.335251,
+      74.319387
+    ]
+  },
+  {
+    "featureId": "GTM",
+    "iso2": "GT",
+    "name": "Guatemala",
+    "aliases": [
+      "Guatemala",
+      "Republic of Guatemala"
+    ],
+    "continent": "North America",
+    "region": "Central America",
+    "coordinates": [
+      -90.497134,
+      14.982133
+    ]
+  },
+  {
+    "featureId": "GUY",
+    "iso2": "GY",
+    "name": "Guyana",
+    "aliases": [
+      "Guyana",
+      "Co-operative Republic of Guyana"
+    ],
+    "continent": "South America",
+    "region": "South America",
+    "coordinates": [
+      -58.942643,
+      5.124317
+    ]
+  },
+  {
+    "featureId": "HND",
+    "iso2": "HN",
+    "name": "Honduras",
+    "aliases": [
+      "Honduras",
+      "Republic of Honduras"
+    ],
+    "continent": "North America",
+    "region": "Central America",
+    "coordinates": [
+      -86.887604,
+      14.794801
+    ]
+  },
+  {
+    "featureId": "HRV",
+    "iso2": "HR",
+    "name": "Croatia",
+    "aliases": [
+      "Croatia",
+      "Republic of Croatia"
+    ],
+    "continent": "Europe",
+    "region": "Southern Europe",
+    "coordinates": [
+      16.37241,
+      45.805799
+    ]
+  },
+  {
+    "featureId": "HTI",
+    "iso2": "HT",
+    "name": "Haiti",
+    "aliases": [
+      "Haiti",
+      "Republic of Haiti"
+    ],
+    "continent": "North America",
+    "region": "Caribbean",
+    "coordinates": [
+      -72.224051,
+      19.263784
+    ]
+  },
+  {
+    "featureId": "HUN",
+    "iso2": "HU",
+    "name": "Hungary",
+    "aliases": [
+      "Hungary",
+      "Republic of Hungary"
+    ],
+    "continent": "Europe",
+    "region": "Eastern Europe",
+    "coordinates": [
+      19.447867,
+      47.086841
+    ]
+  },
+  {
+    "featureId": "IDN",
+    "iso2": "ID",
+    "name": "Indonesia",
+    "aliases": [
+      "Indonesia",
+      "Republic of Indonesia"
+    ],
+    "continent": "Asia",
+    "region": "South-Eastern Asia",
+    "coordinates": [
+      101.892949,
+      -0.954404
+    ]
+  },
+  {
+    "featureId": "IND",
+    "iso2": "IN",
+    "name": "India",
+    "aliases": [
+      "India",
+      "Republic of India"
+    ],
+    "continent": "Asia",
+    "region": "Southern Asia",
+    "coordinates": [
+      79.358105,
+      22.686852
+    ]
+  },
+  {
+    "featureId": "IRL",
+    "iso2": "IE",
+    "name": "Ireland",
+    "aliases": [
+      "Ireland"
+    ],
+    "continent": "Europe",
+    "region": "Northern Europe",
+    "coordinates": [
+      -7.798588,
+      53.078726
+    ]
+  },
+  {
+    "featureId": "IRN",
+    "iso2": "IR",
+    "name": "Iran",
+    "aliases": [
+      "Iran",
+      "Islamic Republic of Iran"
+    ],
+    "continent": "Asia",
+    "region": "Southern Asia",
+    "coordinates": [
+      54.931495,
+      32.166225
+    ]
+  },
+  {
+    "featureId": "IRQ",
+    "iso2": "IQ",
+    "name": "Iraq",
+    "aliases": [
+      "Iraq",
+      "Republic of Iraq"
+    ],
+    "continent": "Asia",
+    "region": "Western Asia",
+    "coordinates": [
+      43.26181,
+      33.09403
+    ]
+  },
+  {
+    "featureId": "ISL",
+    "iso2": "IS",
+    "name": "Iceland",
+    "aliases": [
+      "Iceland",
+      "Republic of Iceland"
+    ],
+    "continent": "Europe",
+    "region": "Northern Europe",
+    "coordinates": [
+      -18.673711,
+      64.779286
+    ]
+  },
+  {
+    "featureId": "ISR",
+    "iso2": "IL",
+    "name": "Israel",
+    "aliases": [
+      "Israel",
+      "State of Israel"
+    ],
+    "continent": "Asia",
+    "region": "Western Asia",
+    "coordinates": [
+      34.847915,
+      30.911148
+    ]
+  },
+  {
+    "featureId": "ITA",
+    "iso2": "IT",
+    "name": "Italy",
+    "aliases": [
+      "Italy",
+      "Italian Republic"
+    ],
+    "continent": "Europe",
+    "region": "Southern Europe",
+    "coordinates": [
+      11.076907,
+      44.732482
+    ]
+  },
+  {
+    "featureId": "JAM",
+    "iso2": "JM",
+    "name": "Jamaica",
+    "aliases": [
+      "Jamaica"
+    ],
+    "continent": "North America",
+    "region": "Caribbean",
+    "coordinates": [
+      -77.318767,
+      18.137124
+    ]
+  },
+  {
+    "featureId": "JOR",
+    "iso2": "JO",
+    "name": "Jordan",
+    "aliases": [
+      "Jordan",
+      "Hashemite Kingdom of Jordan"
+    ],
+    "continent": "Asia",
+    "region": "Western Asia",
+    "coordinates": [
+      36.375991,
+      30.805025
+    ]
+  },
+  {
+    "featureId": "JPN",
+    "iso2": "JP",
+    "name": "Japan",
+    "aliases": [
+      "Japan"
+    ],
+    "continent": "Asia",
+    "region": "Eastern Asia",
+    "coordinates": [
+      138.44217,
+      36.142538
+    ]
+  },
+  {
+    "featureId": "KAZ",
+    "iso2": "KZ",
+    "name": "Kazakhstan",
+    "aliases": [
+      "Kazakhstan",
+      "Republic of Kazakhstan"
+    ],
+    "continent": "Asia",
+    "region": "Central Asia",
+    "coordinates": [
+      68.685548,
+      49.054149
+    ]
+  },
+  {
+    "featureId": "KEN",
+    "iso2": "KE",
+    "name": "Kenya",
+    "aliases": [
+      "Kenya",
+      "Republic of Kenya"
+    ],
+    "continent": "Africa",
+    "region": "Eastern Africa",
+    "coordinates": [
+      37.907632,
+      0.549043
+    ]
+  },
+  {
+    "featureId": "KGZ",
+    "iso2": "KG",
+    "name": "Kyrgyzstan",
+    "aliases": [
+      "Kyrgyzstan",
+      "Kyrgyz Republic"
+    ],
+    "continent": "Asia",
+    "region": "Central Asia",
+    "coordinates": [
+      74.532637,
+      41.66854
+    ]
+  },
+  {
+    "featureId": "KHM",
+    "iso2": "KH",
+    "name": "Cambodia",
+    "aliases": [
+      "Cambodia",
+      "Kingdom of Cambodia"
+    ],
+    "continent": "Asia",
+    "region": "South-Eastern Asia",
+    "coordinates": [
+      104.50487,
+      12.647584
+    ]
+  },
+  {
+    "featureId": "KOR",
+    "iso2": "KR",
+    "name": "Republic of Korea",
+    "aliases": [
+      "Republic of Korea",
+      "South Korea",
+      "Korea, South"
+    ],
+    "continent": "Asia",
+    "region": "Eastern Asia",
+    "coordinates": [
+      128.129504,
+      36.384924
+    ]
+  },
+  {
+    "featureId": "KOS",
+    "iso2": "KO",
+    "name": "Kosovo",
+    "aliases": [
+      "Kosovo",
+      "Republic of Kosovo"
+    ],
+    "continent": "Europe",
+    "region": "Southern Europe",
+    "coordinates": [
+      20.860719,
+      42.593587
+    ]
+  },
+  {
+    "featureId": "KWT",
+    "iso2": "KW",
+    "name": "Kuwait",
+    "aliases": [
+      "Kuwait",
+      "State of Kuwait"
+    ],
+    "continent": "Asia",
+    "region": "Western Asia",
+    "coordinates": [
+      47.313999,
+      29.413628
+    ]
+  },
+  {
+    "featureId": "LAO",
+    "iso2": "LA",
+    "name": "Lao PDR",
+    "aliases": [
+      "Lao PDR",
+      "Laos",
+      "Lao People's Democratic Republic"
+    ],
+    "continent": "Asia",
+    "region": "South-Eastern Asia",
+    "coordinates": [
+      102.533912,
+      19.431821
+    ]
+  },
+  {
+    "featureId": "LBN",
+    "iso2": "LB",
+    "name": "Lebanon",
+    "aliases": [
+      "Lebanon",
+      "Lebanese Republic"
+    ],
+    "continent": "Asia",
+    "region": "Western Asia",
+    "coordinates": [
+      35.992892,
+      34.133368
+    ]
+  },
+  {
+    "featureId": "LBR",
+    "iso2": "LR",
+    "name": "Liberia",
+    "aliases": [
+      "Liberia",
+      "Republic of Liberia"
+    ],
+    "continent": "Africa",
+    "region": "Western Africa",
+    "coordinates": [
+      -9.460379,
+      6.447177
+    ]
+  },
+  {
+    "featureId": "LBY",
+    "iso2": "LY",
+    "name": "Libya",
+    "aliases": [
+      "Libya"
+    ],
+    "continent": "Africa",
+    "region": "Northern Africa",
+    "coordinates": [
+      18.011015,
+      26.638944
+    ]
+  },
+  {
+    "featureId": "LKA",
+    "iso2": "LK",
+    "name": "Sri Lanka",
+    "aliases": [
+      "Sri Lanka",
+      "Democratic Socialist Republic of Sri Lanka"
+    ],
+    "continent": "Asia",
+    "region": "Southern Asia",
+    "coordinates": [
+      80.704823,
+      7.581097
+    ]
+  },
+  {
+    "featureId": "LSO",
+    "iso2": "LS",
+    "name": "Lesotho",
+    "aliases": [
+      "Lesotho",
+      "Kingdom of Lesotho"
+    ],
+    "continent": "Africa",
+    "region": "Southern Africa",
+    "coordinates": [
+      28.246639,
+      -29.480158
+    ]
+  },
+  {
+    "featureId": "LTU",
+    "iso2": "LT",
+    "name": "Lithuania",
+    "aliases": [
+      "Lithuania",
+      "Republic of Lithuania"
+    ],
+    "continent": "Europe",
+    "region": "Northern Europe",
+    "coordinates": [
+      24.089932,
+      55.103703
+    ]
+  },
+  {
+    "featureId": "LUX",
+    "iso2": "LU",
+    "name": "Luxembourg",
+    "aliases": [
+      "Luxembourg",
+      "Grand Duchy of Luxembourg"
+    ],
+    "continent": "Europe",
+    "region": "Western Europe",
+    "coordinates": [
+      6.07762,
+      49.733732
+    ]
+  },
+  {
+    "featureId": "LVA",
+    "iso2": "LV",
+    "name": "Latvia",
+    "aliases": [
+      "Latvia",
+      "Republic of Latvia"
+    ],
+    "continent": "Europe",
+    "region": "Northern Europe",
+    "coordinates": [
+      25.458723,
+      57.066872
+    ]
+  },
+  {
+    "featureId": "MAR",
+    "iso2": "MA",
+    "name": "Morocco",
+    "aliases": [
+      "Morocco",
+      "Kingdom of Morocco"
+    ],
+    "continent": "Africa",
+    "region": "Northern Africa",
+    "coordinates": [
+      -7.187296,
+      31.650723
+    ]
+  },
+  {
+    "featureId": "MDA",
+    "iso2": "MD",
+    "name": "Moldova",
+    "aliases": [
+      "Moldova",
+      "Republic of Moldova"
+    ],
+    "continent": "Europe",
+    "region": "Eastern Europe",
+    "coordinates": [
+      28.487904,
+      47.434999
+    ]
+  },
+  {
+    "featureId": "MDG",
+    "iso2": "MG",
+    "name": "Madagascar",
+    "aliases": [
+      "Madagascar",
+      "Republic of Madagascar"
+    ],
+    "continent": "Africa",
+    "region": "Eastern Africa",
+    "coordinates": [
+      46.704241,
+      -18.628288
+    ]
+  },
+  {
+    "featureId": "MEX",
+    "iso2": "MX",
+    "name": "Mexico",
+    "aliases": [
+      "Mexico",
+      "United Mexican States"
+    ],
+    "continent": "North America",
+    "region": "Central America",
+    "coordinates": [
+      -102.289448,
+      23.919988
+    ]
+  },
+  {
+    "featureId": "MKD",
+    "iso2": "MK",
+    "name": "North Macedonia",
+    "aliases": [
+      "North Macedonia",
+      "Republic of North Macedonia"
+    ],
+    "continent": "Europe",
+    "region": "Southern Europe",
+    "coordinates": [
+      21.555839,
+      41.558223
+    ]
+  },
+  {
+    "featureId": "MLI",
+    "iso2": "ML",
+    "name": "Mali",
+    "aliases": [
+      "Mali",
+      "Republic of Mali"
+    ],
+    "continent": "Africa",
+    "region": "Western Africa",
+    "coordinates": [
+      -2.038455,
+      18.692713
+    ]
+  },
+  {
+    "featureId": "MMR",
+    "iso2": "MM",
+    "name": "Myanmar",
+    "aliases": [
+      "Myanmar",
+      "Burma",
+      "Republic of the Union of Myanmar"
+    ],
+    "continent": "Asia",
+    "region": "South-Eastern Asia",
+    "coordinates": [
+      95.804497,
+      21.573855
+    ]
+  },
+  {
+    "featureId": "MNE",
+    "iso2": "ME",
+    "name": "Montenegro",
+    "aliases": [
+      "Montenegro"
+    ],
+    "continent": "Europe",
+    "region": "Southern Europe",
+    "coordinates": [
+      19.143727,
+      42.803101
+    ]
+  },
+  {
+    "featureId": "MNG",
+    "iso2": "MN",
+    "name": "Mongolia",
+    "aliases": [
+      "Mongolia"
+    ],
+    "continent": "Asia",
+    "region": "Eastern Asia",
+    "coordinates": [
+      104.150405,
+      45.997488
+    ]
+  },
+  {
+    "featureId": "MOZ",
+    "iso2": "MZ",
+    "name": "Mozambique",
+    "aliases": [
+      "Mozambique",
+      "Republic of Mozambique"
+    ],
+    "continent": "Africa",
+    "region": "Eastern Africa",
+    "coordinates": [
+      37.83789,
+      -13.94323
+    ]
+  },
+  {
+    "featureId": "MRT",
+    "iso2": "MR",
+    "name": "Mauritania",
+    "aliases": [
+      "Mauritania",
+      "Islamic Republic of Mauritania"
+    ],
+    "continent": "Africa",
+    "region": "Western Africa",
+    "coordinates": [
+      -9.740299,
+      19.587062
+    ]
+  },
+  {
+    "featureId": "MWI",
+    "iso2": "MW",
+    "name": "Malawi",
+    "aliases": [
+      "Malawi",
+      "Republic of Malawi"
+    ],
+    "continent": "Africa",
+    "region": "Eastern Africa",
+    "coordinates": [
+      33.608082,
+      -13.386737
+    ]
+  },
+  {
+    "featureId": "MYS",
+    "iso2": "MY",
+    "name": "Malaysia",
+    "aliases": [
+      "Malaysia"
+    ],
+    "continent": "Asia",
+    "region": "South-Eastern Asia",
+    "coordinates": [
+      113.83708,
+      2.528667
+    ]
+  },
+  {
+    "featureId": "NAM",
+    "iso2": "NA",
+    "name": "Namibia",
+    "aliases": [
+      "Namibia",
+      "Republic of Namibia"
+    ],
+    "continent": "Africa",
+    "region": "Southern Africa",
+    "coordinates": [
+      17.108166,
+      -20.575298
+    ]
+  },
+  {
+    "featureId": "NCL",
+    "iso2": "NC",
+    "name": "New Caledonia",
+    "aliases": [
+      "New Caledonia"
+    ],
+    "continent": "Oceania",
+    "region": "Melanesia",
+    "coordinates": [
+      165.084004,
+      -21.064697
+    ]
+  },
+  {
+    "featureId": "NER",
+    "iso2": "NE",
+    "name": "Niger",
+    "aliases": [
+      "Niger",
+      "Republic of Niger"
+    ],
+    "continent": "Africa",
+    "region": "Western Africa",
+    "coordinates": [
+      9.504356,
+      17.446195
+    ]
+  },
+  {
+    "featureId": "NGA",
+    "iso2": "NG",
+    "name": "Nigeria",
+    "aliases": [
+      "Nigeria",
+      "Federal Republic of Nigeria"
+    ],
+    "continent": "Africa",
+    "region": "Western Africa",
+    "coordinates": [
+      7.50322,
+      9.439799
+    ]
+  },
+  {
+    "featureId": "NIC",
+    "iso2": "NI",
+    "name": "Nicaragua",
+    "aliases": [
+      "Nicaragua",
+      "Republic of Nicaragua"
+    ],
+    "continent": "North America",
+    "region": "Central America",
+    "coordinates": [
+      -85.069347,
+      12.670697
+    ]
+  },
+  {
+    "featureId": "NLD",
+    "iso2": "NL",
+    "name": "Netherlands",
+    "aliases": [
+      "Netherlands",
+      "Kingdom of the Netherlands"
+    ],
+    "continent": "Europe",
+    "region": "Western Europe",
+    "coordinates": [
+      5.61144,
+      52.422211
+    ]
+  },
+  {
+    "featureId": "NPL",
+    "iso2": "NP",
+    "name": "Nepal",
+    "aliases": [
+      "Nepal"
+    ],
+    "continent": "Asia",
+    "region": "Southern Asia",
+    "coordinates": [
+      83.639914,
+      28.297925
+    ]
+  },
+  {
+    "featureId": "NZL",
+    "iso2": "NZ",
+    "name": "New Zealand",
+    "aliases": [
+      "New Zealand"
+    ],
+    "continent": "Oceania",
+    "region": "Australia and New Zealand",
+    "coordinates": [
+      172.787,
+      -39.759
+    ]
+  },
+  {
+    "featureId": "OMN",
+    "iso2": "OM",
+    "name": "Oman",
+    "aliases": [
+      "Oman",
+      "Sultanate of Oman"
+    ],
+    "continent": "Asia",
+    "region": "Western Asia",
+    "coordinates": [
+      57.336553,
+      22.120427
+    ]
+  },
+  {
+    "featureId": "PAK",
+    "iso2": "PK",
+    "name": "Pakistan",
+    "aliases": [
+      "Pakistan",
+      "Islamic Republic of Pakistan"
+    ],
+    "continent": "Asia",
+    "region": "Southern Asia",
+    "coordinates": [
+      68.545632,
+      29.328389
+    ]
+  },
+  {
+    "featureId": "PAN",
+    "iso2": "PA",
+    "name": "Panama",
+    "aliases": [
+      "Panama",
+      "Republic of Panama"
+    ],
+    "continent": "North America",
+    "region": "Central America",
+    "coordinates": [
+      -80.352106,
+      8.72198
+    ]
+  },
+  {
+    "featureId": "PER",
+    "iso2": "PE",
+    "name": "Peru",
+    "aliases": [
+      "Peru",
+      "Republic of Peru"
+    ],
+    "continent": "South America",
+    "region": "South America",
+    "coordinates": [
+      -72.90016,
+      -12.976679
+    ]
+  },
+  {
+    "featureId": "PHL",
+    "iso2": "PH",
+    "name": "Philippines",
+    "aliases": [
+      "Philippines",
+      "Republic of the Philippines"
+    ],
+    "continent": "Asia",
+    "region": "South-Eastern Asia",
+    "coordinates": [
+      122.465,
+      11.198
+    ]
+  },
+  {
+    "featureId": "PNG",
+    "iso2": "PG",
+    "name": "Papua New Guinea",
+    "aliases": [
+      "Papua New Guinea",
+      "Independent State of Papua New Guinea"
+    ],
+    "continent": "Oceania",
+    "region": "Melanesia",
+    "coordinates": [
+      143.910216,
+      -5.695285
+    ]
+  },
+  {
+    "featureId": "POL",
+    "iso2": "PL",
+    "name": "Poland",
+    "aliases": [
+      "Poland",
+      "Republic of Poland"
+    ],
+    "continent": "Europe",
+    "region": "Eastern Europe",
+    "coordinates": [
+      19.490468,
+      51.990316
+    ]
+  },
+  {
+    "featureId": "PRI",
+    "iso2": "PR",
+    "name": "Puerto Rico",
+    "aliases": [
+      "Puerto Rico",
+      "Commonwealth of Puerto Rico"
+    ],
+    "continent": "North America",
+    "region": "Caribbean",
+    "coordinates": [
+      -66.481065,
+      18.234668
+    ]
+  },
+  {
+    "featureId": "PRK",
+    "iso2": "KP",
+    "name": "Dem. Rep. Korea",
+    "aliases": [
+      "Dem. Rep. Korea",
+      "North Korea",
+      "Korea, North",
+      "Democratic People's Republic of Korea"
+    ],
+    "continent": "Asia",
+    "region": "Eastern Asia",
+    "coordinates": [
+      126.444516,
+      39.885252
+    ]
+  },
+  {
+    "featureId": "PRT",
+    "iso2": "PT",
+    "name": "Portugal",
+    "aliases": [
+      "Portugal",
+      "Portuguese Republic"
+    ],
+    "continent": "Europe",
+    "region": "Southern Europe",
+    "coordinates": [
+      -8.271754,
+      39.606675
+    ]
+  },
+  {
+    "featureId": "PRY",
+    "iso2": "PY",
+    "name": "Paraguay",
+    "aliases": [
+      "Paraguay",
+      "Republic of Paraguay"
+    ],
+    "continent": "South America",
+    "region": "South America",
+    "coordinates": [
+      -60.146394,
+      -21.674509
+    ]
+  },
+  {
+    "featureId": "PSX",
+    "iso2": "PS",
+    "name": "Palestine",
+    "aliases": [
+      "Palestine",
+      "West Bank and Gaza"
+    ],
+    "continent": "Asia",
+    "region": "Western Asia",
+    "coordinates": [
+      35.291341,
+      32.047431
+    ]
+  },
+  {
+    "featureId": "QAT",
+    "iso2": "QA",
+    "name": "Qatar",
+    "aliases": [
+      "Qatar",
+      "State of Qatar"
+    ],
+    "continent": "Asia",
+    "region": "Western Asia",
+    "coordinates": [
+      51.143509,
+      25.237383
+    ]
+  },
+  {
+    "featureId": "ROU",
+    "iso2": "RO",
+    "name": "Romania",
+    "aliases": [
+      "Romania"
+    ],
+    "continent": "Europe",
+    "region": "Eastern Europe",
+    "coordinates": [
+      24.972624,
+      45.733237
+    ]
+  },
+  {
+    "featureId": "RUS",
+    "iso2": "RU",
+    "name": "Russian Federation",
+    "aliases": [
+      "Russian Federation",
+      "Russia"
+    ],
+    "continent": "Europe",
+    "region": "Eastern Europe",
+    "coordinates": [
+      44.686469,
+      58.249357
+    ]
+  },
+  {
+    "featureId": "RWA",
+    "iso2": "RW",
+    "name": "Rwanda",
+    "aliases": [
+      "Rwanda",
+      "Republic of Rwanda"
+    ],
+    "continent": "Africa",
+    "region": "Eastern Africa",
+    "coordinates": [
+      30.103894,
+      -1.897196
+    ]
+  },
+  {
+    "featureId": "SAH",
+    "iso2": "EH",
+    "name": "Western Sahara",
+    "aliases": [
+      "Western Sahara",
+      "W. Sahara",
+      "Sahrawi Arab Democratic Republic"
+    ],
+    "continent": "Africa",
+    "region": "Northern Africa",
+    "coordinates": [
+      -12.630304,
+      23.967592
+    ]
+  },
+  {
+    "featureId": "SAU",
+    "iso2": "SA",
+    "name": "Saudi Arabia",
+    "aliases": [
+      "Saudi Arabia",
+      "Kingdom of Saudi Arabia"
+    ],
+    "continent": "Asia",
+    "region": "Western Asia",
+    "coordinates": [
+      44.6996,
+      23.806908
+    ]
+  },
+  {
+    "featureId": "SDN",
+    "iso2": "SD",
+    "name": "Sudan",
+    "aliases": [
+      "Sudan",
+      "Republic of the Sudan"
+    ],
+    "continent": "Africa",
+    "region": "Northern Africa",
+    "coordinates": [
+      29.260657,
+      16.330746
+    ]
+  },
+  {
+    "featureId": "SDS",
+    "iso2": "SS",
+    "name": "South Sudan",
+    "aliases": [
+      "South Sudan",
+      "S. Sudan",
+      "Republic of South Sudan"
+    ],
+    "continent": "Africa",
+    "region": "Eastern Africa",
+    "coordinates": [
+      30.390151,
+      7.230477
+    ]
+  },
+  {
+    "featureId": "SEN",
+    "iso2": "SN",
+    "name": "Senegal",
+    "aliases": [
+      "Senegal",
+      "Republic of Senegal"
+    ],
+    "continent": "Africa",
+    "region": "Western Africa",
+    "coordinates": [
+      -14.778586,
+      15.138125
+    ]
+  },
+  {
+    "featureId": "SLB",
+    "iso2": "SB",
+    "name": "Solomon Islands",
+    "aliases": [
+      "Solomon Islands",
+      "Solomon Is."
+    ],
+    "continent": "Oceania",
+    "region": "Melanesia",
+    "coordinates": [
+      159.170468,
+      -8.029548
+    ]
+  },
+  {
+    "featureId": "SLE",
+    "iso2": "SL",
+    "name": "Sierra Leone",
+    "aliases": [
+      "Sierra Leone",
+      "Republic of Sierra Leone"
+    ],
+    "continent": "Africa",
+    "region": "Western Africa",
+    "coordinates": [
+      -11.763677,
+      8.617449
+    ]
+  },
+  {
+    "featureId": "SLV",
+    "iso2": "SV",
+    "name": "El Salvador",
+    "aliases": [
+      "El Salvador",
+      "Republic of El Salvador"
+    ],
+    "continent": "North America",
+    "region": "Central America",
+    "coordinates": [
+      -88.890124,
+      13.685371
+    ]
+  },
+  {
+    "featureId": "SOL",
+    "iso2": "SL",
+    "name": "Somaliland",
+    "aliases": [
+      "Somaliland",
+      "Republic of Somaliland"
+    ],
+    "continent": "Africa",
+    "region": "Eastern Africa",
+    "coordinates": [
+      46.731595,
+      9.443889
+    ]
+  },
+  {
+    "featureId": "SOM",
+    "iso2": "SO",
+    "name": "Somalia",
+    "aliases": [
+      "Somalia",
+      "Federal Republic of Somalia"
+    ],
+    "continent": "Africa",
+    "region": "Eastern Africa",
+    "coordinates": [
+      45.19238,
+      3.568925
+    ]
+  },
+  {
+    "featureId": "SRB",
+    "iso2": "RS",
+    "name": "Serbia",
+    "aliases": [
+      "Serbia",
+      "Republic of Serbia"
+    ],
+    "continent": "Europe",
+    "region": "Southern Europe",
+    "coordinates": [
+      20.787989,
+      44.189919
+    ]
+  },
+  {
+    "featureId": "SUR",
+    "iso2": "SR",
+    "name": "Suriname",
+    "aliases": [
+      "Suriname",
+      "Republic of Suriname"
+    ],
+    "continent": "South America",
+    "region": "South America",
+    "coordinates": [
+      -55.91094,
+      4.143987
+    ]
+  },
+  {
+    "featureId": "SVK",
+    "iso2": "SK",
+    "name": "Slovakia",
+    "aliases": [
+      "Slovakia",
+      "Slovak Republic"
+    ],
+    "continent": "Europe",
+    "region": "Eastern Europe",
+    "coordinates": [
+      19.049868,
+      48.734044
+    ]
+  },
+  {
+    "featureId": "SVN",
+    "iso2": "SI",
+    "name": "Slovenia",
+    "aliases": [
+      "Slovenia",
+      "Republic of Slovenia"
+    ],
+    "continent": "Europe",
+    "region": "Southern Europe",
+    "coordinates": [
+      14.915312,
+      46.06076
+    ]
+  },
+  {
+    "featureId": "SWE",
+    "iso2": "SE",
+    "name": "Sweden",
+    "aliases": [
+      "Sweden",
+      "Kingdom of Sweden"
+    ],
+    "continent": "Europe",
+    "region": "Northern Europe",
+    "coordinates": [
+      19.01705,
+      65.85918
+    ]
+  },
+  {
+    "featureId": "SWZ",
+    "iso2": "SZ",
+    "name": "Kingdom of eSwatini",
+    "aliases": [
+      "Kingdom of eSwatini",
+      "eSwatini"
+    ],
+    "continent": "Africa",
+    "region": "Southern Africa",
+    "coordinates": [
+      31.467264,
+      -26.533676
+    ]
+  },
+  {
+    "featureId": "SYR",
+    "iso2": "SY",
+    "name": "Syria",
+    "aliases": [
+      "Syria",
+      "Syrian Arab Republic"
+    ],
+    "continent": "Asia",
+    "region": "Western Asia",
+    "coordinates": [
+      38.277783,
+      35.006636
+    ]
+  },
+  {
+    "featureId": "TCD",
+    "iso2": "TD",
+    "name": "Chad",
+    "aliases": [
+      "Chad",
+      "Republic of Chad"
+    ],
+    "continent": "Africa",
+    "region": "Middle Africa",
+    "coordinates": [
+      18.645041,
+      15.142959
+    ]
+  },
+  {
+    "featureId": "TGO",
+    "iso2": "TG",
+    "name": "Togo",
+    "aliases": [
+      "Togo",
+      "Togolese Republic"
+    ],
+    "continent": "Africa",
+    "region": "Western Africa",
+    "coordinates": [
+      1.058113,
+      8.80722
+    ]
+  },
+  {
+    "featureId": "THA",
+    "iso2": "TH",
+    "name": "Thailand",
+    "aliases": [
+      "Thailand",
+      "Kingdom of Thailand"
+    ],
+    "continent": "Asia",
+    "region": "South-Eastern Asia",
+    "coordinates": [
+      101.073198,
+      15.45974
+    ]
+  },
+  {
+    "featureId": "TJK",
+    "iso2": "TJ",
+    "name": "Tajikistan",
+    "aliases": [
+      "Tajikistan",
+      "Republic of Tajikistan"
+    ],
+    "continent": "Asia",
+    "region": "Central Asia",
+    "coordinates": [
+      72.587276,
+      38.199835
+    ]
+  },
+  {
+    "featureId": "TKM",
+    "iso2": "TM",
+    "name": "Turkmenistan",
+    "aliases": [
+      "Turkmenistan"
+    ],
+    "continent": "Asia",
+    "region": "Central Asia",
+    "coordinates": [
+      58.676647,
+      39.855246
+    ]
+  },
+  {
+    "featureId": "TLS",
+    "iso2": "TL",
+    "name": "Timor-Leste",
+    "aliases": [
+      "Timor-Leste",
+      "East Timor",
+      "Democratic Republic of Timor-Leste"
+    ],
+    "continent": "Asia",
+    "region": "South-Eastern Asia",
+    "coordinates": [
+      125.854679,
+      -8.803705
+    ]
+  },
+  {
+    "featureId": "TTO",
+    "iso2": "TT",
+    "name": "Trinidad and Tobago",
+    "aliases": [
+      "Trinidad and Tobago",
+      "Republic of Trinidad and Tobago"
+    ],
+    "continent": "North America",
+    "region": "Caribbean",
+    "coordinates": [
+      -60.9184,
+      10.9989
+    ]
+  },
+  {
+    "featureId": "TUN",
+    "iso2": "TN",
+    "name": "Tunisia",
+    "aliases": [
+      "Tunisia",
+      "Republic of Tunisia"
+    ],
+    "continent": "Africa",
+    "region": "Northern Africa",
+    "coordinates": [
+      9.007881,
+      33.687263
+    ]
+  },
+  {
+    "featureId": "TUR",
+    "iso2": "TR",
+    "name": "Turkey",
+    "aliases": [
+      "Turkey",
+      "Republic of Turkey"
+    ],
+    "continent": "Asia",
+    "region": "Western Asia",
+    "coordinates": [
+      34.508268,
+      39.345388
+    ]
+  },
+  {
+    "featureId": "TWN",
+    "iso2": "TW",
+    "name": "Taiwan",
+    "aliases": [
+      "Taiwan"
+    ],
+    "continent": "Asia",
+    "region": "Eastern Asia",
+    "coordinates": [
+      120.868204,
+      23.652408
+    ]
+  },
+  {
+    "featureId": "TZA",
+    "iso2": "TZ",
+    "name": "Tanzania",
+    "aliases": [
+      "Tanzania",
+      "United Republic of Tanzania"
+    ],
+    "continent": "Africa",
+    "region": "Eastern Africa",
+    "coordinates": [
+      34.959183,
+      -6.051866
+    ]
+  },
+  {
+    "featureId": "UGA",
+    "iso2": "UG",
+    "name": "Uganda",
+    "aliases": [
+      "Uganda",
+      "Republic of Uganda"
+    ],
+    "continent": "Africa",
+    "region": "Eastern Africa",
+    "coordinates": [
+      32.948555,
+      1.972589
+    ]
+  },
+  {
+    "featureId": "UKR",
+    "iso2": "UA",
+    "name": "Ukraine",
+    "aliases": [
+      "Ukraine"
+    ],
+    "continent": "Europe",
+    "region": "Eastern Europe",
+    "coordinates": [
+      32.140865,
+      49.724739
+    ]
+  },
+  {
+    "featureId": "URY",
+    "iso2": "UY",
+    "name": "Uruguay",
+    "aliases": [
+      "Uruguay",
+      "Oriental Republic of Uruguay"
+    ],
+    "continent": "South America",
+    "region": "South America",
+    "coordinates": [
+      -55.966942,
+      -32.961127
+    ]
+  },
+  {
+    "featureId": "USA",
+    "iso2": "US",
+    "name": "United States",
+    "aliases": [
+      "United States",
+      "United States of America"
+    ],
+    "continent": "North America",
+    "region": "Northern America",
+    "coordinates": [
+      -97.482602,
+      39.538479
+    ]
+  },
+  {
+    "featureId": "UZB",
+    "iso2": "UZ",
+    "name": "Uzbekistan",
+    "aliases": [
+      "Uzbekistan",
+      "Republic of Uzbekistan"
+    ],
+    "continent": "Asia",
+    "region": "Central Asia",
+    "coordinates": [
+      64.005429,
+      41.693603
+    ]
+  },
+  {
+    "featureId": "VEN",
+    "iso2": "VE",
+    "name": "Venezuela",
+    "aliases": [
+      "Venezuela",
+      "Bolivarian Republic of Venezuela"
+    ],
+    "continent": "South America",
+    "region": "South America",
+    "coordinates": [
+      -64.599381,
+      7.182476
+    ]
+  },
+  {
+    "featureId": "VNM",
+    "iso2": "VN",
+    "name": "Vietnam",
+    "aliases": [
+      "Vietnam",
+      "Socialist Republic of Vietnam"
+    ],
+    "continent": "Asia",
+    "region": "South-Eastern Asia",
+    "coordinates": [
+      105.387292,
+      21.715416
+    ]
+  },
+  {
+    "featureId": "VUT",
+    "iso2": "VU",
+    "name": "Vanuatu",
+    "aliases": [
+      "Vanuatu",
+      "Republic of Vanuatu"
+    ],
+    "continent": "Oceania",
+    "region": "Melanesia",
+    "coordinates": [
+      166.908762,
+      -15.37153
+    ]
+  },
+  {
+    "featureId": "YEM",
+    "iso2": "YE",
+    "name": "Yemen",
+    "aliases": [
+      "Yemen",
+      "Republic of Yemen"
+    ],
+    "continent": "Asia",
+    "region": "Western Asia",
+    "coordinates": [
+      45.874383,
+      15.328226
+    ]
+  },
+  {
+    "featureId": "ZAF",
+    "iso2": "ZA",
+    "name": "South Africa",
+    "aliases": [
+      "South Africa",
+      "Republic of South Africa"
+    ],
+    "continent": "Africa",
+    "region": "Southern Africa",
+    "coordinates": [
+      23.665734,
+      -29.708776
+    ]
+  },
+  {
+    "featureId": "ZMB",
+    "iso2": "ZM",
+    "name": "Zambia",
+    "aliases": [
+      "Zambia",
+      "Republic of Zambia"
+    ],
+    "continent": "Africa",
+    "region": "Eastern Africa",
+    "coordinates": [
+      26.395298,
+      -14.660804
+    ]
+  },
+  {
+    "featureId": "ZWE",
+    "iso2": "ZW",
+    "name": "Zimbabwe",
+    "aliases": [
+      "Zimbabwe",
+      "Republic of Zimbabwe"
+    ],
+    "continent": "Africa",
+    "region": "Eastern Africa",
+    "coordinates": [
+      29.925444,
+      -18.91164
+    ]
+  }
+]

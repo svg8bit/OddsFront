@@ -1,0 +1,85 @@
+@font-face {
+  font-family: "Inter";
+  src: url("/fonts/inter-latin.var.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+}
+
+:root {
+  color-scheme: dark;
+  --canvas: #020a16;
+  --ink: #f8fafc;
+  --muted: #9fb0c8;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  width: 100%;
+  min-height: 100%;
+  margin: 0;
+  overflow: hidden;
+  background: var(--canvas);
+  color: var(--ink);
+  font-family: "Inter", ui-sans-serif, system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+button,
+input {
+  font: inherit;
+}
+
+button,
+a {
+  -webkit-tap-highlight-color: transparent;
+}
+
+.map-loading {
+  display: grid;
+  width: 100vw;
+  height: 100dvh;
+  place-content: center;
+  gap: 8px;
+  padding: 24px;
+  background: #050d18;
+  color: var(--muted);
+  text-align: center;
+}
+
+.map-loading strong {
+  color: var(--ink);
+  font-size: 18px;
+}
+
+.map-loading span {
+  font-size: 13px;
+}
+
+.map-error button {
+  justify-self: center;
+  margin-top: 8px;
+  border: 1px solid rgba(143, 183, 255, 0.32);
+  border-radius: 9px;
+  padding: 8px 14px;
+  background: rgba(39, 57, 150, 0.72);
+  color: #fff;
+  cursor: pointer;
+}
+
+.map-error button:focus-visible {
+  outline: 2px solid #b9c7ff;
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+  }
+}

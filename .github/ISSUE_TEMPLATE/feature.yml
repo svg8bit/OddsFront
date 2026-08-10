@@ -1,0 +1,32 @@
+name: Feature proposal
+description: Suggest a focused improvement to the read-only map.
+title: "[Feature]: "
+labels:
+  - enhancement
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What user problem should this solve?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed change
+      description: Describe the interface, data, or engineering change.
+    validations:
+      required: true
+  - type: textarea
+    id: tradeoffs
+    attributes:
+      label: Data, security, and performance considerations
+      description: Note new upstreams, caching, user input, credentials, or rendering cost.
+  - type: checkboxes
+    id: scope
+    attributes:
+      label: Scope
+      options:
+        - label: The proposal keeps OddsFront read-only and does not add wallet signing or custody.
+          required: true

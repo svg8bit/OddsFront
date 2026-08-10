@@ -1,0 +1,51 @@
+{
+  "name": "oddsfront",
+  "version": "1.0.0",
+  "description": "Live map of conflict and geopolitics prediction markets.",
+  "private": true,
+  "license": "UNLICENSED",
+  "homepage": "https://oddsfront.com",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/svg8bit/OddsFront.git"
+  },
+  "bugs": {
+    "url": "https://github.com/svg8bit/OddsFront/issues"
+  },
+  "scripts": {
+    "dev": "next dev --hostname 127.0.0.1",
+    "generate:country-anchors": "node scripts/generate-country-anchors.mjs",
+    "build": "next build",
+    "start": "next start --hostname 127.0.0.1",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "check": "npm run lint && npm run typecheck && npm run build",
+    "test:e2e": "playwright test",
+    "test:visual:reference": "node scripts/compare-map-reference.mjs"
+  },
+  "dependencies": {
+    "@vercel/analytics": "2.0.1",
+    "lucide-react": "1.28.0",
+    "maplibre-gl": "6.1.0",
+    "next": "16.3.0",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "react-map-gl": "8.1.2",
+    "zustand": "^5.0.14"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.62.1",
+    "@types/node": "24.10.0",
+    "@types/pngjs": "6.0.5",
+    "@types/react": "19.2.2",
+    "@types/react-dom": "19.2.2",
+    "eslint": "9.39.2",
+    "eslint-config-next": "16.3.0",
+    "pixelmatch": "7.2.0",
+    "pngjs": "7.0.0",
+    "typescript": "5.9.3"
+  },
+  "engines": {
+    "node": "24.x"
+  }
+}
