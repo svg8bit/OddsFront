@@ -761,7 +761,7 @@ test("groups co-located alliance events behind popup pager arrows", async ({
   await expect(popup).toContainText("Market 2 of 2");
 });
 
-test("shows only live high-volume 20% movers and referral-safe trade pushes", async ({
+test("shows only newly observed odds moves and referral-safe trade pushes", async ({
   page,
 }) => {
   const fixture = getConflictPreviewFixtureFeed();
@@ -783,10 +783,33 @@ test("shows only live high-volume 20% movers and referral-safe trade pushes", as
       priceChange7d: index === 1 ? -0.29 : index === 2 ? 0.5 : null,
     })),
   };
+  const movedAt = new Date(Date.now() + 60_000).toISOString();
+  const movedFeed = {
+    ...liveFeed,
+    updatedAt: movedAt,
+    events: liveFeed.events.map((event, index) =>
+      index === 0
+        ? {
+            ...event,
+            yesOdds: event.yesOdds + 5,
+            noOdds: event.noOdds - 5,
+            updatedAt: movedAt,
+          }
+        : event,
+    ),
+  };
   const activityEventIdQueries: string[][] = [];
+  let conflictFeedRequestCount = 0;
 
   await page.route("**/api/global-conflict-events", async (route) => {
-    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(liveFeed) });
+    conflictFeedRequestCount += 1;
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(
+        conflictFeedRequestCount === 1 ? liveFeed : movedFeed,
+      ),
+    });
   });
   await page.route("**/api/global-conflict-activity?**", async (route) => {
     activityEventIdQueries.push(
@@ -818,33 +841,42 @@ test("shows only live high-volume 20% movers and referral-safe trade pushes", as
     });
   });
 
-  const shell = await openReadyMap(page, "/global-conflict-map");
-  await page.evaluate(() => window.dispatchEvent(new Event("online")));
-  await expect(shell).toHaveAttribute("data-feed-mode", "live");
+  const shell = await openReadyMap(page, "/global-conflict-map-preview");
+  await expect(shell).toHaveAttribute("data-feed-mode", "live", {
+    timeout: 5_000,
+  });
+  await expect.poll(() => conflictFeedRequestCount).toBeGreaterThanOrEqual(1);
+  const expectedActivityEventIds = liveFeed.events
+    .map((event) => event.id.replace(/^polymarket-/, ""))
+    .sort();
   await expect
     .poll(() =>
       activityEventIdQueries.some(
-        (eventIds) => JSON.stringify(eventIds) === JSON.stringify(["8000", "8001"]),
+        (eventIds) =>
+          JSON.stringify(eventIds) ===
+          JSON.stringify(expectedActivityEventIds),
       ),
     )
     .toBe(true);
   const rail = page.getByRole("complementary", { name: "Live market activity" });
   await expect(rail).toBeVisible();
-  await expect(rail).toHaveAttribute("data-activity-count", "3");
-  await expect(rail).toContainText("Odds +23.7%");
-  await expect(rail).toContainText("Odds -31.0%");
-  await expect(rail).toContainText("24h");
-  await expect(rail).toContainText("1h");
+  await expect(rail).toHaveAttribute("data-activity-count", "1");
   await expect(rail).toContainText("Large BUY · YES");
+  await expect(rail).not.toContainText("Odds");
+  await expect(rail).not.toContainText("7d");
+
+  await page.evaluate(() => window.dispatchEvent(new Event("online")));
+  await expect.poll(() => conflictFeedRequestCount).toBeGreaterThanOrEqual(2);
+  await expect(rail).toHaveAttribute("data-activity-count", "2");
+  await expect(rail).toContainText("Odds +5.0%");
+  await expect(rail).toContainText("live");
   await expect(
     rail.locator('[data-activity-kind="odds-rise"]'),
   ).toHaveAttribute("data-activity-direction", "up");
   await expect(
     rail.locator('[data-activity-kind="odds-rise"]'),
   ).toHaveAttribute("style", /--activity-tone: #22DF91/i);
-  await expect(
-    rail.locator('[data-activity-kind="odds-drop"]'),
-  ).toHaveAttribute("data-activity-direction", "down");
+  await expect(rail.locator('[data-activity-kind="odds-drop"]')).toHaveCount(0);
   await expect(rail.locator("[data-country-flag]")).not.toHaveCount(0);
   await expect(
     rail.locator('[data-country-flag="UA"]').first(),
@@ -860,7 +892,7 @@ test("shows only live high-volume 20% movers and referral-safe trade pushes", as
   const trackLinks = rail.getByRole("link", {
     name: "Track this market in DropsBot",
   });
-  await expect(trackLinks).toHaveCount(3);
+  await expect(trackLinks).toHaveCount(2);
   for (const trackLink of await trackLinks.all()) {
     await expect(trackLink).toHaveText("Track");
   }
@@ -875,7 +907,7 @@ test("shows only live high-volume 20% movers and referral-safe trade pushes", as
   const marketLinks = rail.getByRole("link", {
     name: "Open activity market on Polymarket via DropsBot",
   });
-  await expect(marketLinks).toHaveCount(3);
+  await expect(marketLinks).toHaveCount(2);
   await expect(
     rail
       .locator('[data-activity-kind="large-buy"]')
@@ -950,7 +982,55 @@ test("shows only live high-volume 20% movers and referral-safe trade pushes", as
     .getByRole("button", { name: "Dismiss activity notification" })
     .first()
     .click();
-  await expect(rail).toHaveAttribute("data-activity-count", "2");
+  await expect(rail).toHaveAttribute("data-activity-count", "1");
+});
+
+test("refreshes a stale initial conflict feed immediately", async ({ page }) => {
+  const fixture = getConflictPreviewFixtureFeed();
+  const updatedAt = new Date().toISOString();
+  const liveFeed = {
+    ...fixture,
+    dataMode: "live" as const,
+    updatedAt,
+    sourceLabel: "Polymarket Gamma API",
+    events: fixture.events.map((event, index) => ({
+      ...event,
+      id: `polymarket-${9_000 + index}`,
+      dataOrigin: "polymarket" as const,
+      evidenceStatus: "country-anchor" as const,
+      marketUrl: `https://polymarket.com/event/stale-refresh-${index}`,
+      updatedAt,
+    })),
+  };
+  let refreshCount = 0;
+
+  await page.route("**/api/global-conflict-events", async (route) => {
+    refreshCount += 1;
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(liveFeed),
+    });
+  });
+  await page.route("**/api/global-conflict-activity?**", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        dataMode: "live",
+        updatedAt,
+        expiresAfterSeconds: 900,
+        sourceLabel: "Polymarket Data API",
+        items: [],
+      }),
+    });
+  });
+
+  const shell = await openReadyMap(page, "/global-conflict-map-preview");
+  await expect(shell).toHaveAttribute("data-feed-mode", "live", {
+    timeout: 5_000,
+  });
+  expect(refreshCount).toBeGreaterThan(0);
 });
 
 test("builds bounded DropsBot deep links with a shared Hormuz override", () => {

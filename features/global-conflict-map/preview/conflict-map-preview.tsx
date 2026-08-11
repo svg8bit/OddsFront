@@ -416,11 +416,19 @@ export function ConflictMapPreview({
       if (document.visibilityState === "visible") void refresh();
     };
     window.addEventListener("online", refreshWhenOnline);
-    // The server-rendered feed is already fresh. Waiting one refresh interval
-    // avoids downloading the same payload again immediately on every cold
-    // page view while preserving the ten-minute live refresh cadence.
+    const feedUpdatedAt = Date.parse(feed.updatedAt);
+    const feedAge = Number.isFinite(feedUpdatedAt)
+      ? Math.max(0, Date.now() - feedUpdatedAt)
+      : refreshMs;
+    const remainingFreshness = Math.max(0, refreshMs - feedAge);
+    // Refresh an expired ISR payload immediately. Fresh server payloads wait
+    // only for the unused part of their refresh window, avoiding a second
+    // full interval of staleness on cold page loads.
     schedule(
-      refreshMs + Math.floor(Math.random() * FEED_REFRESH_JITTER_MS),
+      remainingFreshness === 0
+        ? 0
+        : remainingFreshness +
+            Math.floor(Math.random() * FEED_REFRESH_JITTER_MS),
     );
     return () => {
       cancelled = true;
@@ -428,7 +436,7 @@ export function ConflictMapPreview({
       controller?.abort();
       if (timer !== null) window.clearTimeout(timer);
     };
-  }, [feed.refreshSeconds, fixtureMode]);
+  }, [feed.refreshSeconds, feed.updatedAt, fixtureMode]);
 
   const updateMarkerPositions = useCallback((force = false) => {
     const map = mapRef.current?.getMap();
