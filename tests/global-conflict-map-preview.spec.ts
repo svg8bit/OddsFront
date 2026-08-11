@@ -1024,6 +1024,7 @@ test("shows only newly observed odds moves and referral-safe trade pushes", asyn
             kind: "large-buy",
             title: liveFeed.events[4]!.title,
             outcome: "YES",
+            outcomeOdds: 37,
             notional: 24_500,
             occurredAt: new Date(Date.now() - 60_000).toISOString(),
             marketUrl: liveFeed.events[4]!.marketUrl,
@@ -1055,6 +1056,11 @@ test("shows only newly observed odds moves and referral-safe trade pushes", asyn
   await expect(rail).toBeVisible();
   await expect(rail).toHaveAttribute("data-activity-count", "3");
   await expect(rail).toContainText("Large BUY · YES");
+  await expect(
+    rail
+      .locator('[data-activity-kind="large-buy"]')
+      .locator("strong"),
+  ).toHaveText("Large BUY · YES 37%");
   await expect(rail).not.toContainText("Odds");
   await expect(rail).not.toContainText("7d");
 

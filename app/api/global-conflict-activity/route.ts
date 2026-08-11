@@ -62,7 +62,15 @@ function normalizeTrade(
   const price = toFiniteNumber(trade.price);
   const timestamp = toFiniteNumber(trade.timestamp);
   const marketUrl = buildPolymarketEventUrl(trade.eventSlug);
-  if (!side || size === null || price === null || timestamp === null || !marketUrl) {
+  if (
+    !side ||
+    size === null ||
+    price === null ||
+    price < 0 ||
+    price > 1 ||
+    timestamp === null ||
+    !marketUrl
+  ) {
     return null;
   }
 
@@ -90,6 +98,7 @@ function normalizeTrade(
     kind: side === "BUY" ? "large-buy" : "large-sell",
     title: cleanText(trade.title, "Conflict market activity"),
     outcome: cleanText(trade.outcome, "Market"),
+    outcomeOdds: Math.round(price * 100),
     notional,
     occurredAt: new Date(timestamp * 1_000).toISOString(),
     marketUrl,

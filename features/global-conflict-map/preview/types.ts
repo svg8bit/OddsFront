@@ -60,6 +60,7 @@ export interface ConflictTradeActivity {
   kind: "large-buy" | "large-sell";
   title: string;
   outcome: string;
+  outcomeOdds: number;
   notional: number;
   occurredAt: string;
   marketUrl: string;

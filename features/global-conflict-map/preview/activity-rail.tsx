@@ -19,6 +19,7 @@ import type {
   ConflictPreviewFeed,
   ConflictTradeActivity,
 } from "@/features/global-conflict-map/preview/types";
+import { releaseAbsentActivityNoticeIds } from "@/lib/activity-notice-lifecycle";
 import { buildRollingActivitySignals } from "@/lib/conflict-activity-signals";
 import { formatMarketTitle } from "@/lib/market-title";
 import {
@@ -57,6 +58,7 @@ interface ActivityNotice {
   value: number;
   windowLabel: ActivityWindowLabel | null;
   outcome: string | null;
+  outcomeOdds: number | null;
   occurredAt: number;
   expiresAt: number;
   marketUrl: string | null;
@@ -97,6 +99,10 @@ function isActivityFeed(value: unknown): value is ConflictActivityFeed {
         typeof item.id === "string" &&
         typeof item.title === "string" &&
         typeof item.outcome === "string" &&
+        typeof item.outcomeOdds === "number" &&
+        Number.isFinite(item.outcomeOdds) &&
+        item.outcomeOdds >= 0 &&
+        item.outcomeOdds <= 100 &&
         typeof item.notional === "number" &&
         typeof item.occurredAt === "string" &&
         isOfficialPolymarketEventUrl(item.marketUrl),
@@ -147,6 +153,7 @@ function snapshotMoverNotices(
       value: Math.abs(change),
       windowLabel: "live",
       outcome: null,
+      outcomeOdds: null,
       occurredAt: now,
       expiresAt: now + ACTIVITY_TTL_MS,
       marketUrl: toPolymarketReferralUrl(event.marketUrl),
@@ -185,30 +192,22 @@ function tradeNotice(
     value: item.notional,
     windowLabel: null,
     outcome: item.outcome,
+    outcomeOdds: item.outcomeOdds,
     occurredAt,
     expiresAt,
     marketUrl,
   };
 }
 
-function noticeLabel(
-  notice: ActivityNotice,
-  event: ConflictPreviewEvent | null,
-): string {
+function noticeLabel(notice: ActivityNotice): string {
   if (notice.kind === "odds-rise") return `Odds +${notice.value.toFixed(1)}%`;
   if (notice.kind === "odds-drop") return `Odds -${notice.value.toFixed(1)}%`;
   if (notice.kind === "high-volume") return `Volume ${formatMoney(notice.value)}`;
   const outcome = notice.outcome?.toUpperCase() ?? "MARKET";
-  const outcomeOdds =
-    outcome === "YES"
-      ? event?.yesOdds
-      : outcome === "NO"
-        ? event?.noOdds
-        : null;
   const outcomeLabel =
-    outcomeOdds === null || outcomeOdds === undefined
+    notice.outcomeOdds === null
       ? outcome
-      : `${outcome} ${outcomeOdds}%`;
+      : `${outcome} ${notice.outcomeOdds}%`;
   if (notice.kind === "large-buy") return `Large BUY · ${outcomeLabel}`;
   return `Large SELL · ${outcomeLabel}`;
 }
@@ -273,6 +272,7 @@ export function ActivityRail({
   fixtureMode,
 }: ActivityRailProps) {
   const seenNoticeIds = useRef(new Set<string>());
+  const previousRollingNoticeIds = useRef(new Set<string>());
   const previousFeed = useRef<ConflictPreviewFeed | null>(null);
   const [notices, setNotices] = useState<ActivityNotice[]>([]);
   const [dismissedNoticeIds, setDismissedNoticeIds] = useState<Set<string>>(
@@ -371,6 +371,7 @@ export function ActivityRail({
           value: signal.value,
           windowLabel: signal.windowLabel,
           outcome: null,
+          outcomeOdds: null,
           occurredAt: signal.observedAt,
           expiresAt: signal.observedAt + ACTIVITY_TTL_MS,
           marketUrl: toPolymarketReferralUrl(event.marketUrl),
@@ -379,6 +380,15 @@ export function ActivityRail({
       .filter((notice): notice is ActivityNotice => Boolean(notice));
   }, [eventsById, feed]);
   useEffect(() => {
+    const currentRollingNoticeIds = new Set(
+      rollingNotices.map((notice) => notice.id),
+    );
+    releaseAbsentActivityNoticeIds(
+      seenNoticeIds.current,
+      previousRollingNoticeIds.current,
+      currentRollingNoticeIds,
+    );
+    previousRollingNoticeIds.current = currentRollingNoticeIds;
     addNotices(
       rollingNotices,
       new Set(feed.events.map((event) => event.id)),
@@ -515,7 +525,7 @@ export function ActivityRail({
                     <ArrowDownRight size={15} />
                   )}
                 </span>
-                <strong>{noticeLabel(notice, event)}</strong>
+                <strong>{noticeLabel(notice)}</strong>
                 {notice.windowLabel ? <span>{notice.windowLabel}</span> : null}
                 <time dateTime={new Date(notice.occurredAt).toISOString()}>
                   {relativeTime(notice.occurredAt, clock)}

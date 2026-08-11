@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
 
 import { getConflictPreviewFixtureFeed } from "../features/global-conflict-map/preview/fixture";
+import { releaseAbsentActivityNoticeIds } from "../lib/activity-notice-lifecycle";
 import { buildRollingActivitySignals } from "../lib/conflict-activity-signals";
 
 test("builds diverse liquid rolling signals and rejects noisy movers", () => {
@@ -109,4 +110,26 @@ test("keeps a rolling signal identity stable while its live value updates", () =
 
   expect(updatedSignal.id).toBe(firstSignal.id);
   expect(updatedSignal.value).not.toBe(firstSignal.value);
+});
+
+test("releases a rolling signal identity only after it disappears", () => {
+  const seenNoticeIds = new Set([
+    "rolling-1h-polymarket-72000-odds-rise",
+    "rolling-24h-polymarket-72001-odds-drop",
+    "trade-0x1234",
+  ]);
+
+  releaseAbsentActivityNoticeIds(
+    seenNoticeIds,
+    new Set([
+      "rolling-1h-polymarket-72000-odds-rise",
+      "rolling-24h-polymarket-72001-odds-drop",
+    ]),
+    new Set(["rolling-1h-polymarket-72000-odds-rise"]),
+  );
+
+  expect([...seenNoticeIds].sort()).toEqual([
+    "rolling-1h-polymarket-72000-odds-rise",
+    "trade-0x1234",
+  ]);
 });
