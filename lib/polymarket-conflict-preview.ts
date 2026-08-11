@@ -25,6 +25,7 @@ const UPSTREAM_TOTAL_BUDGET_MS = 7_000;
 
 interface GammaMarket {
   id?: string;
+  conditionId?: string | null;
   question?: string;
   outcomes?: unknown;
   outcomePrices?: unknown;
@@ -141,6 +142,12 @@ function normalizeBinaryPrices(
 
 function cleanText(value: string): string {
   return value.replaceAll("…", "...").replace(/\s+/g, " ").trim();
+}
+
+function normalizeConditionId(value: string | null | undefined): string | null {
+  return typeof value === "string" && /^0x[a-f0-9]{64}$/i.test(value)
+    ? value.toLowerCase()
+    : null;
 }
 
 function eventTagText(event: GammaEvent): string {
@@ -275,6 +282,7 @@ export function normalizeConflictPreviewEvent(
     priceChange24h: toOptionalFiniteNumber(selected.market.oneDayPriceChange),
     priceChange7d: toOptionalFiniteNumber(selected.market.oneWeekPriceChange),
     endDate: selected.market.endDate ?? null,
+    marketConditionId: normalizeConditionId(selected.market.conditionId),
   };
 }
 

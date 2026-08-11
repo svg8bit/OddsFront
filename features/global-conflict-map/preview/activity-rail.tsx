@@ -23,8 +23,8 @@ import { releaseAbsentActivityNoticeIds } from "@/lib/activity-notice-lifecycle"
 import { buildRollingActivitySignals } from "@/lib/conflict-activity-signals";
 import { formatMarketTitle } from "@/lib/market-title";
 import {
-  POLYMARKET_ACTIVITY_EVENT_MIN_VOLUME,
-  selectPolymarketActivityEventIds,
+  isPolymarketActivityEventCurrent,
+  selectPolymarketActivityMarketIds,
 } from "@/lib/polymarket-activity-query";
 import {
   buildDropsBotTrackUrl,
@@ -43,6 +43,7 @@ const ACTIVITY_VOLUME_TONE = "#FFB454";
 const ACTIVITY_REFRESH_MS = 60_000;
 const ACTIVITY_REFRESH_JITTER_MS = 15_000;
 const ACTIVITY_INITIAL_JITTER_MS = 5_000;
+const CONDITION_ID_PATTERN = /^0x[a-f0-9]{64}$/i;
 
 type ActivityWindowLabel = "live" | "1h" | "24h";
 type ActivityNoticeKind = ConflictActivityKind | "high-volume";
@@ -53,6 +54,7 @@ interface ActivityNotice {
   kind: ActivityNoticeKind;
   source: ActivityNoticeSource;
   eventId: string | null;
+  marketConditionId: string | null;
   title: string;
   locationLabel: string;
   value: number;
@@ -103,6 +105,8 @@ function isActivityFeed(value: unknown): value is ConflictActivityFeed {
         Number.isFinite(item.outcomeOdds) &&
         item.outcomeOdds >= 0 &&
         item.outcomeOdds <= 100 &&
+        typeof item.marketConditionId === "string" &&
+        CONDITION_ID_PATTERN.test(item.marketConditionId) &&
         typeof item.notional === "number" &&
         typeof item.occurredAt === "string" &&
         isOfficialPolymarketEventUrl(item.marketUrl),
@@ -137,9 +141,14 @@ function snapshotMoverNotices(
   const notices: ActivityNotice[] = [];
 
   for (const event of feed.events) {
-    if (event.volume < POLYMARKET_ACTIVITY_EVENT_MIN_VOLUME) continue;
+    if (!isPolymarketActivityEventCurrent(event, now)) continue;
     const previousEvent = previousEvents.get(event.id);
-    if (!previousEvent) continue;
+    if (
+      !previousEvent ||
+      previousEvent.marketConditionId !== event.marketConditionId
+    ) {
+      continue;
+    }
     const change = event.yesOdds - previousEvent.yesOdds;
     if (Math.abs(change) < ODDS_SNAPSHOT_CHANGE_THRESHOLD_POINTS) continue;
 
@@ -148,6 +157,7 @@ function snapshotMoverNotices(
       kind: change > 0 ? "odds-rise" : "odds-drop",
       source: "snapshot",
       eventId: event.id,
+      marketConditionId: event.marketConditionId,
       title: event.title,
       locationLabel: event.locationLabel,
       value: Math.abs(change),
@@ -177,7 +187,8 @@ function tradeNotice(
   const event = eventsByUrl.get(marketUrl) ?? null;
   if (
     !event ||
-    event.volume < POLYMARKET_ACTIVITY_EVENT_MIN_VOLUME
+    !isPolymarketActivityEventCurrent(event) ||
+    item.marketConditionId !== event.marketConditionId
   ) {
     return null;
   }
@@ -187,6 +198,7 @@ function tradeNotice(
     kind: item.kind,
     source: "trade",
     eventId: event.id,
+    marketConditionId: item.marketConditionId,
     title: item.title,
     locationLabel: event.locationLabel,
     value: item.notional,
@@ -295,25 +307,35 @@ export function ActivityRail({
     (
       incoming: ActivityNotice[],
       validEventIds?: ReadonlySet<string>,
+      validMarketConditionIds?: ReadonlySet<string>,
     ) => {
       const now = Date.now();
+      const isValidNotice = (notice: ActivityNotice) => {
+        if (notice.eventId === null) return true;
+        return (
+          (!validEventIds || validEventIds.has(notice.eventId)) &&
+          notice.marketConditionId !== null &&
+          (!validMarketConditionIds ||
+            validMarketConditionIds.has(notice.marketConditionId))
+        );
+      };
       const previouslySeen = new Set(seenNoticeIds.current);
       for (const notice of incoming) {
-        if (notice.expiresAt > now) seenNoticeIds.current.add(notice.id);
+        if (notice.expiresAt > now && isValidNotice(notice)) {
+          seenNoticeIds.current.add(notice.id);
+        }
       }
       setNotices((current) => {
         const active = current.filter(
           (notice) =>
             notice.expiresAt > now &&
-            (!validEventIds ||
-              notice.eventId === null ||
-              validEventIds.has(notice.eventId)),
+            isValidNotice(notice),
         );
         const merged = new Map(active.map((notice) => [notice.id, notice]));
         let changed = active.length !== current.length;
 
         for (const notice of incoming) {
-          if (notice.expiresAt <= now) continue;
+          if (notice.expiresAt <= now || !isValidNotice(notice)) continue;
           const existing = merged.get(notice.id);
           if (existing) {
             merged.set(notice.id, {
@@ -339,6 +361,27 @@ export function ActivityRail({
     [],
   );
 
+  const currentActivityEvents = useMemo(
+    () =>
+      feed.events.filter((event) =>
+        isPolymarketActivityEventCurrent(event),
+      ),
+    [feed.events],
+  );
+  const currentActivityEventIds = useMemo(
+    () => new Set(currentActivityEvents.map((event) => event.id)),
+    [currentActivityEvents],
+  );
+  const currentActivityMarketConditionIds = useMemo(
+    () =>
+      new Set(
+        currentActivityEvents
+          .map((event) => event.marketConditionId)
+          .filter((marketId): marketId is string => Boolean(marketId)),
+      ),
+    [currentActivityEvents],
+  );
+
   useEffect(() => {
     if (fixtureMode) return;
     const baseline = previousFeed.current;
@@ -346,22 +389,28 @@ export function ActivityRail({
     if (!baseline) return;
     addNotices(
       snapshotMoverNotices(baseline, feed),
-      new Set(feed.events.map((event) => event.id)),
+      currentActivityEventIds,
+      currentActivityMarketConditionIds,
     );
-  }, [addNotices, feed, fixtureMode]);
+  }, [
+    addNotices,
+    currentActivityEventIds,
+    currentActivityMarketConditionIds,
+    feed,
+    fixtureMode,
+  ]);
 
   const eventsByUrl = useMemo(
     () =>
       new Map(
-        feed.events
+        currentActivityEvents
           .filter(
             (event): event is ConflictPreviewEvent & { marketUrl: string } =>
-              event.volume >= POLYMARKET_ACTIVITY_EVENT_MIN_VOLUME &&
               isOfficialPolymarketEventUrl(event.marketUrl),
           )
           .map((event) => [toPolymarketReferralUrl(event.marketUrl)!, event]),
       ),
-    [feed.events],
+    [currentActivityEvents],
   );
   const eventsById = useMemo(
     () => new Map(feed.events.map((event) => [event.id, event])),
@@ -373,10 +422,11 @@ export function ActivityRail({
         const event = eventsById.get(signal.eventId);
         if (!event) return null;
         return {
-          id: signal.id,
+          id: `${signal.id}-${event.marketConditionId}`,
           kind: signal.kind,
           source: "rolling",
           eventId: signal.eventId,
+          marketConditionId: event.marketConditionId,
           title: event.title,
           locationLabel: event.locationLabel,
           value: signal.value,
@@ -402,22 +452,28 @@ export function ActivityRail({
     previousRollingNoticeIds.current = currentRollingNoticeIds;
     addNotices(
       rollingNotices,
-      new Set(feed.events.map((event) => event.id)),
+      currentActivityEventIds,
+      currentActivityMarketConditionIds,
     );
-  }, [addNotices, feed.events, rollingNotices]);
-  const eventIdQuery = useMemo(
-    () => selectPolymarketActivityEventIds(feed.events).join(","),
+  }, [
+    addNotices,
+    currentActivityEventIds,
+    currentActivityMarketConditionIds,
+    rollingNotices,
+  ]);
+  const marketIdQuery = useMemo(
+    () => selectPolymarketActivityMarketIds(feed.events).join(","),
     [feed.events],
   );
 
   useEffect(() => {
-    if (fixtureMode || feed.dataMode !== "live" || !eventIdQuery) return;
+    if (fixtureMode || feed.dataMode !== "live" || !marketIdQuery) return;
     let cancelled = false;
 
     const refresh = async () => {
       try {
         const response = await fetch(
-          `/api/global-conflict-activity?eventIds=${encodeURIComponent(eventIdQuery)}`,
+          `/api/global-conflict-activity?marketIds=${encodeURIComponent(marketIdQuery)}`,
           { headers: { Accept: "application/json" } },
         );
         if (!response.ok) return;
@@ -430,7 +486,11 @@ export function ActivityRail({
             tradeNotice(item, payload.expiresAfterSeconds, eventsByUrl),
           )
           .filter((notice): notice is ActivityNotice => Boolean(notice));
-        addNotices(tradeNotices);
+        addNotices(
+          tradeNotices,
+          currentActivityEventIds,
+          currentActivityMarketConditionIds,
+        );
       } catch {
         // The map remains usable when the optional activity stream is unavailable.
       }
@@ -462,10 +522,12 @@ export function ActivityRail({
     };
   }, [
     addNotices,
-    eventIdQuery,
+    currentActivityEventIds,
+    currentActivityMarketConditionIds,
     eventsByUrl,
     feed.dataMode,
     fixtureMode,
+    marketIdQuery,
   ]);
 
   useEffect(() => {
@@ -481,8 +543,22 @@ export function ActivityRail({
 
   const visibleNotices = selectVisibleNotices(
     notices.filter(
-      (notice) =>
-        notice.expiresAt > clock && !dismissedNoticeIds.has(notice.id),
+      (notice) => {
+        if (
+          notice.expiresAt <= clock ||
+          dismissedNoticeIds.has(notice.id)
+        ) {
+          return false;
+        }
+        if (notice.eventId === null) return true;
+        const event = eventsById.get(notice.eventId);
+        return Boolean(
+          event &&
+            isPolymarketActivityEventCurrent(event, clock) &&
+            notice.marketConditionId !== null &&
+            notice.marketConditionId === event.marketConditionId,
+        );
+      },
     ),
   );
 

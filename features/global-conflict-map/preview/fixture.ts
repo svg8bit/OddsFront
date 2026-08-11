@@ -56,6 +56,7 @@ export const CONFLICT_PREVIEW_EVENTS: readonly ConflictPreviewEvent[] = [
     priceChange24h: null,
     priceChange7d: 0.12,
     endDate: null,
+    marketConditionId: null,
   },
   {
     id: "middle-east-escalation",
@@ -98,6 +99,7 @@ export const CONFLICT_PREVIEW_EVENTS: readonly ConflictPreviewEvent[] = [
     priceChange24h: null,
     priceChange7d: 0.25,
     endDate: null,
+    marketConditionId: null,
   },
   {
     id: "south-asia-border",
@@ -137,6 +139,7 @@ export const CONFLICT_PREVIEW_EVENTS: readonly ConflictPreviewEvent[] = [
     priceChange24h: null,
     priceChange7d: -0.22,
     endDate: null,
+    marketConditionId: null,
   },
   {
     id: "east-asia-strike",
@@ -178,6 +181,7 @@ export const CONFLICT_PREVIEW_EVENTS: readonly ConflictPreviewEvent[] = [
     priceChange24h: null,
     priceChange7d: 0.031,
     endDate: null,
+    marketConditionId: null,
   },
   {
     id: "horn-africa-peace",
@@ -218,6 +222,7 @@ export const CONFLICT_PREVIEW_EVENTS: readonly ConflictPreviewEvent[] = [
     priceChange24h: null,
     priceChange7d: -0.018,
     endDate: null,
+    marketConditionId: null,
   },
   {
     id: "south-america-venezuela",
@@ -248,6 +253,7 @@ export const CONFLICT_PREVIEW_EVENTS: readonly ConflictPreviewEvent[] = [
     priceChange24h: null,
     priceChange7d: 0.087,
     endDate: null,
+    marketConditionId: null,
   },
   {
     id: "south-america-colombia",
@@ -278,6 +284,7 @@ export const CONFLICT_PREVIEW_EVENTS: readonly ConflictPreviewEvent[] = [
     priceChange24h: null,
     priceChange7d: 0.021,
     endDate: null,
+    marketConditionId: null,
   },
 ] as const;
 

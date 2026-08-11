@@ -7,7 +7,7 @@ import type {
 } from "@/features/global-conflict-map/preview/types";
 import {
   buildPolymarketActivityUrl,
-  POLYMARKET_ACTIVITY_MAX_EVENT_IDS,
+  POLYMARKET_ACTIVITY_MAX_MARKET_IDS,
   POLYMARKET_ACTIVITY_TTL_SECONDS,
   POLYMARKET_LARGE_TRADE_USD,
 } from "@/lib/polymarket-activity-query";
@@ -18,6 +18,7 @@ const DATA_API_DOCS_URL =
 const REQUEST_TIMEOUT_MS = 6_000;
 
 interface DataApiTrade {
+  conditionId?: unknown;
   side?: unknown;
   size?: unknown;
   price?: unknown;
@@ -27,6 +28,8 @@ interface DataApiTrade {
   outcome?: unknown;
   transactionHash?: unknown;
 }
+
+const CONDITION_ID_PATTERN = /^0x[a-f0-9]{64}$/i;
 
 function cleanText(value: unknown, fallback: string): string {
   if (typeof value !== "string") return fallback;
@@ -39,30 +42,38 @@ function toFiniteNumber(value: unknown): number | null {
   return Number.isFinite(numeric) ? numeric : null;
 }
 
-function validEventIds(request: NextRequest): string[] {
-  const raw = request.nextUrl.searchParams.get("eventIds") ?? "";
+function validMarketIds(request: NextRequest): string[] {
+  const raw = request.nextUrl.searchParams.get("marketIds") ?? "";
   return Array.from(
     new Set(
       raw
         .split(",")
-        .map((value) => value.trim())
-        .filter((value) => /^\d{1,12}$/.test(value)),
+        .map((value) => value.trim().toLowerCase())
+        .filter((value) => CONDITION_ID_PATTERN.test(value)),
     ),
   )
-    .slice(0, POLYMARKET_ACTIVITY_MAX_EVENT_IDS)
-    .toSorted((left, right) => Number(left) - Number(right));
+    .slice(0, POLYMARKET_ACTIVITY_MAX_MARKET_IDS)
+    .toSorted((left, right) => left.localeCompare(right));
 }
 
 function normalizeTrade(
   trade: DataApiTrade,
   nowSeconds: number,
+  requestedMarketIds: ReadonlySet<string>,
 ): ConflictTradeActivity | null {
+  const marketConditionId =
+    typeof trade.conditionId === "string" &&
+    CONDITION_ID_PATTERN.test(trade.conditionId)
+      ? trade.conditionId.toLowerCase()
+      : null;
   const side = trade.side === "BUY" || trade.side === "SELL" ? trade.side : null;
   const size = toFiniteNumber(trade.size);
   const price = toFiniteNumber(trade.price);
   const timestamp = toFiniteNumber(trade.timestamp);
   const marketUrl = buildPolymarketEventUrl(trade.eventSlug);
   if (
+    !marketConditionId ||
+    !requestedMarketIds.has(marketConditionId) ||
     !side ||
     size === null ||
     price === null ||
@@ -99,6 +110,7 @@ function normalizeTrade(
     title: cleanText(trade.title, "Conflict market activity"),
     outcome: cleanText(trade.outcome, "Market"),
     outcomeOdds: Math.round(price * 100),
+    marketConditionId,
     notional,
     occurredAt: new Date(timestamp * 1_000).toISOString(),
     marketUrl,
@@ -126,11 +138,12 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 10;
 
 async function fetchActivityFeed(
-  eventIds: string[],
+  marketIds: string[],
 ): Promise<ConflictActivityFeed> {
   const now = new Date();
   const nowSeconds = Math.floor(now.getTime() / 1_000);
-  const url = buildPolymarketActivityUrl(eventIds, nowSeconds);
+  const url = buildPolymarketActivityUrl(marketIds, nowSeconds);
+  const requestedMarketIds = new Set(marketIds);
 
   const upstream = await fetch(url, {
     headers: {
@@ -147,7 +160,9 @@ async function fetchActivityFeed(
   const payload: unknown = await upstream.json();
   if (!Array.isArray(payload)) throw new Error("Invalid activity response");
   const items = payload
-    .map((item) => normalizeTrade(item as DataApiTrade, nowSeconds))
+    .map((item) =>
+      normalizeTrade(item as DataApiTrade, nowSeconds, requestedMarketIds),
+    )
     .filter((item): item is ConflictTradeActivity => Boolean(item))
     .sort(
       (left, right) =>
@@ -167,7 +182,7 @@ async function fetchActivityFeed(
 
 const getCachedActivityFeed = unstable_cache(
   fetchActivityFeed,
-  ["oddsfront-live-conflict-activity-v4-full-liquid-coverage"],
+  ["oddsfront-live-conflict-activity-v5-exact-active-markets"],
   {
     revalidate: 60,
     tags: ["oddsfront-live-conflict-activity"],
@@ -179,12 +194,12 @@ const activityRefreshesInFlight = new Map<
   Promise<ConflictActivityFeed>
 >();
 
-async function getSingleFlightActivityFeed(eventIds: string[]) {
-  const key = eventIds.join(",");
+async function getSingleFlightActivityFeed(marketIds: string[]) {
+  const key = marketIds.join(",");
   const existing = activityRefreshesInFlight.get(key);
   if (existing) return existing;
 
-  const request = getCachedActivityFeed(eventIds);
+  const request = getCachedActivityFeed(marketIds);
   activityRefreshesInFlight.set(key, request);
   try {
     return await request;
@@ -196,9 +211,9 @@ async function getSingleFlightActivityFeed(eventIds: string[]) {
 }
 
 export async function GET(request: NextRequest) {
-  const eventIds = validEventIds(request);
+  const marketIds = validMarketIds(request);
   const now = new Date();
-  if (eventIds.length === 0) {
+  if (marketIds.length === 0) {
     return response(
       {
         dataMode: "unavailable",
@@ -212,7 +227,7 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    return response(await getSingleFlightActivityFeed(eventIds), 60);
+    return response(await getSingleFlightActivityFeed(marketIds), 60);
   } catch (error) {
     console.warn(
       "Polymarket conflict activity unavailable.",
