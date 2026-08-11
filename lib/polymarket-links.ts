@@ -1,6 +1,8 @@
 export const POLYMARKET_REFERRAL_CODE = "drops1";
 export const DROPSBOT_TRACK_PREFIX = "TRACKpm_";
-export const MAX_DROPSBOT_TRACK_SLUG_LENGTH = 56;
+export const TELEGRAM_START_MAX_LENGTH = 64;
+export const MAX_DROPSBOT_TRACK_SLUG_LENGTH =
+  TELEGRAM_START_MAX_LENGTH - DROPSBOT_TRACK_PREFIX.length;
 export const DROPSBOT_HORMUZ_TRACK_URL =
   "https://t.me/Drops?start=pm_Hormuz";
 
