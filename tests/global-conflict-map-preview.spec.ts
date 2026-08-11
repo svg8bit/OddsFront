@@ -1131,12 +1131,10 @@ test("builds bounded DropsBot deep links with a shared Hormuz override", () => {
     buildDropsBotTrackUrl(
       "https://polymarket.com/event/us-x-iran-effective-ceasfire-byptptpt-2-week-pause-20260715194822042",
     ),
-  ).toBe(
-    "https://t.me/Drops?start=TRACKpm_us-x-iran-effective-ceasfire-byptptpt-2-week-pause-20260715194822042",
-  );
+  ).toBeNull();
   expect(
     buildDropsBotTrackUrl(
-      `https://polymarket.com/event/${"a".repeat(257)}`,
+      `https://polymarket.com/event/${"a".repeat(57)}`,
     ),
   ).toBeNull();
   expect(buildDropsBotTrackUrl(null)).toBeNull();
