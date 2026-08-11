@@ -976,6 +976,8 @@ test("shows only newly observed odds moves and referral-safe trade pushes", asyn
       dataOrigin: "polymarket" as const,
       evidenceStatus: "country-anchor" as const,
       marketUrl: `https://polymarket.com/event/activity-test-${index}`,
+      countryCodes:
+        index === 4 ? ["US", "IR", "OM"] : event.countryCodes,
       volume: index === 2 ? 900_000 : event.volume,
       priceChange1h: index === 1 ? -0.0031 : index === 2 ? 0.005 : null,
       priceChange24h: index === 0 ? 0.00237 : index === 3 ? 0.002 : null,
@@ -1031,7 +1033,7 @@ test("shows only newly observed odds moves and referral-safe trade pushes", asyn
             kind: "large-buy",
             title: liveFeed.events[4]!.title,
             outcome: "YES",
-            outcomeOdds: 37,
+            outcomeOdds: 100,
             notional: 24_500,
             occurredAt: new Date(Date.now() - 60_000).toISOString(),
             marketUrl: liveFeed.events[4]!.marketUrl,
@@ -1071,7 +1073,12 @@ test("shows only newly observed odds moves and referral-safe trade pushes", asyn
     rail
       .locator('[data-activity-kind="large-buy"]')
       .locator("[data-activity-metric]"),
-  ).toHaveText("YES 37%");
+  ).toHaveText("YES 100%");
+  await expect(
+    rail
+      .locator('[data-activity-kind="large-buy"]')
+      .locator("[data-activity-metric]"),
+  ).toHaveAttribute("aria-label", "Trade execution odds");
   await expect(rail).not.toContainText("Odds");
   await expect(rail).not.toContainText("7d");
 
@@ -1180,6 +1187,47 @@ test("shows only newly observed odds moves and referral-safe trade pushes", asyn
     expect(Math.abs(stageBottom - controlsBox.y - controlsBox.height - 16)).toBeLessThanOrEqual(1);
     expect(Math.abs(390 - railBox.x - railBox.width - 16)).toBeLessThanOrEqual(1);
   }
+
+  await page.setViewportSize({ width: 320, height: 664 });
+  const narrowCard = rail.locator("[data-notice-id]:visible").first();
+  await expect(
+    narrowCard.getByRole("link", { name: "Track this market in DropsBot" }),
+  ).toBeVisible();
+  await expect(
+    narrowCard.getByRole("link", {
+      name: "Open activity market on Polymarket via DropsBot",
+    }),
+  ).toBeVisible();
+  const narrowLayout = await narrowCard.evaluate((card) => {
+    const footer = card.querySelector<HTMLElement>("[data-activity-footer]");
+    const flags = card.querySelector<HTMLElement>("[data-activity-flags]");
+    const metric = card.querySelector<HTMLElement>("[data-activity-metric]");
+    const actions = card.querySelector<HTMLElement>("[data-activity-actions]");
+    if (!footer || !flags || !metric || !actions) return null;
+    const footerRect = footer.getBoundingClientRect();
+    const rects = [flags, metric, actions].map((node) =>
+      node.getBoundingClientRect(),
+    );
+    return {
+      footerLeft: footerRect.left,
+      footerRight: footerRect.right,
+      left: Math.min(...rects.map((rect) => rect.left)),
+      right: Math.max(...rects.map((rect) => rect.right)),
+      top: Math.max(...rects.map((rect) => rect.top)),
+      bottom: Math.min(...rects.map((rect) => rect.bottom)),
+      documentOverflow:
+        document.documentElement.scrollWidth -
+        document.documentElement.clientWidth,
+    };
+  });
+  expect(narrowLayout).not.toBeNull();
+  if (narrowLayout) {
+    expect(narrowLayout.left).toBeGreaterThanOrEqual(narrowLayout.footerLeft);
+    expect(narrowLayout.right).toBeLessThanOrEqual(narrowLayout.footerRight + 1);
+    expect(narrowLayout.top).toBeLessThan(narrowLayout.bottom);
+    expect(narrowLayout.documentOverflow).toBe(0);
+  }
+
   await page
     .locator('[data-market-event-id="polymarket-8001"]')
     .evaluate((button: HTMLButtonElement) => button.click());

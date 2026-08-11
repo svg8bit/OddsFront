@@ -512,6 +512,10 @@ export function ActivityRail({
           const referralMarketUrl = toPolymarketReferralUrl(notice.marketUrl);
           const trackUrl = event ? buildDropsBotTrackUrl(event.marketUrl) : null;
           const metricLabel = noticeMetricLabel(notice, event);
+          const metricAriaLabel =
+            notice.kind === "large-buy" || notice.kind === "large-sell"
+              ? "Trade execution odds"
+              : "Current YES probability";
 
           return (
             <article
@@ -585,7 +589,7 @@ export function ActivityRail({
                 {metricLabel ? (
                   <b
                     data-activity-metric
-                    aria-label="Current outcome probability"
+                    aria-label={metricAriaLabel}
                   >
                     {metricLabel}
                   </b>

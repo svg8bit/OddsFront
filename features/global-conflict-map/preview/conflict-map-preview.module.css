@@ -1167,6 +1167,41 @@
 
 }
 
+@media (max-width: 360px) {
+  .activityFooter {
+    gap: 4px;
+  }
+
+  .activityFlags {
+    gap: 1px;
+  }
+
+  .activityCountryFlag {
+    width: 13px;
+    height: 9px;
+  }
+
+  .activityActions {
+    gap: 3px;
+  }
+
+  .activityActions button,
+  .activityActions a {
+    height: 23px;
+    gap: 3px;
+    padding-inline: 4px;
+    font-size: 8px;
+  }
+
+  .activityActions .activityTrackLink {
+    min-width: 0;
+  }
+
+  .activityActions a:not(.activityTrackLink) svg {
+    display: none;
+  }
+}
+
 @media (max-height: 480px) {
   .activityRail .activityCard:nth-child(n + 3) {
     display: none;
