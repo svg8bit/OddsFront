@@ -29,19 +29,14 @@ import {
 const ACTIVITY_TTL_MS = 15 * 60 * 1_000;
 const MAX_VISIBLE_NOTICES = 3;
 const MIN_ACTIVITY_EVENT_VOLUME = 1_000_000;
-const ODDS_CHANGE_THRESHOLD = 0.2;
+const ODDS_SNAPSHOT_CHANGE_THRESHOLD_POINTS = 2;
 const ACTIVITY_RISE_TONE = "#22DF91";
 const ACTIVITY_DROP_TONE = "#FF5368";
 const ACTIVITY_REFRESH_MS = 60_000;
 const ACTIVITY_REFRESH_JITTER_MS = 15_000;
-const ACTIVITY_INITIAL_JITTER_MS = 60_000;
+const ACTIVITY_INITIAL_JITTER_MS = 5_000;
 
-type ActivityWindowLabel = "1h" | "24h" | "7d";
-
-interface QualifyingMove {
-  change: number;
-  windowLabel: ActivityWindowLabel;
-}
+type ActivityWindowLabel = "live";
 
 interface ActivityNotice {
   id: string;
@@ -99,54 +94,47 @@ function isActivityFeed(value: unknown): value is ConflictActivityFeed {
   );
 }
 
-function qualifyingMove(event: ConflictPreviewEvent): QualifyingMove | null {
-  if (event.volume < MIN_ACTIVITY_EVENT_VOLUME) return null;
-
-  const candidates: QualifyingMove[] = [];
-  if (
-    event.priceChange1h !== null &&
-    Math.abs(event.priceChange1h) > ODDS_CHANGE_THRESHOLD
-  ) {
-    candidates.push({ change: event.priceChange1h, windowLabel: "1h" });
-  }
-  if (
-    event.priceChange24h !== null &&
-    Math.abs(event.priceChange24h) > ODDS_CHANGE_THRESHOLD
-  ) {
-    candidates.push({ change: event.priceChange24h, windowLabel: "24h" });
-  }
-  if (
-    event.priceChange7d !== null &&
-    Math.abs(event.priceChange7d) > ODDS_CHANGE_THRESHOLD
-  ) {
-    candidates.push({ change: event.priceChange7d, windowLabel: "7d" });
-  }
-
-  return (
-    candidates.toSorted(
-      (left, right) => Math.abs(right.change) - Math.abs(left.change),
-    )[0] ?? null
-  );
-}
-
-function moverNotices(feed: ConflictPreviewFeed): ActivityNotice[] {
-  if (feed.dataMode !== "live") return [];
+function snapshotMoverNotices(
+  previousFeed: ConflictPreviewFeed,
+  feed: ConflictPreviewFeed,
+): ActivityNotice[] {
+  if (previousFeed.dataMode !== "live" || feed.dataMode !== "live") return [];
   const now = Date.now();
+  const previousUpdatedAt = Date.parse(previousFeed.updatedAt);
+  const currentUpdatedAt = Date.parse(feed.updatedAt);
+  const maximumBaselineAge = Math.max(
+    previousFeed.refreshSeconds * 2 * 1_000,
+    ACTIVITY_TTL_MS,
+  );
+  if (
+    !Number.isFinite(previousUpdatedAt) ||
+    !Number.isFinite(currentUpdatedAt) ||
+    currentUpdatedAt <= previousUpdatedAt ||
+    now - previousUpdatedAt > maximumBaselineAge
+  ) {
+    return [];
+  }
+
+  const previousEvents = new Map(
+    previousFeed.events.map((event) => [event.id, event]),
+  );
   const notices: ActivityNotice[] = [];
 
   for (const event of feed.events) {
-    const move = qualifyingMove(event);
-    if (!move) continue;
-    const { change, windowLabel } = move;
+    if (event.volume < MIN_ACTIVITY_EVENT_VOLUME) continue;
+    const previousEvent = previousEvents.get(event.id);
+    if (!previousEvent) continue;
+    const change = event.yesOdds - previousEvent.yesOdds;
+    if (Math.abs(change) < ODDS_SNAPSHOT_CHANGE_THRESHOLD_POINTS) continue;
 
     notices.push({
-      id: `odds-${event.id}-${windowLabel}`,
+      id: `odds-${event.id}-${feed.updatedAt}-${event.yesOdds}`,
       kind: change > 0 ? "odds-rise" : "odds-drop",
       eventId: event.id,
       title: event.title,
       locationLabel: event.locationLabel,
-      value: Math.abs(change * 100),
-      windowLabel,
+      value: Math.abs(change),
+      windowLabel: "live",
       outcome: null,
       occurredAt: now,
       expiresAt: now + ACTIVITY_TTL_MS,
@@ -169,7 +157,7 @@ function tradeNotice(
   const marketUrl = toPolymarketReferralUrl(item.marketUrl);
   if (!marketUrl) return null;
   const event = eventsByUrl.get(marketUrl) ?? null;
-  if (!event || !qualifyingMove(event)) return null;
+  if (!event) return null;
 
   return {
     id: `trade-${item.id}`,
@@ -218,6 +206,7 @@ export function ActivityRail({
   fixtureMode,
 }: ActivityRailProps) {
   const seenNoticeIds = useRef(new Set<string>());
+  const previousFeed = useRef<ConflictPreviewFeed | null>(null);
   const [notices, setNotices] = useState<ActivityNotice[]>([]);
   const [clock, setClock] = useState(() => Date.now());
 
@@ -267,8 +256,11 @@ export function ActivityRail({
 
   useEffect(() => {
     if (fixtureMode) return;
+    const baseline = previousFeed.current;
+    previousFeed.current = feed;
+    if (!baseline) return;
     addNotices(
-      moverNotices(feed),
+      snapshotMoverNotices(baseline, feed),
       new Set(feed.events.map((event) => event.id)),
     );
   }, [addNotices, feed, fixtureMode]);
@@ -288,7 +280,7 @@ export function ActivityRail({
   const eventIdQuery = useMemo(
     () =>
       [...feed.events]
-        .filter((event) => qualifyingMove(event) !== null)
+        .filter((event) => /^polymarket-\d{1,12}$/.test(event.id))
         .sort((left, right) => right.volume - left.volume)
         .map((event) => event.id.match(/^polymarket-(\d+)$/)?.[1] ?? null)
         .filter((id): id is string => Boolean(id))

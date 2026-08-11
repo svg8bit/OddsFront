@@ -5,15 +5,17 @@ import type {
   ConflictActivityFeed,
   ConflictTradeActivity,
 } from "@/features/global-conflict-map/preview/types";
+import {
+  buildPolymarketActivityUrl,
+  POLYMARKET_ACTIVITY_TTL_SECONDS,
+  POLYMARKET_LARGE_TRADE_USD,
+} from "@/lib/polymarket-activity-query";
 import { buildPolymarketEventUrl } from "@/lib/polymarket-links";
 
-const DATA_API_TRADES_URL = "https://data-api.polymarket.com/trades";
 const DATA_API_DOCS_URL =
   "https://docs.polymarket.com/api-reference/core/get-trades-for-a-user-or-markets";
 const MAX_EVENT_IDS = 60;
-const LARGE_TRADE_USD = 10_000;
-const ACTIVITY_TTL_SECONDS = 15 * 60;
-const REQUEST_TIMEOUT_MS = 3_500;
+const REQUEST_TIMEOUT_MS = 6_000;
 
 interface DataApiTrade {
   side?: unknown;
@@ -66,8 +68,8 @@ function normalizeTrade(
 
   const notional = Math.abs(size * price);
   if (
-    notional < LARGE_TRADE_USD ||
-    timestamp < nowSeconds - ACTIVITY_TTL_SECONDS ||
+    notional < POLYMARKET_LARGE_TRADE_USD ||
+    timestamp < nowSeconds - POLYMARKET_ACTIVITY_TTL_SECONDS ||
     timestamp > nowSeconds + 60
   ) {
     return null;
@@ -118,12 +120,8 @@ async function fetchActivityFeed(
   eventIds: string[],
 ): Promise<ConflictActivityFeed> {
   const now = new Date();
-  const url = new URL(DATA_API_TRADES_URL);
-  url.searchParams.set("eventId", eventIds.join(","));
-  url.searchParams.set("limit", "100");
-  url.searchParams.set("takerOnly", "true");
-  url.searchParams.set("filterType", "CASH");
-  url.searchParams.set("filterAmount", String(LARGE_TRADE_USD));
+  const nowSeconds = Math.floor(now.getTime() / 1_000);
+  const url = buildPolymarketActivityUrl(eventIds, nowSeconds);
 
   const upstream = await fetch(url, {
     headers: {
@@ -139,7 +137,6 @@ async function fetchActivityFeed(
 
   const payload: unknown = await upstream.json();
   if (!Array.isArray(payload)) throw new Error("Invalid activity response");
-  const nowSeconds = Math.floor(now.getTime() / 1_000);
   const items = payload
     .map((item) => normalizeTrade(item as DataApiTrade, nowSeconds))
     .filter((item): item is ConflictTradeActivity => Boolean(item))
@@ -153,7 +150,7 @@ async function fetchActivityFeed(
   return {
     dataMode: "live",
     updatedAt: now.toISOString(),
-    expiresAfterSeconds: ACTIVITY_TTL_SECONDS,
+    expiresAfterSeconds: POLYMARKET_ACTIVITY_TTL_SECONDS,
     sourceLabel: `Polymarket Data API · ${DATA_API_DOCS_URL}`,
     items,
   };
@@ -161,7 +158,7 @@ async function fetchActivityFeed(
 
 const getCachedActivityFeed = unstable_cache(
   fetchActivityFeed,
-  ["oddsfront-live-conflict-activity-v1"],
+  ["oddsfront-live-conflict-activity-v2-bounded-window"],
   {
     revalidate: 60,
     tags: ["oddsfront-live-conflict-activity"],
@@ -197,7 +194,7 @@ export async function GET(request: NextRequest) {
       {
         dataMode: "unavailable",
         updatedAt: now.toISOString(),
-        expiresAfterSeconds: ACTIVITY_TTL_SECONDS,
+        expiresAfterSeconds: POLYMARKET_ACTIVITY_TTL_SECONDS,
         sourceLabel: "Polymarket Data API",
         items: [],
       },
@@ -217,7 +214,7 @@ export async function GET(request: NextRequest) {
       {
         dataMode: "unavailable",
         updatedAt: now.toISOString(),
-        expiresAfterSeconds: ACTIVITY_TTL_SECONDS,
+        expiresAfterSeconds: POLYMARKET_ACTIVITY_TTL_SECONDS,
         sourceLabel: "Polymarket Data API",
         items: [],
       },
