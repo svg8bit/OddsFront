@@ -1496,6 +1496,12 @@ test("automatically geolocates unseen conflict events without per-event rules", 
     [{ slug: "ceasefire", label: "Ceasefire" }],
   );
   const marketTemplate = mixedDeadlineEvent.markets![0]!;
+  const expiredEndDate = new Date(
+    Date.now() - 24 * 60 * 60_000,
+  ).toISOString();
+  const futureEndDate = new Date(
+    Date.now() + 30 * 24 * 60 * 60_000,
+  ).toISOString();
   mixedDeadlineEvent.markets = [
     {
       ...marketTemplate,
@@ -1503,7 +1509,7 @@ test("automatically geolocates unseen conflict events without per-event rules", 
       conditionId: mockConditionId(31),
       question: "US x Iran Effective Ceasefire by July 31?",
       volume: 8_247_216,
-      endDate: "2026-07-31T23:59:00Z",
+      endDate: expiredEndDate,
     },
     {
       ...marketTemplate,
@@ -1511,13 +1517,13 @@ test("automatically geolocates unseen conflict events without per-event rules", 
       conditionId: mockConditionId(831),
       question: "US x Iran Effective Ceasefire by August 31?",
       volume: 1_612_575,
-      endDate: "2026-08-31T23:59:00Z",
+      endDate: futureEndDate,
     },
   ];
   expect(normalizeConflictPreviewEvent(mixedDeadlineEvent)).toMatchObject({
     id: "polymarket-707496",
     title: "US x Iran Effective Ceasefire by August 31?",
-    endDate: "2026-08-31T23:59:00Z",
+    endDate: futureEndDate,
     marketConditionId: mockConditionId(831),
   });
 

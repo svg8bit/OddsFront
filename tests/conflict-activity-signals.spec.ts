@@ -94,6 +94,8 @@ test("does not turn a stale rolling snapshot into a fresh alert", () => {
       ...event,
       id: `polymarket-${71_000 + index}`,
       marketUrl: `https://polymarket.com/event/stale-signal-${index}`,
+      endDate: new Date(now + 24 * 60 * 60_000).toISOString(),
+      marketConditionId: `0x${(71_000 + index).toString(16).padStart(64, "0")}`,
       priceChange1h: 0.2,
       priceChange24h: 0.3,
     })),

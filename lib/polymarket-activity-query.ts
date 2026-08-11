@@ -18,6 +18,8 @@ export function isPolymarketActivityEventCurrent(
   event: PolymarketActivityMarketCandidate,
   now = Date.now(),
 ): boolean {
+  // The public map can still show an otherwise open market without a deadline,
+  // but alerts fail closed unless freshness can be proven from a future date.
   const endAt = Date.parse(event.endDate ?? "");
   return (
     /^polymarket-\d{1,12}$/.test(event.id) &&

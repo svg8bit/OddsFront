@@ -51,6 +51,23 @@ test("selects exact future liquid markets and rejects expired child markets", ()
   expect(marketIds).toContain(conditionId(72));
   expect(marketIds).not.toContain(conditionId(997));
   expect(marketIds).not.toContain(conditionId(999));
+  expect(marketIds).not.toContain(conditionId(1_000));
+});
+
+test("caps exact-market coverage at the highest-volume one hundred", () => {
+  const now = Date.parse("2026-08-11T13:00:00Z");
+  const events = Array.from({ length: 130 }, (_, index) => ({
+    id: `polymarket-${710_000 + index}`,
+    volume: 400_000 + index,
+    endDate: "2026-08-31T23:59:00Z",
+    marketConditionId: conditionId(index + 1),
+  }));
+
+  const marketIds = selectPolymarketActivityMarketIds(events, now);
+
+  expect(marketIds).toHaveLength(100);
+  expect(marketIds).toContain(conditionId(130));
+  expect(marketIds).not.toContain(conditionId(1));
 });
 
 test("bounds the Polymarket trade query to a fresh fifteen-minute window", () => {
