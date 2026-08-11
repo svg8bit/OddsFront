@@ -837,43 +837,50 @@ test("fills the rail with liquid rolling signals when the trade stream is quiet"
   const volumeMetric = volumeCard.locator("[data-activity-metric]");
   await expect(volumeMetric).toHaveText(`YES ${liveFeed.events[2]!.yesOdds}%`);
   await expect(volumeMetric).toHaveCSS("white-space", "nowrap");
+  await expect(rail.locator("[data-activity-location]")).toHaveCount(0);
+  await expect(volumeCard.locator("[data-activity-flags]")).toBeVisible();
   const volumeLayout = await volumeCard.evaluate((card) => {
     const footer = card.querySelector<HTMLElement>("[data-activity-footer]");
-    const location = card.querySelector<HTMLElement>("[data-activity-location]");
+    const flags = card.querySelector<HTMLElement>("[data-activity-flags]");
     const metric = card.querySelector<HTMLElement>("[data-activity-metric]");
     const actions = card.querySelector<HTMLElement>("[data-activity-actions]");
-    if (!footer || !location || !metric || !actions) return null;
+    if (!footer || !flags || !metric || !actions) return null;
 
     const footerRect = footer.getBoundingClientRect();
-    const locationRect = location.getBoundingClientRect();
+    const flagsRect = flags.getBoundingClientRect();
     const metricRect = metric.getBoundingClientRect();
     const actionsRect = actions.getBoundingClientRect();
+    const footerStyle = getComputedStyle(footer);
     return {
+      display: footerStyle.display,
+      flexWrap: footerStyle.flexWrap,
       footerLeft: footerRect.left,
       footerRight: footerRect.right,
-      locationRight: locationRect.right,
-      locationBottom: locationRect.bottom,
+      footerHeight: footerRect.height,
+      flagsLeft: flagsRect.left,
+      flagsRight: flagsRect.right,
+      flagsCenter: flagsRect.top + flagsRect.height / 2,
       metricLeft: metricRect.left,
-      metricBottom: metricRect.bottom,
+      metricRight: metricRect.right,
+      metricCenter: metricRect.top + metricRect.height / 2,
       actionsLeft: actionsRect.left,
       actionsRight: actionsRect.right,
-      actionsTop: actionsRect.top,
+      actionsCenter: actionsRect.top + actionsRect.height / 2,
     };
   });
   expect(volumeLayout).not.toBeNull();
   if (volumeLayout) {
-    expect(volumeLayout.locationRight).toBeLessThanOrEqual(
-      volumeLayout.metricLeft,
-    );
-    expect(volumeLayout.actionsTop).toBeGreaterThanOrEqual(
-      Math.max(volumeLayout.locationBottom, volumeLayout.metricBottom),
-    );
-    expect(volumeLayout.actionsLeft).toBeGreaterThanOrEqual(
-      volumeLayout.footerLeft,
-    );
+    expect(volumeLayout.display).toBe("flex");
+    expect(volumeLayout.flexWrap).toBe("nowrap");
+    expect(volumeLayout.footerHeight).toBeLessThanOrEqual(25);
+    expect(volumeLayout.flagsLeft).toBeGreaterThanOrEqual(volumeLayout.footerLeft);
+    expect(volumeLayout.flagsRight).toBeLessThanOrEqual(volumeLayout.metricLeft);
+    expect(volumeLayout.metricRight).toBeLessThanOrEqual(volumeLayout.actionsLeft);
     expect(volumeLayout.actionsRight).toBeLessThanOrEqual(
       volumeLayout.footerRight + 1,
     );
+    expect(Math.abs(volumeLayout.flagsCenter - volumeLayout.metricCenter)).toBeLessThanOrEqual(1);
+    expect(Math.abs(volumeLayout.metricCenter - volumeLayout.actionsCenter)).toBeLessThanOrEqual(1);
   }
   await expect(rail).not.toContainText(liveFeed.events[3]!.title);
   await expect(rail).not.toContainText("7d");
@@ -1055,12 +1062,16 @@ test("shows only newly observed odds moves and referral-safe trade pushes", asyn
   const rail = page.getByRole("complementary", { name: "Live market activity" });
   await expect(rail).toBeVisible();
   await expect(rail).toHaveAttribute("data-activity-count", "3");
-  await expect(rail).toContainText("Large BUY · YES");
   await expect(
     rail
       .locator('[data-activity-kind="large-buy"]')
       .locator("strong"),
-  ).toHaveText("Large BUY · YES 37%");
+  ).toHaveText("Large BUY $24.5K");
+  await expect(
+    rail
+      .locator('[data-activity-kind="large-buy"]')
+      .locator("[data-activity-metric]"),
+  ).toHaveText("YES 37%");
   await expect(rail).not.toContainText("Odds");
   await expect(rail).not.toContainText("7d");
 
