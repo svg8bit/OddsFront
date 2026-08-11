@@ -789,37 +789,18 @@
 }
 
 .activityFooter {
-  display: grid;
+  display: flex;
   min-width: 0;
-  grid-template-areas:
-    "location metric"
-    "actions actions";
-  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
-  column-gap: 8px;
-  row-gap: 7px;
+  flex-wrap: nowrap;
+  gap: 6px;
   color: #71849d;
   font-size: 9px;
 }
 
-.activityLocation {
-  display: flex;
-  min-width: 0;
-  grid-area: location;
-  align-items: center;
-  gap: 7px;
-}
-
-.activityLocation > span {
-  overflow: hidden;
-  min-width: 0;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 .activityFooter > b {
-  grid-area: metric;
-  justify-self: end;
+  flex: 0 0 auto;
+  margin-left: auto;
   color: #b9c8db;
   font-size: 9px;
   font-variant-numeric: tabular-nums;
@@ -843,10 +824,9 @@
 
 .activityActions {
   display: flex;
-  grid-area: actions;
+  flex: 0 0 auto;
   align-items: center;
   gap: 5px;
-  justify-self: end;
 }
 
 .activityActions button,
@@ -1185,6 +1165,41 @@
     display: none;
   }
 
+}
+
+@media (max-width: 360px) {
+  .activityFooter {
+    gap: 4px;
+  }
+
+  .activityFlags {
+    gap: 1px;
+  }
+
+  .activityCountryFlag {
+    width: 13px;
+    height: 9px;
+  }
+
+  .activityActions {
+    gap: 3px;
+  }
+
+  .activityActions button,
+  .activityActions a {
+    height: 23px;
+    gap: 3px;
+    padding-inline: 4px;
+    font-size: 8px;
+  }
+
+  .activityActions .activityTrackLink {
+    min-width: 0;
+  }
+
+  .activityActions a:not(.activityTrackLink) svg {
+    display: none;
+  }
 }
 
 @media (max-height: 480px) {

@@ -203,13 +203,24 @@ function noticeLabel(notice: ActivityNotice): string {
   if (notice.kind === "odds-rise") return `Odds +${notice.value.toFixed(1)}%`;
   if (notice.kind === "odds-drop") return `Odds -${notice.value.toFixed(1)}%`;
   if (notice.kind === "high-volume") return `Volume ${formatMoney(notice.value)}`;
-  const outcome = notice.outcome?.toUpperCase() ?? "MARKET";
-  const outcomeLabel =
-    notice.outcomeOdds === null
+  if (notice.kind === "large-buy") {
+    return `Large BUY ${formatMoney(notice.value)}`;
+  }
+  return `Large SELL ${formatMoney(notice.value)}`;
+}
+
+function noticeMetricLabel(
+  notice: ActivityNotice,
+  event: ConflictPreviewEvent | null,
+): string | null {
+  if (notice.kind === "large-buy" || notice.kind === "large-sell") {
+    const outcome = notice.outcome?.toUpperCase();
+    if (!outcome) return null;
+    return notice.outcomeOdds === null
       ? outcome
       : `${outcome} ${notice.outcomeOdds}%`;
-  if (notice.kind === "large-buy") return `Large BUY · ${outcomeLabel}`;
-  return `Large SELL · ${outcomeLabel}`;
+  }
+  return event ? `YES ${event.yesOdds}%` : null;
 }
 
 function selectVisibleNotices(notices: ActivityNotice[]): ActivityNotice[] {
@@ -500,6 +511,11 @@ export function ActivityRail({
               : ACTIVITY_DROP_TONE;
           const referralMarketUrl = toPolymarketReferralUrl(notice.marketUrl);
           const trackUrl = event ? buildDropsBotTrackUrl(event.marketUrl) : null;
+          const metricLabel = noticeMetricLabel(notice, event);
+          const metricAriaLabel =
+            notice.kind === "large-buy" || notice.kind === "large-sell"
+              ? "Trade execution odds"
+              : "Current YES probability";
 
           return (
             <article
@@ -553,36 +569,29 @@ export function ActivityRail({
                 className={styles.activityFooter}
                 data-activity-footer
               >
-                <div
-                  className={styles.activityLocation}
-                  data-activity-location
-                >
-                  {event && event.countryCodes.length > 0 ? (
-                    <div
-                      className={styles.activityFlags}
-                      aria-label={`Event participants: ${event.countryCodes.join(", ")}`}
-                    >
-                      {[...new Set(event.countryCodes)]
-                        .slice(0, 3)
-                        .map((code) => (
-                          <CountryFlag
-                            key={code}
-                            code={code}
-                            className={styles.activityCountryFlag}
-                          />
-                        ))}
-                    </div>
-                  ) : null}
-                  <span title={notice.locationLabel}>{notice.locationLabel}</span>
-                </div>
-                {notice.kind === "large-buy" || notice.kind === "large-sell" ? (
-                  <b data-activity-metric>{formatMoney(notice.value)}</b>
-                ) : event ? (
+                {event && event.countryCodes.length > 0 ? (
+                  <div
+                    className={styles.activityFlags}
+                    data-activity-flags
+                    aria-label={`Event participants: ${event.countryCodes.join(", ")}`}
+                  >
+                    {[...new Set(event.countryCodes)]
+                      .slice(0, 3)
+                      .map((code) => (
+                        <CountryFlag
+                          key={code}
+                          code={code}
+                          className={styles.activityCountryFlag}
+                        />
+                      ))}
+                  </div>
+                ) : null}
+                {metricLabel ? (
                   <b
                     data-activity-metric
-                    aria-label="Current YES probability"
+                    aria-label={metricAriaLabel}
                   >
-                    YES {event.yesOdds}%
+                    {metricLabel}
                   </b>
                 ) : null}
                 <div
