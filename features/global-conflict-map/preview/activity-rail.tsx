@@ -22,16 +22,19 @@ import type {
 import { buildRollingActivitySignals } from "@/lib/conflict-activity-signals";
 import { formatMarketTitle } from "@/lib/market-title";
 import {
+  POLYMARKET_ACTIVITY_EVENT_MIN_VOLUME,
+  selectPolymarketActivityEventIds,
+} from "@/lib/polymarket-activity-query";
+import {
   buildDropsBotTrackUrl,
   isOfficialPolymarketEventUrl,
   POLYMARKET_REFERRAL_CODE,
   toPolymarketReferralUrl,
 } from "@/lib/polymarket-links";
 
-const ACTIVITY_TTL_MS = 15 * 60 * 1_000;
+const ACTIVITY_TTL_MS = 10 * 60 * 1_000;
 const MAX_VISIBLE_NOTICES = 3;
 const MAX_STORED_NOTICES = 12;
-const MIN_ACTIVITY_EVENT_VOLUME = 1_000_000;
 const ODDS_SNAPSHOT_CHANGE_THRESHOLD_POINTS = 2;
 const ACTIVITY_RISE_TONE = "#22DF91";
 const ACTIVITY_DROP_TONE = "#FF5368";
@@ -128,7 +131,7 @@ function snapshotMoverNotices(
   const notices: ActivityNotice[] = [];
 
   for (const event of feed.events) {
-    if (event.volume < MIN_ACTIVITY_EVENT_VOLUME) continue;
+    if (event.volume < POLYMARKET_ACTIVITY_EVENT_MIN_VOLUME) continue;
     const previousEvent = previousEvents.get(event.id);
     if (!previousEvent) continue;
     const change = event.yesOdds - previousEvent.yesOdds;
@@ -165,7 +168,12 @@ function tradeNotice(
   const marketUrl = toPolymarketReferralUrl(item.marketUrl);
   if (!marketUrl) return null;
   const event = eventsByUrl.get(marketUrl) ?? null;
-  if (!event) return null;
+  if (
+    !event ||
+    event.volume < POLYMARKET_ACTIVITY_EVENT_MIN_VOLUME
+  ) {
+    return null;
+  }
 
   return {
     id: `trade-${item.id}`,
@@ -183,12 +191,26 @@ function tradeNotice(
   };
 }
 
-function noticeLabel(notice: ActivityNotice): string {
-  if (notice.kind === "odds-rise") return `Odds +${notice.value.toFixed(1)} pp`;
-  if (notice.kind === "odds-drop") return `Odds -${notice.value.toFixed(1)} pp`;
+function noticeLabel(
+  notice: ActivityNotice,
+  event: ConflictPreviewEvent | null,
+): string {
+  if (notice.kind === "odds-rise") return `Odds +${notice.value.toFixed(1)}%`;
+  if (notice.kind === "odds-drop") return `Odds -${notice.value.toFixed(1)}%`;
   if (notice.kind === "high-volume") return `Volume ${formatMoney(notice.value)}`;
-  if (notice.kind === "large-buy") return `Large BUY · ${notice.outcome}`;
-  return `Large SELL · ${notice.outcome}`;
+  const outcome = notice.outcome?.toUpperCase() ?? "MARKET";
+  const outcomeOdds =
+    outcome === "YES"
+      ? event?.yesOdds
+      : outcome === "NO"
+        ? event?.noOdds
+        : null;
+  const outcomeLabel =
+    outcomeOdds === null || outcomeOdds === undefined
+      ? outcome
+      : `${outcome} ${outcomeOdds}%`;
+  if (notice.kind === "large-buy") return `Large BUY · ${outcomeLabel}`;
+  return `Large SELL · ${outcomeLabel}`;
 }
 
 function selectVisibleNotices(notices: ActivityNotice[]): ActivityNotice[] {
@@ -323,6 +345,7 @@ export function ActivityRail({
         feed.events
           .filter(
             (event): event is ConflictPreviewEvent & { marketUrl: string } =>
+              event.volume >= POLYMARKET_ACTIVITY_EVENT_MIN_VOLUME &&
               isOfficialPolymarketEventUrl(event.marketUrl),
           )
           .map((event) => [toPolymarketReferralUrl(event.marketUrl)!, event]),
@@ -334,11 +357,7 @@ export function ActivityRail({
     [feed.events],
   );
   const rollingNotices = useMemo(() => {
-    const lifetime = Math.max(
-      30 * 60 * 1_000,
-      feed.refreshSeconds * 3 * 1_000,
-    );
-    return buildRollingActivitySignals(feed, clock)
+    return buildRollingActivitySignals(feed)
       .map((signal): ActivityNotice | null => {
         const event = eventsById.get(signal.eventId);
         if (!event) return null;
@@ -353,22 +372,20 @@ export function ActivityRail({
           windowLabel: signal.windowLabel,
           outcome: null,
           occurredAt: signal.observedAt,
-          expiresAt: signal.observedAt + lifetime,
+          expiresAt: signal.observedAt + ACTIVITY_TTL_MS,
           marketUrl: toPolymarketReferralUrl(event.marketUrl),
         };
       })
       .filter((notice): notice is ActivityNotice => Boolean(notice));
-  }, [clock, eventsById, feed]);
+  }, [eventsById, feed]);
+  useEffect(() => {
+    addNotices(
+      rollingNotices,
+      new Set(feed.events.map((event) => event.id)),
+    );
+  }, [addNotices, feed.events, rollingNotices]);
   const eventIdQuery = useMemo(
-    () =>
-      [...feed.events]
-        .filter((event) => /^polymarket-\d{1,12}$/.test(event.id))
-        .sort((left, right) => right.volume - left.volume)
-        .map((event) => event.id.match(/^polymarket-(\d+)$/)?.[1] ?? null)
-        .filter((id): id is string => Boolean(id))
-        .slice(0, 60)
-        .toSorted((left, right) => Number(left) - Number(right))
-        .join(","),
+    () => selectPolymarketActivityEventIds(feed.events).join(","),
     [feed.events],
   );
 
@@ -442,7 +459,7 @@ export function ActivityRail({
   }, []);
 
   const visibleNotices = selectVisibleNotices(
-    [...notices, ...rollingNotices].filter(
+    notices.filter(
       (notice) =>
         notice.expiresAt > clock && !dismissedNoticeIds.has(notice.id),
     ),
@@ -463,7 +480,8 @@ export function ActivityRail({
             notice.kind === "odds-rise" || notice.kind === "large-buy";
           const neutral = notice.kind === "high-volume";
           const event = notice.eventId
-            ? feed.events.find((candidate) => candidate.id === notice.eventId)
+            ? feed.events.find((candidate) => candidate.id === notice.eventId) ??
+              null
             : null;
           const tone = neutral
             ? ACTIVITY_VOLUME_TONE
@@ -497,7 +515,7 @@ export function ActivityRail({
                     <ArrowDownRight size={15} />
                   )}
                 </span>
-                <strong>{noticeLabel(notice)}</strong>
+                <strong>{noticeLabel(notice, event)}</strong>
                 {notice.windowLabel ? <span>{notice.windowLabel}</span> : null}
                 <time dateTime={new Date(notice.occurredAt).toISOString()}>
                   {relativeTime(notice.occurredAt, clock)}
@@ -521,28 +539,46 @@ export function ActivityRail({
                 </button>
               </div>
               <p>{formatMarketTitle(notice.title)}</p>
-              <div className={styles.activityFooter}>
-                {event && event.countryCodes.length > 0 ? (
-                  <div
-                    className={styles.activityFlags}
-                    aria-label={`Event participants: ${event.countryCodes.join(", ")}`}
-                  >
-                    {[...new Set(event.countryCodes)].slice(0, 3).map((code) => (
-                      <CountryFlag
-                        key={code}
-                        code={code}
-                        className={styles.activityCountryFlag}
-                      />
-                    ))}
-                  </div>
-                ) : null}
-                <span>{notice.locationLabel}</span>
+              <div
+                className={styles.activityFooter}
+                data-activity-footer
+              >
+                <div
+                  className={styles.activityLocation}
+                  data-activity-location
+                >
+                  {event && event.countryCodes.length > 0 ? (
+                    <div
+                      className={styles.activityFlags}
+                      aria-label={`Event participants: ${event.countryCodes.join(", ")}`}
+                    >
+                      {[...new Set(event.countryCodes)]
+                        .slice(0, 3)
+                        .map((code) => (
+                          <CountryFlag
+                            key={code}
+                            code={code}
+                            className={styles.activityCountryFlag}
+                          />
+                        ))}
+                    </div>
+                  ) : null}
+                  <span title={notice.locationLabel}>{notice.locationLabel}</span>
+                </div>
                 {notice.kind === "large-buy" || notice.kind === "large-sell" ? (
-                  <b>{formatMoney(notice.value)}</b>
-                ) : notice.kind === "high-volume" && event ? (
-                  <b>YES {event.yesOdds}%</b>
+                  <b data-activity-metric>{formatMoney(notice.value)}</b>
+                ) : event ? (
+                  <b
+                    data-activity-metric
+                    aria-label="Current YES probability"
+                  >
+                    YES {event.yesOdds}%
+                  </b>
                 ) : null}
-                <div className={styles.activityActions}>
+                <div
+                  className={styles.activityActions}
+                  data-activity-actions
+                >
                   {trackUrl ? (
                     <a
                       className={styles.activityTrackLink}

@@ -1,14 +1,13 @@
 import type { ConflictPreviewFeed } from "@/features/global-conflict-map/preview/types";
+import { POLYMARKET_ACTIVITY_EVENT_MIN_VOLUME } from "@/lib/polymarket-activity-query";
 
 const MAX_SIGNALS = 3;
 const MAX_ODDS_SIGNALS = 2;
-const MIN_ODDS_EVENT_VOLUME = 100_000;
 const MIN_ODDS_VOLUME_24H = 5_000;
 const MIN_MOVE_1H_POINTS = 1;
 const MIN_MOVE_24H_POINTS = 3;
-const MIN_HIGH_VOLUME_EVENT_VOLUME = 1_000_000;
 const MIN_HIGH_VOLUME_24H = 25_000;
-const MIN_SIGNAL_FRESHNESS_MS = 30 * 60 * 1_000;
+const MIN_SIGNAL_FRESHNESS_MS = 10 * 60 * 1_000;
 
 export type RollingActivitySignalKind =
   | "odds-rise"
@@ -44,7 +43,7 @@ function rankedOddsSignal(
   observedAt: number,
 ): RankedSignal | null {
   if (
-    event.volume < MIN_ODDS_EVENT_VOLUME ||
+    event.volume < POLYMARKET_ACTIVITY_EVENT_MIN_VOLUME ||
     event.volume24h < MIN_ODDS_VOLUME_24H
   ) {
     return null;
@@ -59,7 +58,7 @@ function rankedOddsSignal(
 
   const kind = rawChange > 0 ? "odds-rise" : "odds-drop";
   return {
-    id: `rolling-${windowLabel}-${event.id}-${kind}-${Math.round(value * 10)}`,
+    id: `rolling-${windowLabel}-${event.id}-${kind}`,
     kind,
     eventId: event.id,
     value,
@@ -125,7 +124,7 @@ export function buildRollingActivitySignals(
   const volumeLeaders = feed.events
     .filter(
       (event) =>
-        event.volume >= MIN_HIGH_VOLUME_EVENT_VOLUME &&
+        event.volume >= POLYMARKET_ACTIVITY_EVENT_MIN_VOLUME &&
         event.volume24h >= MIN_HIGH_VOLUME_24H &&
         !selectedEventIds.has(event.id),
     )
@@ -135,7 +134,7 @@ export function buildRollingActivitySignals(
     );
   for (const event of volumeLeaders) {
     add({
-      id: `rolling-volume-${event.id}-${Math.round(event.volume24h / 1_000)}`,
+      id: `rolling-volume-${event.id}`,
       kind: "high-volume",
       eventId: event.id,
       value: event.volume24h,

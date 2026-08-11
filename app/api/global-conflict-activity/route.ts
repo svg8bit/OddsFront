@@ -7,6 +7,7 @@ import type {
 } from "@/features/global-conflict-map/preview/types";
 import {
   buildPolymarketActivityUrl,
+  POLYMARKET_ACTIVITY_MAX_EVENT_IDS,
   POLYMARKET_ACTIVITY_TTL_SECONDS,
   POLYMARKET_LARGE_TRADE_USD,
 } from "@/lib/polymarket-activity-query";
@@ -14,7 +15,6 @@ import { buildPolymarketEventUrl } from "@/lib/polymarket-links";
 
 const DATA_API_DOCS_URL =
   "https://docs.polymarket.com/api-reference/core/get-trades-for-a-user-or-markets";
-const MAX_EVENT_IDS = 60;
 const REQUEST_TIMEOUT_MS = 6_000;
 
 interface DataApiTrade {
@@ -49,7 +49,7 @@ function validEventIds(request: NextRequest): string[] {
         .filter((value) => /^\d{1,12}$/.test(value)),
     ),
   )
-    .slice(0, MAX_EVENT_IDS)
+    .slice(0, POLYMARKET_ACTIVITY_MAX_EVENT_IDS)
     .toSorted((left, right) => Number(left) - Number(right));
 }
 
@@ -158,7 +158,7 @@ async function fetchActivityFeed(
 
 const getCachedActivityFeed = unstable_cache(
   fetchActivityFeed,
-  ["oddsfront-live-conflict-activity-v3-useful-window"],
+  ["oddsfront-live-conflict-activity-v4-full-liquid-coverage"],
   {
     revalidate: 60,
     tags: ["oddsfront-live-conflict-activity"],

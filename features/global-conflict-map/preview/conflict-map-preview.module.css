@@ -789,25 +789,41 @@
 }
 
 .activityFooter {
-  display: flex;
+  display: grid;
   min-width: 0;
+  grid-template-areas:
+    "location metric"
+    "actions actions";
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
-  gap: 7px;
+  column-gap: 8px;
+  row-gap: 7px;
   color: #71849d;
   font-size: 9px;
 }
 
-.activityFooter > span {
+.activityLocation {
+  display: flex;
+  min-width: 0;
+  grid-area: location;
+  align-items: center;
+  gap: 7px;
+}
+
+.activityLocation > span {
   overflow: hidden;
-  max-width: 88px;
+  min-width: 0;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .activityFooter > b {
+  grid-area: metric;
+  justify-self: end;
   color: #b9c8db;
   font-size: 9px;
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
 .activityFlags {
@@ -827,9 +843,10 @@
 
 .activityActions {
   display: flex;
+  grid-area: actions;
   align-items: center;
   gap: 5px;
-  margin-left: auto;
+  justify-self: end;
 }
 
 .activityActions button,
@@ -1168,6 +1185,12 @@
     display: none;
   }
 
+}
+
+@media (max-height: 480px) {
+  .activityRail .activityCard:nth-child(n + 3) {
+    display: none;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

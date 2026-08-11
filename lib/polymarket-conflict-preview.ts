@@ -17,7 +17,7 @@ import { buildPolymarketEventUrl } from "@/lib/polymarket-links";
 const GAMMA_EVENTS_URL = "https://gamma-api.polymarket.com/events/keyset";
 const GAMMA_DOCS_URL = "https://docs.polymarket.com/market-data/fetching-markets";
 const GEOPOLITICS_TAG_ID = "100265";
-const REFRESH_SECONDS = 600;
+const REFRESH_SECONDS = 300;
 const PAGE_SIZE = 100;
 const MAX_PAGES = 8;
 const UPSTREAM_REQUEST_TIMEOUT_MS = 4_000;
@@ -348,7 +348,7 @@ async function buildLiveConflictPreviewFeed(): Promise<ConflictPreviewFeed> {
 
 const getCachedLiveConflictPreviewFeed = unstable_cache(
   buildLiveConflictPreviewFeed,
-  ["oddsfront-live-conflict-feed-v2-country-fallback"],
+  ["oddsfront-live-conflict-feed-v3-five-minute-freshness"],
   {
     revalidate: REFRESH_SECONDS,
     tags: ["oddsfront-live-conflict-feed"],
