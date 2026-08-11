@@ -12,6 +12,8 @@ test("builds diverse liquid rolling signals and rejects noisy movers", () => {
     id: `polymarket-${70_000 + index}`,
     marketUrl: `https://polymarket.com/event/rolling-signal-${index}`,
     updatedAt: new Date(now - 5 * 60_000).toISOString(),
+    endDate: new Date(now + 24 * 60 * 60_000).toISOString(),
+    marketConditionId: `0x${(index + 1).toString(16).padStart(64, "0")}`,
     volume: [8_161_752, 483_019, 17_151_386, 399_999, 8_886_800][index]!,
     volume24h: [20_540, 20_046, 421_439, 20_000, 21_645][index]!,
     priceChange1h: [0.015, 0.005, null, 0.235, -0.01][index]!,
@@ -57,6 +59,30 @@ test("builds diverse liquid rolling signals and rejects noisy movers", () => {
   );
 });
 
+test("rejects an expired market even when upstream still marks it active", () => {
+  const now = Date.parse("2026-08-11T13:00:00Z");
+  const fixture = getConflictPreviewFixtureFeed();
+  const feed = {
+    ...fixture,
+    dataMode: "live" as const,
+    updatedAt: new Date(now - 60_000).toISOString(),
+    events: [
+      {
+        ...fixture.events[0]!,
+        id: "polymarket-707496",
+        volume: 8_247_216,
+        volume24h: 635_662,
+        priceChange1h: 0.08,
+        priceChange24h: 0.14,
+        endDate: "2026-07-31T23:59:00Z",
+        marketConditionId: `0x${(707_496).toString(16).padStart(64, "0")}`,
+      },
+    ],
+  };
+
+  expect(buildRollingActivitySignals(feed, now)).toEqual([]);
+});
+
 test("does not turn a stale rolling snapshot into a fresh alert", () => {
   const now = Date.parse("2026-08-11T09:00:00.000Z");
   const fixture = getConflictPreviewFixtureFeed();
@@ -68,6 +94,8 @@ test("does not turn a stale rolling snapshot into a fresh alert", () => {
       ...event,
       id: `polymarket-${71_000 + index}`,
       marketUrl: `https://polymarket.com/event/stale-signal-${index}`,
+      endDate: new Date(now + 24 * 60 * 60_000).toISOString(),
+      marketConditionId: `0x${(71_000 + index).toString(16).padStart(64, "0")}`,
       priceChange1h: 0.2,
       priceChange24h: 0.3,
     })),
@@ -86,6 +114,8 @@ test("keeps a rolling signal identity stable while its live value updates", () =
     volume24h: 100_000,
     priceChange1h: 0.051,
     priceChange24h: null,
+    endDate: new Date(now + 24 * 60 * 60_000).toISOString(),
+    marketConditionId: `0x${(72_000).toString(16).padStart(64, "0")}`,
   };
   const feed = {
     ...fixture,

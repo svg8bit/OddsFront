@@ -47,6 +47,7 @@ export interface ConflictPreviewEvent {
   priceChange24h: number | null;
   priceChange7d: number | null;
   endDate: string | null;
+  marketConditionId: string | null;
 }
 
 export type ConflictActivityKind =
@@ -61,6 +62,7 @@ export interface ConflictTradeActivity {
   title: string;
   outcome: string;
   outcomeOdds: number;
+  marketConditionId: string;
   notional: number;
   occurredAt: string;
   marketUrl: string;

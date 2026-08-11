@@ -18,6 +18,10 @@ const artifactRoot = path.resolve(
   "output/visuals",
 );
 
+function mockConditionId(index: number): string {
+  return `0x${index.toString(16).padStart(64, "0")}`;
+}
+
 async function openReadyMap(
   page: Page,
   route = "/global-conflict-map-preview?fixture=1",
@@ -30,6 +34,28 @@ async function openReadyMap(
   await expect(shell).toHaveAttribute("data-map-ready", "true", { timeout: 30_000 });
   await page.evaluate(async () => document.fonts.ready);
   await page.waitForTimeout(250);
+  return shell;
+}
+
+async function openActivityRailPage(page: Page) {
+  // Activity-card behavior does not depend on the external vector-tile CDN.
+  // An empty valid response keeps these regressions deterministic on CI.
+  await page.route("https://tiles.openfreemap.org/planet/**", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/x-protobuf",
+      body: Buffer.alloc(0),
+    });
+  });
+  await page.emulateMedia({ reducedMotion: "reduce", colorScheme: "dark" });
+  await page.goto("/global-conflict-map-preview", {
+    waitUntil: "domcontentloaded",
+  });
+  const shell = page.locator("main[data-map-ready]");
+  await expect(shell).toHaveAttribute("data-feed-mode", "live", {
+    timeout: 30_000,
+  });
+  await page.evaluate(async () => document.fonts.ready);
   return shell;
 }
 
@@ -781,6 +807,8 @@ test("fills the rail with liquid rolling signals when the trade stream is quiet"
       evidenceStatus: "country-anchor" as const,
       marketUrl: `https://polymarket.com/event/rolling-test-${index}`,
       updatedAt,
+      endDate: new Date(Date.now() + 7 * 24 * 60 * 60_000).toISOString(),
+      marketConditionId: mockConditionId(7_000 + index),
       volume: [8_161_752, 483_019, 17_151_386, 399_999, 8_886_800][index]!,
       volume24h: [20_540, 20_046, 421_439, 20_000, 21_645][index]!,
       priceChange1h: [0.015, 0.005, null, 0.235, -0.01][index]!,
@@ -810,10 +838,7 @@ test("fills the rail with liquid rolling signals when the trade stream is quiet"
     });
   });
 
-  const shell = await openReadyMap(page, "/global-conflict-map-preview");
-  await expect(shell).toHaveAttribute("data-feed-mode", "live", {
-    timeout: 5_000,
-  });
+  await openActivityRailPage(page);
   const rail = page.getByRole("complementary", { name: "Live market activity" });
   await expect(rail).toBeVisible();
   await expect(rail).toHaveAttribute("data-activity-count", "3");
@@ -903,6 +928,8 @@ test("does not reanimate the same rolling signal after a feed refresh", async ({
     priceChange1h: 0.02,
     priceChange24h: 0.02,
     updatedAt: firstUpdatedAt,
+    endDate: new Date(Date.now() + 7 * 24 * 60 * 60_000).toISOString(),
+    marketConditionId: mockConditionId(777_001),
   };
   const firstFeed = {
     ...fixture,
@@ -941,7 +968,7 @@ test("does not reanimate the same rolling signal after a feed refresh", async ({
     });
   });
 
-  await openReadyMap(page, "/global-conflict-map-preview");
+  await openActivityRailPage(page);
   await page.evaluate(() => window.dispatchEvent(new Event("online")));
   await expect.poll(() => feedRequestCount).toBeGreaterThanOrEqual(1);
   const rail = page.getByRole("complementary", { name: "Live market activity" });
@@ -976,6 +1003,8 @@ test("shows only newly observed odds moves and referral-safe trade pushes", asyn
       dataOrigin: "polymarket" as const,
       evidenceStatus: "country-anchor" as const,
       marketUrl: `https://polymarket.com/event/activity-test-${index}`,
+      endDate: new Date(Date.now() + 7 * 24 * 60 * 60_000).toISOString(),
+      marketConditionId: mockConditionId(8_000 + index),
       countryCodes:
         index === 4 ? ["US", "IR", "OM"] : event.countryCodes,
       volume: index === 2 ? 900_000 : event.volume,
@@ -999,8 +1028,9 @@ test("shows only newly observed odds moves and referral-safe trade pushes", asyn
         : event,
     ),
   };
-  const activityEventIdQueries: string[][] = [];
+  const activityMarketIdQueries: string[][] = [];
   let conflictFeedRequestCount = 0;
+  const validTradeOccurredAt = new Date(Date.now() - 60_000).toISOString();
 
   await page.route("**/api/global-conflict-events", async (route) => {
     conflictFeedRequestCount += 1;
@@ -1013,8 +1043,8 @@ test("shows only newly observed odds moves and referral-safe trade pushes", asyn
     });
   });
   await page.route("**/api/global-conflict-activity?**", async (route) => {
-    activityEventIdQueries.push(
-      (new URL(route.request().url()).searchParams.get("eventIds") ?? "")
+    activityMarketIdQueries.push(
+      (new URL(route.request().url()).searchParams.get("marketIds") ?? "")
         .split(",")
         .filter(Boolean)
         .sort(),
@@ -1025,17 +1055,29 @@ test("shows only newly observed odds moves and referral-safe trade pushes", asyn
       body: JSON.stringify({
         dataMode: "live",
         updatedAt,
-        expiresAfterSeconds: 1_800,
+        expiresAfterSeconds: 900,
         sourceLabel: "Polymarket Data API",
         items: [
+          {
+            id: "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            kind: "large-sell",
+            title: "US x Iran Effective Ceasefire by July 31?",
+            outcome: "YES",
+            outcomeOdds: 92,
+            marketConditionId: mockConditionId(707_496),
+            notional: 93_000,
+            occurredAt: new Date(Date.now() - 30_000).toISOString(),
+            marketUrl: liveFeed.events[4]!.marketUrl,
+          },
           {
             id: "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
             kind: "large-buy",
             title: liveFeed.events[4]!.title,
             outcome: "YES",
             outcomeOdds: 100,
+            marketConditionId: liveFeed.events[4]!.marketConditionId,
             notional: 24_500,
-            occurredAt: new Date(Date.now() - 60_000).toISOString(),
+            occurredAt: validTradeOccurredAt,
             marketUrl: liveFeed.events[4]!.marketUrl,
           },
         ],
@@ -1043,27 +1085,26 @@ test("shows only newly observed odds moves and referral-safe trade pushes", asyn
     });
   });
 
-  const shell = await openReadyMap(page, "/global-conflict-map-preview");
-  await expect(shell).toHaveAttribute("data-feed-mode", "live", {
-    timeout: 5_000,
-  });
+  await openActivityRailPage(page);
   await expect.poll(() => conflictFeedRequestCount).toBeGreaterThanOrEqual(1);
-  const expectedActivityEventIds = liveFeed.events
+  const expectedActivityMarketIds = liveFeed.events
     .filter((event) => event.volume >= 400_000)
-    .map((event) => event.id.replace(/^polymarket-/, ""))
+    .map((event) => event.marketConditionId)
+    .filter((marketId): marketId is string => Boolean(marketId))
     .sort();
   await expect
     .poll(() =>
-      activityEventIdQueries.some(
-        (eventIds) =>
-          JSON.stringify(eventIds) ===
-          JSON.stringify(expectedActivityEventIds),
+      activityMarketIdQueries.some(
+        (marketIds) =>
+          JSON.stringify(marketIds) ===
+          JSON.stringify(expectedActivityMarketIds),
       ),
     )
     .toBe(true);
   const rail = page.getByRole("complementary", { name: "Live market activity" });
   await expect(rail).toBeVisible();
   await expect(rail).toHaveAttribute("data-activity-count", "3");
+  await expect(rail).not.toContainText("July 31");
   await expect(
     rail
       .locator('[data-activity-kind="large-buy"]')
@@ -1106,8 +1147,7 @@ test("shows only newly observed odds moves and referral-safe trade pushes", asyn
       .getAttribute("data-expires-at")) ??
       "",
   );
-  expect(expiry - Date.now()).toBeGreaterThan(28 * 60 * 1_000);
-  expect(expiry - Date.now()).toBeLessThanOrEqual(30 * 60 * 1_000);
+  expect(expiry - Date.parse(validTradeOccurredAt)).toBe(15 * 60 * 1_000);
 
   const trackLinks = rail.getByRole("link", {
     name: "Track this market in DropsBot",
@@ -1374,6 +1414,7 @@ test("automatically geolocates unseen conflict events without per-event rules", 
     markets: [
       {
         id: `market-${id}`,
+        conditionId: mockConditionId(Number(id)),
         question: title,
         outcomes: '["Yes","No"]',
         outcomePrices: '["0.41","0.59"]',
@@ -1412,6 +1453,7 @@ test("automatically geolocates unseen conflict events without per-event rules", 
     evidenceStatus: "country-anchor",
     geographyKind: "regional",
     priceChange1h: 0.25,
+    marketConditionId: mockConditionId(900_001),
   });
   expect(newCountryPair?.countryCodes).toEqual(
     expect.arrayContaining(["BI", "RW"]),
@@ -1446,6 +1488,43 @@ test("automatically geolocates unseen conflict events without per-event rules", 
     locationId: "country-rus",
     countryCodes: ["RU", "US"],
     countryFeatureIds: ["RUS", "USA"],
+  });
+
+  const mixedDeadlineEvent = event(
+    "707496",
+    "US x Iran Effective Ceasefire by...? (2 week pause)",
+    [{ slug: "ceasefire", label: "Ceasefire" }],
+  );
+  const marketTemplate = mixedDeadlineEvent.markets![0]!;
+  const expiredEndDate = new Date(
+    Date.now() - 24 * 60 * 60_000,
+  ).toISOString();
+  const futureEndDate = new Date(
+    Date.now() + 30 * 24 * 60 * 60_000,
+  ).toISOString();
+  mixedDeadlineEvent.markets = [
+    {
+      ...marketTemplate,
+      id: "2937525",
+      conditionId: mockConditionId(31),
+      question: "US x Iran Effective Ceasefire by July 31?",
+      volume: 8_247_216,
+      endDate: expiredEndDate,
+    },
+    {
+      ...marketTemplate,
+      id: "2937527",
+      conditionId: mockConditionId(831),
+      question: "US x Iran Effective Ceasefire by August 31?",
+      volume: 1_612_575,
+      endDate: futureEndDate,
+    },
+  ];
+  expect(normalizeConflictPreviewEvent(mixedDeadlineEvent)).toMatchObject({
+    id: "polymarket-707496",
+    title: "US x Iran Effective Ceasefire by August 31?",
+    endDate: futureEndDate,
+    marketConditionId: mockConditionId(831),
   });
 
   const expiredEvent = event(

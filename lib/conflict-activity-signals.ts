@@ -1,5 +1,8 @@
 import type { ConflictPreviewFeed } from "@/features/global-conflict-map/preview/types";
-import { POLYMARKET_ACTIVITY_EVENT_MIN_VOLUME } from "@/lib/polymarket-activity-query";
+import {
+  isPolymarketActivityEventCurrent,
+  POLYMARKET_ACTIVITY_EVENT_MIN_VOLUME,
+} from "@/lib/polymarket-activity-query";
 
 const MAX_SIGNALS = 3;
 const MAX_ODDS_SIGNALS = 2;
@@ -94,11 +97,15 @@ export function buildRollingActivitySignals(
     return [];
   }
 
-  const oneHour = feed.events
+  const currentEvents = feed.events.filter((event) =>
+    isPolymarketActivityEventCurrent(event, now),
+  );
+
+  const oneHour = currentEvents
     .map((event) => rankedOddsSignal(event, "1h", observedAt))
     .filter((signal): signal is RankedSignal => Boolean(signal))
     .toSorted(strongestFirst);
-  const oneDay = feed.events
+  const oneDay = currentEvents
     .map((event) => rankedOddsSignal(event, "24h", observedAt))
     .filter((signal): signal is RankedSignal => Boolean(signal))
     .toSorted(strongestFirst);
@@ -121,7 +128,7 @@ export function buildRollingActivitySignals(
     }
   }
 
-  const volumeLeaders = feed.events
+  const volumeLeaders = currentEvents
     .filter(
       (event) =>
         event.volume >= POLYMARKET_ACTIVITY_EVENT_MIN_VOLUME &&
