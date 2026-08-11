@@ -158,7 +158,7 @@ async function fetchActivityFeed(
 
 const getCachedActivityFeed = unstable_cache(
   fetchActivityFeed,
-  ["oddsfront-live-conflict-activity-v2-bounded-window"],
+  ["oddsfront-live-conflict-activity-v3-useful-window"],
   {
     revalidate: 60,
     tags: ["oddsfront-live-conflict-activity"],

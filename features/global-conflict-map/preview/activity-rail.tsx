@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+  Activity as ActivityIcon,
   ArrowDownRight,
   ArrowUpRight,
   ExternalLink,
@@ -18,6 +19,7 @@ import type {
   ConflictPreviewFeed,
   ConflictTradeActivity,
 } from "@/features/global-conflict-map/preview/types";
+import { buildRollingActivitySignals } from "@/lib/conflict-activity-signals";
 import { formatMarketTitle } from "@/lib/market-title";
 import {
   buildDropsBotTrackUrl,
@@ -28,19 +30,24 @@ import {
 
 const ACTIVITY_TTL_MS = 15 * 60 * 1_000;
 const MAX_VISIBLE_NOTICES = 3;
+const MAX_STORED_NOTICES = 12;
 const MIN_ACTIVITY_EVENT_VOLUME = 1_000_000;
 const ODDS_SNAPSHOT_CHANGE_THRESHOLD_POINTS = 2;
 const ACTIVITY_RISE_TONE = "#22DF91";
 const ACTIVITY_DROP_TONE = "#FF5368";
+const ACTIVITY_VOLUME_TONE = "#FFB454";
 const ACTIVITY_REFRESH_MS = 60_000;
 const ACTIVITY_REFRESH_JITTER_MS = 15_000;
 const ACTIVITY_INITIAL_JITTER_MS = 5_000;
 
-type ActivityWindowLabel = "live";
+type ActivityWindowLabel = "live" | "1h" | "24h";
+type ActivityNoticeKind = ConflictActivityKind | "high-volume";
+type ActivityNoticeSource = "trade" | "snapshot" | "rolling";
 
 interface ActivityNotice {
   id: string;
-  kind: ConflictActivityKind;
+  kind: ActivityNoticeKind;
+  source: ActivityNoticeSource;
   eventId: string | null;
   title: string;
   locationLabel: string;
@@ -130,6 +137,7 @@ function snapshotMoverNotices(
     notices.push({
       id: `odds-${event.id}-${feed.updatedAt}-${event.yesOdds}`,
       kind: change > 0 ? "odds-rise" : "odds-drop",
+      source: "snapshot",
       eventId: event.id,
       title: event.title,
       locationLabel: event.locationLabel,
@@ -162,6 +170,7 @@ function tradeNotice(
   return {
     id: `trade-${item.id}`,
     kind: item.kind,
+    source: "trade",
     eventId: event.id,
     title: item.title,
     locationLabel: event.locationLabel,
@@ -175,30 +184,66 @@ function tradeNotice(
 }
 
 function noticeLabel(notice: ActivityNotice): string {
-  if (notice.kind === "odds-rise") return `Odds +${notice.value.toFixed(1)}%`;
-  if (notice.kind === "odds-drop") return `Odds -${notice.value.toFixed(1)}%`;
+  if (notice.kind === "odds-rise") return `Odds +${notice.value.toFixed(1)} pp`;
+  if (notice.kind === "odds-drop") return `Odds -${notice.value.toFixed(1)} pp`;
+  if (notice.kind === "high-volume") return `Volume ${formatMoney(notice.value)}`;
   if (notice.kind === "large-buy") return `Large BUY · ${notice.outcome}`;
   return `Large SELL · ${notice.outcome}`;
 }
 
 function selectVisibleNotices(notices: ActivityNotice[]): ActivityNotice[] {
   const newestFirst = notices.toSorted(
-    (left, right) => right.occurredAt - left.occurredAt,
+    (left, right) =>
+      right.occurredAt - left.occurredAt || right.value - left.value,
   );
   const trades = newestFirst.filter(
     (notice) => notice.kind === "large-buy" || notice.kind === "large-sell",
   );
-  const movers = newestFirst.filter(
-    (notice) => notice.kind === "odds-rise" || notice.kind === "odds-drop",
+  const liveMovers = newestFirst.filter(
+    (notice) =>
+      notice.source === "snapshot" &&
+      (notice.kind === "odds-rise" || notice.kind === "odds-drop"),
   );
-  const reservedTradeCount = Math.min(2, trades.length);
+  const rollingMovers = newestFirst.filter(
+    (notice) =>
+      notice.source === "rolling" &&
+      (notice.kind === "odds-rise" || notice.kind === "odds-drop"),
+  );
+  const volumeSignals = newestFirst.filter(
+    (notice) => notice.kind === "high-volume",
+  );
+  const selected: ActivityNotice[] = [];
+  const selectedIds = new Set<string>();
+  const selectedEventIds = new Set<string>();
+  const add = (notice: ActivityNotice) => {
+    if (
+      selectedIds.has(notice.id) ||
+      (notice.eventId !== null && selectedEventIds.has(notice.eventId))
+    ) {
+      return false;
+    }
+    selected.push(notice);
+    selectedIds.add(notice.id);
+    if (notice.eventId !== null) selectedEventIds.add(notice.eventId);
+    return true;
+  };
 
-  return [
-    ...trades.slice(0, reservedTradeCount),
-    ...movers.slice(0, MAX_VISIBLE_NOTICES - reservedTradeCount),
-  ]
-    .sort((left, right) => right.occurredAt - left.occurredAt)
-    .slice(0, MAX_VISIBLE_NOTICES);
+  let tradeCount = 0;
+  for (const notice of trades) {
+    if (add(notice)) tradeCount += 1;
+    if (tradeCount >= 2) break;
+  }
+  for (const group of [liveMovers, rollingMovers, volumeSignals]) {
+    for (const notice of group) {
+      add(notice);
+      if (selected.length >= MAX_VISIBLE_NOTICES) return selected;
+    }
+  }
+  for (const notice of trades) {
+    add(notice);
+    if (selected.length >= MAX_VISIBLE_NOTICES) break;
+  }
+  return selected;
 }
 
 export function ActivityRail({
@@ -208,6 +253,9 @@ export function ActivityRail({
   const seenNoticeIds = useRef(new Set<string>());
   const previousFeed = useRef<ConflictPreviewFeed | null>(null);
   const [notices, setNotices] = useState<ActivityNotice[]>([]);
+  const [dismissedNoticeIds, setDismissedNoticeIds] = useState<Set<string>>(
+    () => new Set(),
+  );
   const [clock, setClock] = useState(() => Date.now());
 
   const addNotices = useCallback(
@@ -248,7 +296,11 @@ export function ActivityRail({
           changed = true;
         }
 
-        return changed ? selectVisibleNotices([...merged.values()]) : current;
+        return changed
+          ? [...merged.values()]
+              .toSorted((left, right) => right.occurredAt - left.occurredAt)
+              .slice(0, MAX_STORED_NOTICES)
+          : current;
       });
     },
     [],
@@ -277,6 +329,36 @@ export function ActivityRail({
       ),
     [feed.events],
   );
+  const eventsById = useMemo(
+    () => new Map(feed.events.map((event) => [event.id, event])),
+    [feed.events],
+  );
+  const rollingNotices = useMemo(() => {
+    const lifetime = Math.max(
+      30 * 60 * 1_000,
+      feed.refreshSeconds * 3 * 1_000,
+    );
+    return buildRollingActivitySignals(feed, clock)
+      .map((signal): ActivityNotice | null => {
+        const event = eventsById.get(signal.eventId);
+        if (!event) return null;
+        return {
+          id: signal.id,
+          kind: signal.kind,
+          source: "rolling",
+          eventId: signal.eventId,
+          title: event.title,
+          locationLabel: event.locationLabel,
+          value: signal.value,
+          windowLabel: signal.windowLabel,
+          outcome: null,
+          occurredAt: signal.observedAt,
+          expiresAt: signal.observedAt + lifetime,
+          marketUrl: toPolymarketReferralUrl(event.marketUrl),
+        };
+      })
+      .filter((notice): notice is ActivityNotice => Boolean(notice));
+  }, [clock, eventsById, feed]);
   const eventIdQuery = useMemo(
     () =>
       [...feed.events]
@@ -359,22 +441,35 @@ export function ActivityRail({
     return () => window.clearInterval(interval);
   }, []);
 
-  if (notices.length === 0) return null;
+  const visibleNotices = selectVisibleNotices(
+    [...notices, ...rollingNotices].filter(
+      (notice) =>
+        notice.expiresAt > clock && !dismissedNoticeIds.has(notice.id),
+    ),
+  );
+
+  if (visibleNotices.length === 0) return null;
 
   return (
     <aside
       className={styles.activityRail}
       aria-label="Live market activity"
       aria-live="polite"
-      data-activity-count={notices.length}
+      data-activity-count={visibleNotices.length}
+      data-feed-updated-at={feed.updatedAt}
     >
-      {notices.map((notice) => {
+      {visibleNotices.map((notice) => {
           const rising =
             notice.kind === "odds-rise" || notice.kind === "large-buy";
+          const neutral = notice.kind === "high-volume";
           const event = notice.eventId
             ? feed.events.find((candidate) => candidate.id === notice.eventId)
             : null;
-          const tone = rising ? ACTIVITY_RISE_TONE : ACTIVITY_DROP_TONE;
+          const tone = neutral
+            ? ACTIVITY_VOLUME_TONE
+            : rising
+              ? ACTIVITY_RISE_TONE
+              : ACTIVITY_DROP_TONE;
           const referralMarketUrl = toPolymarketReferralUrl(notice.marketUrl);
           const trackUrl = event ? buildDropsBotTrackUrl(event.marketUrl) : null;
 
@@ -384,13 +479,23 @@ export function ActivityRail({
               className={styles.activityCard}
               style={{ "--activity-tone": tone } as React.CSSProperties}
               data-activity-kind={notice.kind}
-              data-activity-direction={rising ? "up" : "down"}
+              data-activity-source={notice.source}
+              data-activity-direction={
+                neutral ? "neutral" : rising ? "up" : "down"
+              }
+              data-notice-id={notice.id}
               data-event-id={notice.eventId ?? ""}
               data-expires-at={new Date(notice.expiresAt).toISOString()}
             >
               <div className={styles.activityMeta}>
                 <span className={styles.activitySignal} aria-hidden="true">
-                  {rising ? <ArrowUpRight size={15} /> : <ArrowDownRight size={15} />}
+                  {neutral ? (
+                    <ActivityIcon size={15} />
+                  ) : rising ? (
+                    <ArrowUpRight size={15} />
+                  ) : (
+                    <ArrowDownRight size={15} />
+                  )}
                 </span>
                 <strong>{noticeLabel(notice)}</strong>
                 {notice.windowLabel ? <span>{notice.windowLabel}</span> : null}
@@ -401,11 +506,16 @@ export function ActivityRail({
                   type="button"
                   className={styles.activityDismiss}
                   aria-label="Dismiss activity notification"
-                  onClick={() =>
+                  onClick={() => {
+                    setDismissedNoticeIds((current) => {
+                      const next = new Set(current);
+                      next.add(notice.id);
+                      return next;
+                    });
                     setNotices((current) =>
                       current.filter((candidate) => candidate.id !== notice.id),
-                    )
-                  }
+                    );
+                  }}
                 >
                   <X size={13} aria-hidden="true" />
                 </button>
@@ -429,6 +539,8 @@ export function ActivityRail({
                 <span>{notice.locationLabel}</span>
                 {notice.kind === "large-buy" || notice.kind === "large-sell" ? (
                   <b>{formatMoney(notice.value)}</b>
+                ) : notice.kind === "high-volume" && event ? (
+                  <b>YES {event.yesOdds}%</b>
                 ) : null}
                 <div className={styles.activityActions}>
                   {trackUrl ? (
