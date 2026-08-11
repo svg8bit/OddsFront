@@ -574,7 +574,10 @@ test("serves the approved map on the canonical public route", async ({ page }) =
 
   const feedResponse = await page.request.get("/api/global-conflict-events");
   expect(feedResponse.headers()["cdn-cache-control"]).toContain(
-    "stale-if-error=86400",
+    "stale-if-error=900",
+  );
+  expect(feedResponse.headers()["cdn-cache-control"]).toContain(
+    "stale-while-revalidate=60",
   );
 });
 
@@ -778,8 +781,8 @@ test("fills the rail with liquid rolling signals when the trade stream is quiet"
       evidenceStatus: "country-anchor" as const,
       marketUrl: `https://polymarket.com/event/rolling-test-${index}`,
       updatedAt,
-      volume: [8_161_752, 183_019, 17_151_386, 80_729, 8_886_800][index]!,
-      volume24h: [20_540, 20_046, 421_439, 1_316, 21_645][index]!,
+      volume: [8_161_752, 483_019, 17_151_386, 399_999, 8_886_800][index]!,
+      volume24h: [20_540, 20_046, 421_439, 20_000, 21_645][index]!,
       priceChange1h: [0.015, 0.005, null, 0.235, -0.01][index]!,
       priceChange24h: [0.015, -0.11, null, 0.235, -0.07][index]!,
       priceChange7d: index === 3 ? 0.8 : null,
@@ -800,7 +803,7 @@ test("fills the rail with liquid rolling signals when the trade stream is quiet"
       body: JSON.stringify({
         dataMode: "live",
         updatedAt,
-        expiresAfterSeconds: 3_600,
+        expiresAfterSeconds: 1_800,
         sourceLabel: "Polymarket Data API",
         items: [],
       }),
@@ -814,15 +817,140 @@ test("fills the rail with liquid rolling signals when the trade stream is quiet"
   const rail = page.getByRole("complementary", { name: "Live market activity" });
   await expect(rail).toBeVisible();
   await expect(rail).toHaveAttribute("data-activity-count", "3");
-  await expect(rail).toContainText("Odds +1.5 pp");
-  await expect(rail).toContainText("Odds -11.0 pp");
+  await expect(rail).toContainText("Odds +1.5%");
+  await expect(rail).toContainText("Odds -11.0%");
+  await expect(rail).not.toContainText(" pp");
   await expect(rail).toContainText("Volume $421.4K");
   await expect(rail.locator('[data-activity-source="rolling"]')).toHaveCount(3);
+  const oddsMetrics = rail.locator(
+    '[data-activity-kind^="odds-"] [data-activity-metric]',
+  );
+  await expect(oddsMetrics).toHaveCount(2);
+  for (const metric of await oddsMetrics.all()) {
+    await expect(metric).toHaveText(/^YES \d+%$/);
+    await expect(metric).toHaveCSS("white-space", "nowrap");
+  }
   await expect(
     rail.locator('[data-activity-kind="high-volume"]'),
   ).toHaveAttribute("data-activity-direction", "neutral");
+  const volumeCard = rail.locator('[data-activity-kind="high-volume"]');
+  const volumeMetric = volumeCard.locator("[data-activity-metric]");
+  await expect(volumeMetric).toHaveText(`YES ${liveFeed.events[2]!.yesOdds}%`);
+  await expect(volumeMetric).toHaveCSS("white-space", "nowrap");
+  const volumeLayout = await volumeCard.evaluate((card) => {
+    const footer = card.querySelector<HTMLElement>("[data-activity-footer]");
+    const location = card.querySelector<HTMLElement>("[data-activity-location]");
+    const metric = card.querySelector<HTMLElement>("[data-activity-metric]");
+    const actions = card.querySelector<HTMLElement>("[data-activity-actions]");
+    if (!footer || !location || !metric || !actions) return null;
+
+    const footerRect = footer.getBoundingClientRect();
+    const locationRect = location.getBoundingClientRect();
+    const metricRect = metric.getBoundingClientRect();
+    const actionsRect = actions.getBoundingClientRect();
+    return {
+      footerLeft: footerRect.left,
+      footerRight: footerRect.right,
+      locationRight: locationRect.right,
+      locationBottom: locationRect.bottom,
+      metricLeft: metricRect.left,
+      metricBottom: metricRect.bottom,
+      actionsLeft: actionsRect.left,
+      actionsRight: actionsRect.right,
+      actionsTop: actionsRect.top,
+    };
+  });
+  expect(volumeLayout).not.toBeNull();
+  if (volumeLayout) {
+    expect(volumeLayout.locationRight).toBeLessThanOrEqual(
+      volumeLayout.metricLeft,
+    );
+    expect(volumeLayout.actionsTop).toBeGreaterThanOrEqual(
+      Math.max(volumeLayout.locationBottom, volumeLayout.metricBottom),
+    );
+    expect(volumeLayout.actionsLeft).toBeGreaterThanOrEqual(
+      volumeLayout.footerLeft,
+    );
+    expect(volumeLayout.actionsRight).toBeLessThanOrEqual(
+      volumeLayout.footerRight + 1,
+    );
+  }
   await expect(rail).not.toContainText(liveFeed.events[3]!.title);
   await expect(rail).not.toContainText("7d");
+});
+
+test("does not reanimate the same rolling signal after a feed refresh", async ({
+  page,
+}) => {
+  const fixture = getConflictPreviewFixtureFeed();
+  const firstUpdatedAt = new Date(Date.now() - 2 * 60_000).toISOString();
+  const refreshedAt = new Date().toISOString();
+  const event = {
+    ...fixture.events[0]!,
+    id: "polymarket-777001",
+    dataOrigin: "polymarket" as const,
+    evidenceStatus: "country-anchor" as const,
+    marketUrl: "https://polymarket.com/event/stable-rolling-alert",
+    volume: 2_000_000,
+    volume24h: 50_000,
+    priceChange1h: 0.02,
+    priceChange24h: 0.02,
+    updatedAt: firstUpdatedAt,
+  };
+  const firstFeed = {
+    ...fixture,
+    dataMode: "live" as const,
+    updatedAt: firstUpdatedAt,
+    sourceLabel: "Polymarket Gamma API",
+    events: [event],
+  };
+  const refreshedFeed = {
+    ...firstFeed,
+    updatedAt: refreshedAt,
+    events: [{ ...event, updatedAt: refreshedAt }],
+  };
+  let currentFeed = firstFeed;
+  let feedRequestCount = 0;
+
+  await page.route("**/api/global-conflict-events", async (route) => {
+    feedRequestCount += 1;
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(currentFeed),
+    });
+  });
+  await page.route("**/api/global-conflict-activity?**", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        dataMode: "live",
+        updatedAt: refreshedAt,
+        expiresAfterSeconds: 1_800,
+        sourceLabel: "Polymarket Data API",
+        items: [],
+      }),
+    });
+  });
+
+  await openReadyMap(page, "/global-conflict-map-preview");
+  await page.evaluate(() => window.dispatchEvent(new Event("online")));
+  await expect.poll(() => feedRequestCount).toBeGreaterThanOrEqual(1);
+  const rail = page.getByRole("complementary", { name: "Live market activity" });
+  await expect(rail).toHaveAttribute("data-feed-updated-at", firstUpdatedAt);
+  const rollingCard = rail.locator(
+    '[data-activity-source="rolling"][data-event-id="polymarket-777001"]',
+  );
+  await expect(rollingCard).toBeVisible();
+  const initialExpiry = await rollingCard.getAttribute("data-expires-at");
+  expect(initialExpiry).not.toBeNull();
+
+  currentFeed = refreshedFeed;
+  await page.evaluate(() => window.dispatchEvent(new Event("online")));
+  await expect.poll(() => feedRequestCount).toBeGreaterThanOrEqual(2);
+  await expect(rail).toHaveAttribute("data-feed-updated-at", refreshedAt);
+  await expect(rollingCard).toHaveAttribute("data-expires-at", initialExpiry!);
 });
 
 test("shows only newly observed odds moves and referral-safe trade pushes", async ({
@@ -888,7 +1016,7 @@ test("shows only newly observed odds moves and referral-safe trade pushes", asyn
       body: JSON.stringify({
         dataMode: "live",
         updatedAt,
-        expiresAfterSeconds: 3_600,
+        expiresAfterSeconds: 1_800,
         sourceLabel: "Polymarket Data API",
         items: [
           {
@@ -896,6 +1024,7 @@ test("shows only newly observed odds moves and referral-safe trade pushes", asyn
             kind: "large-buy",
             title: liveFeed.events[4]!.title,
             outcome: "YES",
+            outcomeOdds: 37,
             notional: 24_500,
             occurredAt: new Date(Date.now() - 60_000).toISOString(),
             marketUrl: liveFeed.events[4]!.marketUrl,
@@ -911,6 +1040,7 @@ test("shows only newly observed odds moves and referral-safe trade pushes", asyn
   });
   await expect.poll(() => conflictFeedRequestCount).toBeGreaterThanOrEqual(1);
   const expectedActivityEventIds = liveFeed.events
+    .filter((event) => event.volume >= 400_000)
     .map((event) => event.id.replace(/^polymarket-/, ""))
     .sort();
   await expect
@@ -926,13 +1056,19 @@ test("shows only newly observed odds moves and referral-safe trade pushes", asyn
   await expect(rail).toBeVisible();
   await expect(rail).toHaveAttribute("data-activity-count", "3");
   await expect(rail).toContainText("Large BUY · YES");
+  await expect(
+    rail
+      .locator('[data-activity-kind="large-buy"]')
+      .locator("strong"),
+  ).toHaveText("Large BUY · YES 37%");
   await expect(rail).not.toContainText("Odds");
   await expect(rail).not.toContainText("7d");
 
   await page.evaluate(() => window.dispatchEvent(new Event("online")));
   await expect.poll(() => conflictFeedRequestCount).toBeGreaterThanOrEqual(2);
   await expect(rail).toHaveAttribute("data-activity-count", "3");
-  await expect(rail).toContainText("Odds +5.0 pp");
+  await expect(rail).toContainText("Odds +5.0%");
+  await expect(rail).not.toContainText(" pp");
   await expect(rail).toContainText("live");
   await expect(
     rail.locator('[data-activity-kind="odds-rise"]'),
@@ -947,11 +1083,13 @@ test("shows only newly observed odds moves and referral-safe trade pushes", asyn
   ).toBeVisible();
 
   const expiry = Date.parse(
-    (await rail.locator("[data-expires-at]").first().getAttribute("data-expires-at")) ??
+    (await rail
+      .locator('[data-activity-kind="large-buy"]')
+      .getAttribute("data-expires-at")) ??
       "",
   );
-  expect(expiry - Date.now()).toBeGreaterThan(58 * 60 * 1_000);
-  expect(expiry - Date.now()).toBeLessThanOrEqual(60 * 60 * 1_000);
+  expect(expiry - Date.now()).toBeGreaterThan(28 * 60 * 1_000);
+  expect(expiry - Date.now()).toBeLessThanOrEqual(30 * 60 * 1_000);
 
   const trackLinks = rail.getByRole("link", {
     name: "Track this market in DropsBot",
@@ -1090,7 +1228,7 @@ test("refreshes a stale initial conflict feed immediately", async ({ page }) => 
       body: JSON.stringify({
         dataMode: "live",
         updatedAt,
-        expiresAfterSeconds: 900,
+        expiresAfterSeconds: 1_800,
         sourceLabel: "Polymarket Data API",
         items: [],
       }),

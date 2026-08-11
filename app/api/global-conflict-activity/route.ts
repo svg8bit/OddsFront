@@ -7,6 +7,7 @@ import type {
 } from "@/features/global-conflict-map/preview/types";
 import {
   buildPolymarketActivityUrl,
+  POLYMARKET_ACTIVITY_MAX_EVENT_IDS,
   POLYMARKET_ACTIVITY_TTL_SECONDS,
   POLYMARKET_LARGE_TRADE_USD,
 } from "@/lib/polymarket-activity-query";
@@ -14,7 +15,6 @@ import { buildPolymarketEventUrl } from "@/lib/polymarket-links";
 
 const DATA_API_DOCS_URL =
   "https://docs.polymarket.com/api-reference/core/get-trades-for-a-user-or-markets";
-const MAX_EVENT_IDS = 60;
 const REQUEST_TIMEOUT_MS = 6_000;
 
 interface DataApiTrade {
@@ -49,7 +49,7 @@ function validEventIds(request: NextRequest): string[] {
         .filter((value) => /^\d{1,12}$/.test(value)),
     ),
   )
-    .slice(0, MAX_EVENT_IDS)
+    .slice(0, POLYMARKET_ACTIVITY_MAX_EVENT_IDS)
     .toSorted((left, right) => Number(left) - Number(right));
 }
 
@@ -62,7 +62,15 @@ function normalizeTrade(
   const price = toFiniteNumber(trade.price);
   const timestamp = toFiniteNumber(trade.timestamp);
   const marketUrl = buildPolymarketEventUrl(trade.eventSlug);
-  if (!side || size === null || price === null || timestamp === null || !marketUrl) {
+  if (
+    !side ||
+    size === null ||
+    price === null ||
+    price < 0 ||
+    price > 1 ||
+    timestamp === null ||
+    !marketUrl
+  ) {
     return null;
   }
 
@@ -90,6 +98,7 @@ function normalizeTrade(
     kind: side === "BUY" ? "large-buy" : "large-sell",
     title: cleanText(trade.title, "Conflict market activity"),
     outcome: cleanText(trade.outcome, "Market"),
+    outcomeOdds: Math.round(price * 100),
     notional,
     occurredAt: new Date(timestamp * 1_000).toISOString(),
     marketUrl,
@@ -158,7 +167,7 @@ async function fetchActivityFeed(
 
 const getCachedActivityFeed = unstable_cache(
   fetchActivityFeed,
-  ["oddsfront-live-conflict-activity-v3-useful-window"],
+  ["oddsfront-live-conflict-activity-v4-full-liquid-coverage"],
   {
     revalidate: 60,
     tags: ["oddsfront-live-conflict-activity"],
