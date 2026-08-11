@@ -761,6 +761,70 @@ test("groups co-located alliance events behind popup pager arrows", async ({
   await expect(popup).toContainText("Market 2 of 2");
 });
 
+test("fills the rail with liquid rolling signals when the trade stream is quiet", async ({
+  page,
+}) => {
+  const fixture = getConflictPreviewFixtureFeed();
+  const updatedAt = new Date().toISOString();
+  const liveFeed = {
+    ...fixture,
+    dataMode: "live" as const,
+    updatedAt,
+    sourceLabel: "Polymarket Gamma API",
+    events: fixture.events.slice(0, 5).map((event, index) => ({
+      ...event,
+      id: `polymarket-${7_000 + index}`,
+      dataOrigin: "polymarket" as const,
+      evidenceStatus: "country-anchor" as const,
+      marketUrl: `https://polymarket.com/event/rolling-test-${index}`,
+      updatedAt,
+      volume: [8_161_752, 183_019, 17_151_386, 80_729, 8_886_800][index]!,
+      volume24h: [20_540, 20_046, 421_439, 1_316, 21_645][index]!,
+      priceChange1h: [0.015, 0.005, null, 0.235, -0.01][index]!,
+      priceChange24h: [0.015, -0.11, null, 0.235, -0.07][index]!,
+      priceChange7d: index === 3 ? 0.8 : null,
+    })),
+  };
+
+  await page.route("**/api/global-conflict-events", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(liveFeed),
+    });
+  });
+  await page.route("**/api/global-conflict-activity?**", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        dataMode: "live",
+        updatedAt,
+        expiresAfterSeconds: 3_600,
+        sourceLabel: "Polymarket Data API",
+        items: [],
+      }),
+    });
+  });
+
+  const shell = await openReadyMap(page, "/global-conflict-map-preview");
+  await expect(shell).toHaveAttribute("data-feed-mode", "live", {
+    timeout: 5_000,
+  });
+  const rail = page.getByRole("complementary", { name: "Live market activity" });
+  await expect(rail).toBeVisible();
+  await expect(rail).toHaveAttribute("data-activity-count", "3");
+  await expect(rail).toContainText("Odds +1.5 pp");
+  await expect(rail).toContainText("Odds -11.0 pp");
+  await expect(rail).toContainText("Volume $421.4K");
+  await expect(rail.locator('[data-activity-source="rolling"]')).toHaveCount(3);
+  await expect(
+    rail.locator('[data-activity-kind="high-volume"]'),
+  ).toHaveAttribute("data-activity-direction", "neutral");
+  await expect(rail).not.toContainText(liveFeed.events[3]!.title);
+  await expect(rail).not.toContainText("7d");
+});
+
 test("shows only newly observed odds moves and referral-safe trade pushes", async ({
   page,
 }) => {
@@ -778,8 +842,8 @@ test("shows only newly observed odds moves and referral-safe trade pushes", asyn
       evidenceStatus: "country-anchor" as const,
       marketUrl: `https://polymarket.com/event/activity-test-${index}`,
       volume: index === 2 ? 900_000 : event.volume,
-      priceChange1h: index === 1 ? -0.31 : index === 2 ? 0.5 : null,
-      priceChange24h: index === 0 ? 0.237 : index === 3 ? 0.2 : null,
+      priceChange1h: index === 1 ? -0.0031 : index === 2 ? 0.005 : null,
+      priceChange24h: index === 0 ? 0.00237 : index === 3 ? 0.002 : null,
       priceChange7d: index === 1 ? -0.29 : index === 2 ? 0.5 : null,
     })),
   };
@@ -824,17 +888,17 @@ test("shows only newly observed odds moves and referral-safe trade pushes", asyn
       body: JSON.stringify({
         dataMode: "live",
         updatedAt,
-        expiresAfterSeconds: 900,
+        expiresAfterSeconds: 3_600,
         sourceLabel: "Polymarket Data API",
         items: [
           {
             id: "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
             kind: "large-buy",
-            title: liveFeed.events[0]!.title,
+            title: liveFeed.events[4]!.title,
             outcome: "YES",
             notional: 24_500,
             occurredAt: new Date(Date.now() - 60_000).toISOString(),
-            marketUrl: liveFeed.events[0]!.marketUrl,
+            marketUrl: liveFeed.events[4]!.marketUrl,
           },
         ],
       }),
@@ -860,15 +924,15 @@ test("shows only newly observed odds moves and referral-safe trade pushes", asyn
     .toBe(true);
   const rail = page.getByRole("complementary", { name: "Live market activity" });
   await expect(rail).toBeVisible();
-  await expect(rail).toHaveAttribute("data-activity-count", "1");
+  await expect(rail).toHaveAttribute("data-activity-count", "3");
   await expect(rail).toContainText("Large BUY · YES");
   await expect(rail).not.toContainText("Odds");
   await expect(rail).not.toContainText("7d");
 
   await page.evaluate(() => window.dispatchEvent(new Event("online")));
   await expect.poll(() => conflictFeedRequestCount).toBeGreaterThanOrEqual(2);
-  await expect(rail).toHaveAttribute("data-activity-count", "2");
-  await expect(rail).toContainText("Odds +5.0%");
+  await expect(rail).toHaveAttribute("data-activity-count", "3");
+  await expect(rail).toContainText("Odds +5.0 pp");
   await expect(rail).toContainText("live");
   await expect(
     rail.locator('[data-activity-kind="odds-rise"]'),
@@ -886,13 +950,13 @@ test("shows only newly observed odds moves and referral-safe trade pushes", asyn
     (await rail.locator("[data-expires-at]").first().getAttribute("data-expires-at")) ??
       "",
   );
-  expect(expiry - Date.now()).toBeGreaterThan(14 * 60 * 1_000);
-  expect(expiry - Date.now()).toBeLessThanOrEqual(15 * 60 * 1_000);
+  expect(expiry - Date.now()).toBeGreaterThan(58 * 60 * 1_000);
+  expect(expiry - Date.now()).toBeLessThanOrEqual(60 * 60 * 1_000);
 
   const trackLinks = rail.getByRole("link", {
     name: "Track this market in DropsBot",
   });
-  await expect(trackLinks).toHaveCount(2);
+  await expect(trackLinks).toHaveCount(3);
   for (const trackLink of await trackLinks.all()) {
     await expect(trackLink).toHaveText("Track");
   }
@@ -902,12 +966,12 @@ test("shows only newly observed odds moves and referral-safe trade pushes", asyn
       .getByRole("link", { name: "Track this market in DropsBot" }),
   ).toHaveAttribute(
     "href",
-    "https://t.me/Drops?start=TRACKpm_activity-test-0",
+    "https://t.me/Drops?start=TRACKpm_activity-test-4",
   );
   const marketLinks = rail.getByRole("link", {
     name: "Open activity market on Polymarket via DropsBot",
   });
-  await expect(marketLinks).toHaveCount(2);
+  await expect(marketLinks).toHaveCount(3);
   await expect(
     rail
       .locator('[data-activity-kind="large-buy"]')
@@ -916,7 +980,7 @@ test("shows only newly observed odds moves and referral-safe trade pushes", asyn
       }),
   ).toHaveAttribute(
     "href",
-    "https://polymarket.com/event/activity-test-0?via=drops1",
+    "https://polymarket.com/event/activity-test-4?via=drops1",
   );
   for (const marketLink of await marketLinks.all()) {
     await expect(marketLink).toHaveAttribute("href", /\?via=drops1$/);
@@ -978,11 +1042,18 @@ test("shows only newly observed odds moves and referral-safe trade pushes", asyn
     .click();
   await expect(rail).toBeVisible();
 
+  const dismissedNoticeId = await rail
+    .locator("[data-notice-id]")
+    .first()
+    .getAttribute("data-notice-id");
+  expect(dismissedNoticeId).not.toBeNull();
   await rail
     .getByRole("button", { name: "Dismiss activity notification" })
     .first()
     .click();
-  await expect(rail).toHaveAttribute("data-activity-count", "1");
+  await expect(
+    rail.locator(`[data-notice-id="${dismissedNoticeId}"]`),
+  ).toHaveCount(0);
 });
 
 test("refreshes a stale initial conflict feed immediately", async ({ page }) => {

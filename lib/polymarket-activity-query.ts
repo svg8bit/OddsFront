@@ -1,7 +1,7 @@
 const DATA_API_TRADES_URL = "https://data-api.polymarket.com/trades";
 
-export const POLYMARKET_ACTIVITY_TTL_SECONDS = 15 * 60;
-export const POLYMARKET_LARGE_TRADE_USD = 10_000;
+export const POLYMARKET_ACTIVITY_TTL_SECONDS = 60 * 60;
+export const POLYMARKET_LARGE_TRADE_USD = 5_000;
 
 export function buildPolymarketActivityUrl(
   eventIds: readonly string[],

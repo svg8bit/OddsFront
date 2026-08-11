@@ -67,6 +67,22 @@ npm run test:e2e
 The browser suite uses a fixture route and writes screenshots only to the
 ignored `output/` directory.
 
+## Activity rail signals
+
+The right-hand rail is filled from current public Polymarket data and keeps at
+most three distinct events visible. Fresh trades have priority, followed by
+newly observed odds changes, liquid rolling movers, and 24-hour volume leaders.
+
+- Trades: at least `$5K`, observed during the previous 60 minutes.
+- One-hour movers: at least `1.0` percentage point on `$100K` total volume and
+  `$5K` 24-hour volume.
+- 24-hour movers: at least `3.0` percentage points with the same liquidity
+  gates.
+- Volume leaders: at least `$1M` total volume and `$25K` 24-hour volume.
+
+Rolling signals expire when the market feed is stale, never use seven-day
+changes, and are deduplicated by event before rendering.
+
 ## How it works
 
 ```text
