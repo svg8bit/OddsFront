@@ -356,7 +356,7 @@ async function buildLiveConflictPreviewFeed(): Promise<ConflictPreviewFeed> {
 
 const getCachedLiveConflictPreviewFeed = unstable_cache(
   buildLiveConflictPreviewFeed,
-  ["oddsfront-live-conflict-feed-v3-five-minute-freshness"],
+  ["oddsfront-live-conflict-feed-v4-market-condition-ids"],
   {
     revalidate: REFRESH_SECONDS,
     tags: ["oddsfront-live-conflict-feed"],
