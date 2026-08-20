@@ -33,9 +33,6 @@ odds moves in a lightweight activity rail.
 - Volume-weighted markers, event paging, expiry data, and weekly odds changes.
 - Read-only market activity for material odds moves and verified large trades.
 - Compact macro and crypto strip with resilient server-side data fallbacks.
-- Adaptive rendering: a low-bandwidth SVG map on compact or constrained
-  devices, with the detailed WebGL map loaded only when appropriate or asked
-  for by the visitor.
 - Self-hosted map geometry, fonts, night texture, MapLibre worker, and brand
   assets for predictable rendering.
 - No wallet connection, custody, signing, or embedded trading.
@@ -90,9 +87,7 @@ changes, and are deduplicated by event before rendering.
 
 ```text
 Browser
-  ├── adaptive map UI
-  │     ├── Lite: static Natural Earth map and interactive event markers
-  │     └── Detailed: lazily loaded MapLibre map
+  ├── static map UI and locally hosted basemap assets
   └── cached read-only Next.js endpoints
         ├── Polymarket public market data
         ├── public market-price fallbacks

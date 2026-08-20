@@ -8,7 +8,7 @@ export default function LoadingGlobalConflictMapPreview() {
         placeItems: "center",
         background: "#050D18",
         color: "#91A1B7",
-        font: "500 13px var(--font-ui)",
+        font: "500 13px Inter, sans-serif",
       }}
     >
       Preparing map preview…

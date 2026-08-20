@@ -29,23 +29,6 @@ validated public destinations.
   social image required to render without a third-party basemap token. Detailed
   vector tiles come from the fixed OpenFreeMap origin at regional zoom levels.
 
-## Adaptive map delivery
-
-The initial client chooses one of two functional map experiences:
-
-- **Lite** uses a deterministic Natural Earth SVG, keeps every qualified event
-  marker, popup, activity alert, and market-strip link, and does not download
-  MapLibre or create a WebGL canvas.
-- **Detailed** dynamically imports MapLibre for capable desktop devices. Lite
-  users can opt in with the `Detailed map` control, and an import failure falls
-  back to Lite without losing market access.
-
-Lite is selected for compact or coarse-pointer viewports, data-saving or 3G
-connections, and constrained memory/CPU profiles. `?map=lite` and `?map=full`
-are deterministic diagnostic overrides. Analytics is imported during browser
-idle time and never blocks map readiness. Regenerate the versioned Lite asset
-with `npm run generate:lite-map` after reviewing its Natural Earth inputs.
-
 ## Event lifecycle
 
 1. The server paginates active Polymarket geopolitics events.
