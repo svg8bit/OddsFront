@@ -1,6 +1,6 @@
 import type { Metadata, Viewport } from "next";
-import { Analytics } from "@vercel/analytics/next";
-import "maplibre-gl/dist/maplibre-gl.css";
+
+import { DeferredAnalytics } from "@/features/deferred-analytics";
 
 import {
   APP_ICON_PATH,
@@ -56,12 +56,18 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
       <head>
         <meta property="og:image:secure_url" content={SOCIAL_PREVIEW_URL} />
         <link rel="image_src" href={SOCIAL_PREVIEW_URL} />
+        <link
+          rel="preload"
+          href="/maps/world-lite-v1.svg"
+          as="image"
+          type="image/svg+xml"
+          media="(max-width: 720px)"
+          fetchPriority="high"
+        />
       </head>
       <body>
         {children}
-        {process.env.NODE_ENV === "production" ? (
-          <Analytics mode="production" />
-        ) : null}
+        {process.env.NODE_ENV === "production" ? <DeferredAnalytics /> : null}
       </body>
     </html>
   );

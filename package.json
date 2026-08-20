@@ -15,6 +15,7 @@
   "scripts": {
     "dev": "next dev --hostname 127.0.0.1",
     "generate:country-anchors": "node scripts/generate-country-anchors.mjs",
+    "generate:lite-map": "node scripts/generate-lite-map.mjs",
     "build": "next build",
     "start": "next start --hostname 127.0.0.1",
     "lint": "eslint .",

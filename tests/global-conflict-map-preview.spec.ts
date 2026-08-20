@@ -27,7 +27,8 @@ async function openReadyMap(
   route = "/global-conflict-map-preview?fixture=1",
 ) {
   await page.emulateMedia({ reducedMotion: "reduce", colorScheme: "dark" });
-  await page.goto(route, {
+  const separator = route.includes("?") ? "&" : "?";
+  await page.goto(`${route}${separator}map=full`, {
     waitUntil: "domcontentloaded",
   });
   const shell = page.locator("main[data-map-ready]");
@@ -48,7 +49,7 @@ async function openActivityRailPage(page: Page) {
     });
   });
   await page.emulateMedia({ reducedMotion: "reduce", colorScheme: "dark" });
-  await page.goto("/global-conflict-map-preview", {
+  await page.goto("/global-conflict-map-preview?map=full", {
     waitUntil: "domcontentloaded",
   });
   const shell = page.locator("main[data-map-ready]");
@@ -58,6 +59,83 @@ async function openActivityRailPage(page: Page) {
   await page.evaluate(async () => document.fonts.ready);
   return shell;
 }
+
+test("keeps the conflict map functional in explicit low-bandwidth mode", async ({
+  page,
+}) => {
+  const maplibreRequests: string[] = [];
+  page.on("request", (request) => {
+    if (request.url().includes("maplibre")) maplibreRequests.push(request.url());
+  });
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/global-conflict-map-preview?fixture=1&map=lite", {
+    waitUntil: "domcontentloaded",
+  });
+  const shell = page.locator('main[data-map-mode="lite"]');
+  await expect(shell).toHaveAttribute("data-map-ready", "true");
+  await expect(shell).toHaveAttribute("data-event-count", "7");
+  await expect(shell).toHaveAttribute("data-visible-marker-count", "7");
+  await expect(page.locator("canvas")).toHaveCount(0);
+  await expect(page.locator('[data-lite-world-map="true"]')).toBeVisible();
+  await expect(
+    page.getByRole("button", {
+      name: /Eastern Europe: Ukraine.*Ceasefire by Sep/,
+    }),
+  ).toBeVisible();
+  await page
+    .getByRole("button", {
+      name: /Eastern Europe: Ukraine.*Ceasefire by Sep/,
+    })
+    .click();
+  await expect(page.getByTestId("conflict-popup")).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Enable detailed interactive map" }),
+  ).not.toBeVisible();
+  expect(maplibreRequests).toEqual([]);
+
+  await page
+    .getByTestId("conflict-popup")
+    .getByRole("button", { name: /Close .* market popup/ })
+    .click();
+  await page
+    .getByRole("button", { name: "Enable detailed interactive map" })
+    .click();
+  const detailedShell = page.locator('main[data-hotspot-rendering="maplibre-native-circles"]');
+  await expect(detailedShell).toHaveAttribute("data-map-ready", "true", {
+    timeout: 30_000,
+  });
+  await expect(page.locator("canvas")).toHaveCount(1);
+  expect(maplibreRequests.length).toBeGreaterThan(0);
+});
+
+test("automatically avoids WebGL on a constrained connection", async ({
+  page,
+}) => {
+  const maplibreRequests: string[] = [];
+  page.on("request", (request) => {
+    if (request.url().includes("maplibre")) maplibreRequests.push(request.url());
+  });
+  await page.setViewportSize({ width: 1_440, height: 900 });
+  await page.addInitScript(() => {
+    Object.defineProperties(navigator, {
+      connection: {
+        configurable: true,
+        value: { effectiveType: "3g", saveData: false },
+      },
+      deviceMemory: { configurable: true, value: 8 },
+      hardwareConcurrency: { configurable: true, value: 8 },
+    });
+  });
+  await page.goto("/global-conflict-map-preview?fixture=1", {
+    waitUntil: "domcontentloaded",
+  });
+
+  const shell = page.locator('main[data-map-mode="lite"]');
+  await expect(shell).toHaveAttribute("data-map-ready", "true");
+  await expect(page.locator("canvas")).toHaveCount(0);
+  expect(maplibreRequests).toEqual([]);
+});
 
 test("renders the deterministic 1672x941 approval frame", async ({ page }) => {
   const shell = await openReadyMap(page);
@@ -236,7 +314,7 @@ test("animates rich native map beacons without DOM marker visuals", async ({
   page,
 }) => {
   await page.emulateMedia({ reducedMotion: "no-preference", colorScheme: "dark" });
-  await page.goto("/global-conflict-map-preview?fixture=1", {
+  await page.goto("/global-conflict-map-preview?fixture=1&map=full", {
     waitUntil: "domcontentloaded",
   });
   const shell = page.locator("main[data-map-ready]");

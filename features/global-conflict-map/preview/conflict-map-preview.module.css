@@ -137,7 +137,7 @@
   border-radius: 12px;
   background: rgba(5, 17, 34, 0.66);
   color: #e8eef8;
-  font: 540 13px/1 Inter, ui-sans-serif, sans-serif;
+  font: 540 13px/1 var(--font-ui);
   white-space: nowrap;
 }
 
@@ -216,7 +216,7 @@
   inset: 0;
   width: 100%;
   height: 100%;
-  font-family: Inter, ui-sans-serif, sans-serif;
+  font-family: var(--font-ui);
 }
 
 .stage :global(.maplibregl-canvas) {
@@ -234,7 +234,167 @@
   border-top: 0;
   background: transparent;
   color: rgba(190, 204, 222, 0.82);
-  font: 500 10px/1.4 Inter, ui-sans-serif, sans-serif;
+  font: 500 10px/1.4 var(--font-ui);
+}
+
+.liteStage {
+  background: transparent;
+  touch-action: manipulation;
+}
+
+.liteShell {
+  background: transparent;
+}
+
+.liteWorld {
+  position: absolute;
+  z-index: 0;
+  top: 50%;
+  left: 50%;
+  width: auto;
+  min-width: 100%;
+  height: 100%;
+  aspect-ratio: 16 / 9;
+  transform: translate(-50%, -50%);
+  contain: strict;
+}
+
+.liteMarkerLayer {
+  position: absolute;
+  z-index: 2;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.liteMarkerAnchor {
+  position: absolute;
+  z-index: 1;
+  top: var(--lite-marker-y);
+  left: var(--lite-marker-x);
+  width: 0;
+  height: 0;
+  pointer-events: none;
+}
+
+.liteMarkerAnchor[data-selected="true"] {
+  z-index: 9;
+}
+
+.liteHotspotTarget {
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: grid;
+  width: 44px;
+  height: 44px;
+  transform: translate(-50%, -50%);
+  place-items: center;
+  border: 0;
+  border-radius: 999px;
+  padding: 0;
+  outline: 0;
+  background: transparent;
+  cursor: pointer;
+  pointer-events: auto;
+}
+
+.liteHotspotVisual {
+  display: block;
+  width: calc(8px * var(--marker-scale));
+  height: calc(8px * var(--marker-scale));
+  border: 1px solid color-mix(in srgb, var(--event-tone) 82%, #ffffff);
+  border-radius: 999px;
+  background: var(--event-tone);
+  box-shadow:
+    0 0 0 calc(4px * var(--marker-scale))
+      color-mix(in srgb, var(--event-tone) 14%, transparent),
+    0 0 calc(13px * var(--marker-scale))
+      color-mix(in srgb, var(--event-tone) 54%, transparent);
+  opacity: var(--marker-opacity);
+}
+
+.liteMarkerAnchor[data-selected="true"] .liteHotspotVisual,
+.liteHotspotTarget:hover .liteHotspotVisual,
+.liteHotspotTarget:focus-visible .liteHotspotVisual {
+  box-shadow:
+    0 0 0 calc(5px * var(--marker-scale))
+      color-mix(in srgb, var(--event-tone) 24%, transparent),
+    0 0 calc(18px * var(--marker-scale))
+      color-mix(in srgb, var(--event-tone) 72%, transparent);
+  opacity: 1;
+}
+
+.liteHotspotTarget:focus-visible {
+  outline: 2px solid #dce8ff;
+  outline-offset: -4px;
+}
+
+.liteHotspotLabel {
+  position: absolute;
+  z-index: 3;
+  top: 3px;
+  left: 34px;
+  transform: translateY(3px);
+  border: 1px solid rgba(128, 155, 195, 0.18);
+  border-radius: 7px;
+  padding: 5px 8px;
+  background: rgba(5, 15, 28, 0.94);
+  color: #dce5f2;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.28);
+  font-size: 10px;
+  font-weight: 620;
+  opacity: 0;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.liteHotspotTarget:hover .liteHotspotLabel,
+.liteHotspotTarget:focus-visible .liteHotspotLabel {
+  transform: translateY(0);
+  opacity: 1;
+}
+
+.enableDetailedMap {
+  position: absolute;
+  z-index: 12;
+  top: 16px;
+  left: 16px;
+  display: inline-flex;
+  height: 34px;
+  align-items: center;
+  gap: 7px;
+  border: 1px solid rgba(118, 153, 204, 0.28);
+  border-radius: 9px;
+  padding: 0 11px;
+  background: rgba(5, 16, 31, 0.94);
+  color: #cbd8e9;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.22);
+  font-size: 10px;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.enableDetailedMap > span {
+  width: 7px;
+  height: 7px;
+  border: 1px solid #79a8ff;
+  border-radius: 999px;
+  box-shadow: 0 0 8px rgba(89, 103, 255, 0.55);
+}
+
+.enableDetailedMap:hover,
+.enableDetailedMap:focus-visible {
+  border-color: rgba(126, 164, 221, 0.52);
+  outline: 0;
+  background: rgba(10, 27, 49, 0.97);
+  color: #ffffff;
+}
+
+.enableDetailedMap:disabled {
+  cursor: progress;
+  opacity: 0.72;
 }
 
 .markerOverlay {
@@ -841,7 +1001,7 @@
   padding: 0 7px;
   background: rgba(111, 137, 174, 0.07);
   color: #a8b8cc;
-  font: 620 9px/1 Inter, ui-sans-serif, sans-serif;
+  font: 620 9px/1 var(--font-ui);
   text-decoration: none;
   cursor: pointer;
 }
@@ -1162,6 +1322,24 @@
   }
 
   .activityRail .activityCard:nth-child(n + 2) {
+    display: none;
+  }
+
+  .liteWorld {
+    transform: translate(-58%, -50%);
+  }
+
+  .liteHotspotTarget {
+    width: 42px;
+    height: 42px;
+  }
+
+  .enableDetailedMap {
+    top: 12px;
+    left: 12px;
+  }
+
+  .stage[data-popup-open="true"] .enableDetailedMap {
     display: none;
   }
 
