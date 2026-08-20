@@ -8,7 +8,7 @@ export default function GlobalConflictMapLoading() {
         placeItems: "center",
         background: "#050D18",
         color: "#71839A",
-        font: "500 13px Inter, sans-serif",
+        font: "500 13px var(--font-ui)",
       }}
       aria-label="Loading global conflict map"
     >

@@ -87,6 +87,7 @@ export function ConflictPopup({
         {visibleParticipantCodes.length > 0 ? (
           <span
             className={styles.participantFlags}
+            role="img"
             aria-label={`Event participants: ${participantCodes.join(", ")}`}
             data-testid="participant-flags"
           >

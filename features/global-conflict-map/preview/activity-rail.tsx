@@ -649,6 +649,7 @@ export function ActivityRail({
                   <div
                     className={styles.activityFlags}
                     data-activity-flags
+                    role="img"
                     aria-label={`Event participants: ${event.countryCodes.join(", ")}`}
                   >
                     {[...new Set(event.countryCodes)]
