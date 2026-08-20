@@ -12,6 +12,9 @@ import {
   buildDropsBotAssetTrackUrl,
   buildDropstabAssetUrl,
 } from "../lib/dropstab-links";
+import {
+  selectMapRenderProfile,
+} from "../features/global-conflict-map/preview/map-render-profile";
 
 const artifactRoot = path.resolve(
   process.cwd(),
@@ -79,6 +82,71 @@ test("keeps the full map on a wide desktop with constrained hardware", async ({
   await expect(page.getByText("Detailed map", { exact: true })).toHaveCount(0);
   await expect(stage).toHaveCSS("width", "1917px");
   await expect(canvas).toHaveCSS("width", "1917px");
+  await expect(page.locator("main[data-map-ready]")).toHaveAttribute(
+    "data-map-pixel-ratio",
+    "0.75",
+  );
+  const canvasResolution = await canvas.evaluate(
+    (element: HTMLCanvasElement) => ({
+      cssWidth: element.clientWidth,
+      backingWidth: element.width,
+    }),
+  );
+  expect(canvasResolution.backingWidth / canvasResolution.cssWidth).toBeCloseTo(
+    0.75,
+    2,
+  );
+});
+
+test("selects a bounded WebGL canvas resolution without shrinking the map", () => {
+  expect(
+    selectMapRenderProfile({
+      devicePixelRatio: 2,
+      viewportWidth: 1_917,
+      viewportHeight: 779,
+      compactOrTouch: false,
+      hardwareConcurrency: 8,
+      deviceMemory: 8,
+    }),
+  ).toEqual({
+    pixelRatio: 0.84,
+    quality: "balanced",
+    pixelBudget: 1_050_000,
+  });
+  expect(
+    selectMapRenderProfile({
+      devicePixelRatio: 1,
+      viewportWidth: 1_917,
+      viewportHeight: 779,
+      compactOrTouch: false,
+      hardwareConcurrency: 4,
+      deviceMemory: 4,
+    }),
+  ).toEqual({
+    pixelRatio: 0.75,
+    quality: "constrained",
+    pixelBudget: 800_000,
+  });
+  expect(
+    selectMapRenderProfile({
+      devicePixelRatio: 1,
+      viewportWidth: 1_366,
+      viewportHeight: 768,
+      compactOrTouch: false,
+      hardwareConcurrency: 8,
+      deviceMemory: 8,
+    }).pixelRatio,
+  ).toBe(1);
+  expect(
+    selectMapRenderProfile({
+      devicePixelRatio: 3,
+      viewportWidth: 390,
+      viewportHeight: 844,
+      compactOrTouch: true,
+      hardwareConcurrency: 8,
+      deviceMemory: 8,
+    }).pixelRatio,
+  ).toBe(1);
 });
 
 test("renders the deterministic 1672x941 approval frame", async ({ page }) => {

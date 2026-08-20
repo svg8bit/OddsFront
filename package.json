@@ -21,6 +21,7 @@
     "typecheck": "tsc --noEmit",
     "check": "npm run lint && npm run typecheck && npm run build",
     "test:e2e": "playwright test",
+    "benchmark:map": "node scripts/benchmark-map-performance.mjs",
     "test:visual:reference": "node scripts/compare-map-reference.mjs"
   },
   "dependencies": {

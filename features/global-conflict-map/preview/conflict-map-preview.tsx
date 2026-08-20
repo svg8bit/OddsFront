@@ -40,6 +40,9 @@ import {
   SELECTED_COUNTRY_PULSE_ACTIVE,
   SELECTED_COUNTRY_PULSE_IDLE,
 } from "@/features/global-conflict-map/preview/map-style";
+import {
+  selectMapRenderProfile,
+} from "@/features/global-conflict-map/preview/map-render-profile";
 import { useConflictMapPreviewStore } from "@/features/global-conflict-map/preview/store";
 import styles from "@/features/global-conflict-map/preview/conflict-map-preview.module.css";
 import type {
@@ -69,6 +72,7 @@ const TRACKPAD_ZOOM_RATE = 1 / 55;
 const WHEEL_ZOOM_RATE = 1 / 140;
 const PULSE_INTERVAL_MS = 3_000;
 const FEED_REFRESH_JITTER_MS = 30_000;
+const FEED_INITIAL_REFRESH_DELAY_MS = 15_000;
 const WORLD_BOUNDS: [number, number, number, number] = [
   -179.9, -75, 179.9, 82,
 ];
@@ -238,12 +242,21 @@ export function ConflictMapPreview({
   const pulseEpoch = useRef(0);
   const reduceMotion = usePrefersReducedMotion();
   const [webGlSupported] = useState(supportsWebGl2);
-  const [mapPixelRatio] = useState(() => {
-    const devicePixelRatio = Math.max(1, window.devicePixelRatio || 1);
+  const [mapRenderProfile] = useState(() => {
     const compactOrTouch = window.matchMedia(
       "(max-width: 860px), (pointer: coarse)",
     ).matches;
-    return Math.min(compactOrTouch ? 1.25 : 1.5, devicePixelRatio);
+    const navigatorWithMemory = navigator as Navigator & {
+      deviceMemory?: number;
+    };
+    return selectMapRenderProfile({
+      devicePixelRatio: window.devicePixelRatio,
+      viewportWidth: window.innerWidth,
+      viewportHeight: window.innerHeight,
+      compactOrTouch,
+      hardwareConcurrency: navigator.hardwareConcurrency,
+      deviceMemory: navigatorWithMemory.deviceMemory,
+    });
   });
   const [feed, setFeed] = useState(initialFeed);
   const [viewState, setViewState] = useState<ViewState>(
@@ -378,7 +391,7 @@ export function ConflictMapPreview({
   }, []);
 
   useEffect(() => {
-    if (fixtureMode) return;
+    if (fixtureMode || !mapReady) return;
 
     let cancelled = false;
     let timer: number | null = null;
@@ -421,22 +434,22 @@ export function ConflictMapPreview({
       ? Math.max(0, Date.now() - feedUpdatedAt)
       : refreshMs;
     const remainingFreshness = Math.max(0, refreshMs - feedAge);
-    // Refresh an expired ISR payload immediately. Fresh server payloads wait
-    // only for the unused part of their refresh window, avoiding a second
-    // full interval of staleness on cold page loads.
-    schedule(
-      remainingFreshness === 0
-        ? 0
-        : remainingFreshness +
-            Math.floor(Math.random() * FEED_REFRESH_JITTER_MS),
-    );
+    // Fresh server payloads wait for the unused part of their refresh window.
+    // An expired production payload stays usable while the map completes its
+    // first interaction window, then refreshes with per-client jitter.
+    const productionDelay =
+      process.env.NODE_ENV === "production"
+        ? FEED_INITIAL_REFRESH_DELAY_MS +
+          Math.floor(Math.random() * FEED_REFRESH_JITTER_MS)
+        : 0;
+    schedule(Math.max(productionDelay, remainingFreshness));
     return () => {
       cancelled = true;
       window.removeEventListener("online", refreshWhenOnline);
       controller?.abort();
       if (timer !== null) window.clearTimeout(timer);
     };
-  }, [feed.refreshSeconds, feed.updatedAt, fixtureMode]);
+  }, [feed.refreshSeconds, feed.updatedAt, fixtureMode, mapReady]);
 
   const updateMarkerPositions = useCallback((force = false) => {
     const map = mapRef.current?.getMap();
@@ -812,15 +825,13 @@ export function ConflictMapPreview({
   const markMapReady = () => {
     if (mapReady || readyScheduled.current) return;
     readyScheduled.current = true;
-    void document.fonts.ready.then(() => {
+    window.requestAnimationFrame(() => {
       window.requestAnimationFrame(() => {
-        window.requestAnimationFrame(() => {
-          setTileHealth((health) => (health === "loading" ? "ready" : health));
-          syncCameraFromMap();
-          setMapReady(true);
-          updateMarkerPositions();
-          applySelectedCountryState();
-        });
+        setTileHealth((health) => (health === "loading" ? "ready" : health));
+        syncCameraFromMap();
+        setMapReady(true);
+        updateMarkerPositions();
+        applySelectedCountryState();
       });
     });
   };
@@ -876,6 +887,9 @@ export function ConflictMapPreview({
       data-map-longitude={viewState.longitude.toFixed(4)}
       data-map-latitude={viewState.latitude.toFixed(4)}
       data-map-zoom={viewState.zoom.toFixed(3)}
+      data-map-pixel-ratio={mapRenderProfile.pixelRatio}
+      data-map-render-quality={mapRenderProfile.quality}
+      data-map-pixel-budget={mapRenderProfile.pixelBudget}
       data-reduced-motion={reduceMotion ? "true" : "false"}
       data-hotspot-rendering="maplibre-native-circles"
       data-marker-glyph="volume-circles"
@@ -890,7 +904,11 @@ export function ConflictMapPreview({
       data-map-moving="false"
       data-overlay-sync="maplibre-native"
     >
-      <MarketStrip initialFeed={initialMarketStrip} fixtureMode={fixtureMode} />
+      <MarketStrip
+        initialFeed={initialMarketStrip}
+        fixtureMode={fixtureMode}
+        refreshEnabled={mapReady}
+      />
       <section
         className={styles.stage}
         data-popup-open={popupOpen ? "true" : "false"}
@@ -925,7 +943,9 @@ export function ConflictMapPreview({
           ref={mapRef}
           mapLib={maplibregl}
           mapStyle={PREVIEW_MAP_STYLE}
-          pixelRatio={mapPixelRatio}
+          pixelRatio={mapRenderProfile.pixelRatio}
+          refreshExpiredTiles={false}
+          validateStyle={false}
           initialViewState={INITIAL_VIEW_STATE}
           minZoom={MIN_ZOOM}
           maxZoom={MAX_ZOOM}
@@ -1049,6 +1069,7 @@ export function ConflictMapPreview({
         <ActivityRail
           feed={feed}
           fixtureMode={fixtureMode}
+          liveRefreshEnabled={mapReady}
         />
 
         <PreviewControls
