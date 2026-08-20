@@ -102,19 +102,11 @@ export function MarketStrip({ initialFeed, fixtureMode }: MarketStripProps) {
 
   useEffect(() => {
     if (fixtureMode) return;
+    const initialRefresh = window.setTimeout(() => void refresh(), 0);
     const refreshMilliseconds = feed.refreshSeconds * 1_000;
-    const feedUpdatedAt = Date.parse(feed.updatedAt);
-    const feedAge = Number.isFinite(feedUpdatedAt)
-      ? Math.max(0, Date.now() - feedUpdatedAt)
-      : refreshMilliseconds;
-    const initialDelay = Math.max(0, refreshMilliseconds - feedAge);
-    let interval: number | null = null;
-    const initialRefresh = window.setTimeout(() => {
+    const interval = window.setInterval(() => {
       if (document.visibilityState === "visible") void refresh();
-      interval = window.setInterval(() => {
-        if (document.visibilityState === "visible") void refresh();
-      }, refreshMilliseconds);
-    }, initialDelay);
+    }, refreshMilliseconds);
     const onVisibilityChange = () => {
       if (
         document.visibilityState === "visible" &&
@@ -126,10 +118,10 @@ export function MarketStrip({ initialFeed, fixtureMode }: MarketStripProps) {
     document.addEventListener("visibilitychange", onVisibilityChange);
     return () => {
       window.clearTimeout(initialRefresh);
-      if (interval !== null) window.clearInterval(interval);
+      window.clearInterval(interval);
       document.removeEventListener("visibilitychange", onVisibilityChange);
     };
-  }, [feed.refreshSeconds, feed.updatedAt, fixtureMode, refresh]);
+  }, [feed.refreshSeconds, fixtureMode, refresh]);
 
   return (
     <nav

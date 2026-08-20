@@ -1,7 +1,5 @@
 "use client";
 
-import "maplibre-gl/dist/maplibre-gl.css";
-
 import {
   type MouseEvent as ReactMouseEvent,
   useCallback,
@@ -49,7 +47,6 @@ import type {
   ConflictPreviewEvent,
   PreviewViewState,
 } from "@/features/global-conflict-map/preview/types";
-import { useConflictPreviewFeed } from "@/features/global-conflict-map/preview/use-conflict-preview-feed";
 
 // Next.js/Turbopack does not preserve MapLibre's sibling worker URL when the
 // library is bundled into a route chunk. Pin the worker to a same-origin copy
@@ -71,6 +68,7 @@ const MAX_ZOOM = 7;
 const TRACKPAD_ZOOM_RATE = 1 / 55;
 const WHEEL_ZOOM_RATE = 1 / 140;
 const PULSE_INTERVAL_MS = 3_000;
+const FEED_REFRESH_JITTER_MS = 30_000;
 const WORLD_BOUNDS: [number, number, number, number] = [
   -179.9, -75, 179.9, 82,
 ];
@@ -166,6 +164,31 @@ interface ConflictMapPreviewProps {
   fixtureMode: boolean;
 }
 
+function isConflictPreviewFeed(value: unknown): value is ConflictPreviewFeed {
+  if (!value || typeof value !== "object") return false;
+  const candidate = value as Partial<ConflictPreviewFeed>;
+  return (
+    (candidate.dataMode === "live" || candidate.dataMode === "fallback") &&
+    typeof candidate.updatedAt === "string" &&
+    typeof candidate.refreshSeconds === "number" &&
+    typeof candidate.minimumVolume === "number" &&
+    Array.isArray(candidate.events) &&
+    candidate.events.every(
+      (event) =>
+        event &&
+        typeof event.id === "string" &&
+        typeof event.title === "string" &&
+        Array.isArray(event.coordinates) &&
+        event.coordinates.length === 2 &&
+        ["place", "country", "regional", "alliance"].includes(
+          event.geographyKind,
+        ) &&
+        typeof event.volume === "number" &&
+        event.volume >= candidate.minimumVolume!,
+    )
+  );
+}
+
 function WebGlFallback({
   events,
   initialMarketStrip,
@@ -201,7 +224,6 @@ export function ConflictMapPreview({
   initialMarketStrip,
   fixtureMode,
 }: ConflictMapPreviewProps) {
-  const feed = useConflictPreviewFeed(initialFeed, fixtureMode);
   const mapRef = useRef<MapRef>(null);
   const selectedCountryIds = useRef<Set<string>>(new Set());
   const eventCountryIds = useRef<Set<string>>(new Set());
@@ -223,6 +245,7 @@ export function ConflictMapPreview({
     ).matches;
     return Math.min(compactOrTouch ? 1.25 : 1.5, devicePixelRatio);
   });
+  const [feed, setFeed] = useState(initialFeed);
   const [viewState, setViewState] = useState<ViewState>(
     INITIAL_VIEW_STATE as ViewState,
   );
@@ -353,6 +376,67 @@ export function ConflictMapPreview({
     mediaQuery.addEventListener("change", syncCompactViewport);
     return () => mediaQuery.removeEventListener("change", syncCompactViewport);
   }, []);
+
+  useEffect(() => {
+    if (fixtureMode) return;
+
+    let cancelled = false;
+    let timer: number | null = null;
+    let controller: AbortController | null = null;
+    const refresh = async () => {
+      if (controller) return;
+      controller = new AbortController();
+      try {
+        const response = await fetch("/api/global-conflict-events", {
+          headers: { Accept: "application/json" },
+          signal: controller.signal,
+        });
+        if (!response.ok) return;
+        const payload: unknown = await response.json();
+        if (!cancelled && isConflictPreviewFeed(payload)) setFeed(payload);
+      } catch {
+        // Keep the last verified payload on transient network failures.
+      } finally {
+        controller = null;
+      }
+    };
+
+    const refreshMs = Math.max(60, feed.refreshSeconds) * 1_000;
+    const schedule = (delay: number) => {
+      timer = window.setTimeout(async () => {
+        if (document.visibilityState === "visible") await refresh();
+        if (!cancelled) {
+          schedule(
+            refreshMs + Math.floor(Math.random() * FEED_REFRESH_JITTER_MS),
+          );
+        }
+      }, delay);
+    };
+    const refreshWhenOnline = () => {
+      if (document.visibilityState === "visible") void refresh();
+    };
+    window.addEventListener("online", refreshWhenOnline);
+    const feedUpdatedAt = Date.parse(feed.updatedAt);
+    const feedAge = Number.isFinite(feedUpdatedAt)
+      ? Math.max(0, Date.now() - feedUpdatedAt)
+      : refreshMs;
+    const remainingFreshness = Math.max(0, refreshMs - feedAge);
+    // Refresh an expired ISR payload immediately. Fresh server payloads wait
+    // only for the unused part of their refresh window, avoiding a second
+    // full interval of staleness on cold page loads.
+    schedule(
+      remainingFreshness === 0
+        ? 0
+        : remainingFreshness +
+            Math.floor(Math.random() * FEED_REFRESH_JITTER_MS),
+    );
+    return () => {
+      cancelled = true;
+      window.removeEventListener("online", refreshWhenOnline);
+      controller?.abort();
+      if (timer !== null) window.clearTimeout(timer);
+    };
+  }, [feed.refreshSeconds, feed.updatedAt, fixtureMode]);
 
   const updateMarkerPositions = useCallback((force = false) => {
     const map = mapRef.current?.getMap();
@@ -728,13 +812,15 @@ export function ConflictMapPreview({
   const markMapReady = () => {
     if (mapReady || readyScheduled.current) return;
     readyScheduled.current = true;
-    window.requestAnimationFrame(() => {
+    void document.fonts.ready.then(() => {
       window.requestAnimationFrame(() => {
-        setTileHealth((health) => (health === "loading" ? "ready" : health));
-        syncCameraFromMap();
-        setMapReady(true);
-        updateMarkerPositions();
-        applySelectedCountryState();
+        window.requestAnimationFrame(() => {
+          setTileHealth((health) => (health === "loading" ? "ready" : health));
+          syncCameraFromMap();
+          setMapReady(true);
+          updateMarkerPositions();
+          applySelectedCountryState();
+        });
       });
     });
   };
