@@ -11,7 +11,10 @@ import type {
 interface MarketStripProps {
   initialFeed: MarketStripFeed;
   fixtureMode: boolean;
+  refreshEnabled?: boolean;
 }
+
+const MARKET_STRIP_INITIAL_REFRESH_DELAY_MS = 10_000;
 
 function formatPrice(value: number | null): string {
   if (value === null) return "—";
@@ -73,7 +76,11 @@ function isMarketStripFeed(value: unknown): value is MarketStripFeed {
   );
 }
 
-export function MarketStrip({ initialFeed, fixtureMode }: MarketStripProps) {
+export function MarketStrip({
+  initialFeed,
+  fixtureMode,
+  refreshEnabled = true,
+}: MarketStripProps) {
   const [feed, setFeed] = useState(initialFeed);
   const refreshInFlight = useRef(false);
   const lastRefreshAt = useRef(Date.parse(initialFeed.updatedAt) || 0);
@@ -101,27 +108,53 @@ export function MarketStrip({ initialFeed, fixtureMode }: MarketStripProps) {
   }, []);
 
   useEffect(() => {
-    if (fixtureMode) return;
-    const initialRefresh = window.setTimeout(() => void refresh(), 0);
+    if (fixtureMode || !refreshEnabled) return;
+    let cancelled = false;
+    let refreshTimer: number | null = null;
     const refreshMilliseconds = feed.refreshSeconds * 1_000;
-    const interval = window.setInterval(() => {
-      if (document.visibilityState === "visible") void refresh();
-    }, refreshMilliseconds);
-    const onVisibilityChange = () => {
+
+    const schedule = (delay: number) => {
+      if (refreshTimer !== null) window.clearTimeout(refreshTimer);
+      refreshTimer = window.setTimeout(async () => {
+        if (document.visibilityState === "visible") await refresh();
+        if (!cancelled) schedule(refreshMilliseconds);
+      }, delay);
+    };
+    const refreshWhenStale = async () => {
       if (
         document.visibilityState === "visible" &&
         Date.now() - lastRefreshAt.current >= refreshMilliseconds
       ) {
-        void refresh();
+        if (refreshTimer !== null) window.clearTimeout(refreshTimer);
+        await refresh();
+        if (!cancelled) schedule(refreshMilliseconds);
       }
     };
+    const feedUpdatedAt = Date.parse(feed.updatedAt);
+    const feedAge = Number.isFinite(feedUpdatedAt)
+      ? Math.max(0, Date.now() - feedUpdatedAt)
+      : refreshMilliseconds;
+    const productionDelay =
+      process.env.NODE_ENV === "production"
+        ? MARKET_STRIP_INITIAL_REFRESH_DELAY_MS
+        : 0;
+    // The server-rendered strip remains usable while the map initializes.
+    // Only an expired production snapshot waits for this short quiet window.
+    schedule(Math.max(productionDelay, refreshMilliseconds - feedAge));
+    const onVisibilityChange = () => void refreshWhenStale();
     document.addEventListener("visibilitychange", onVisibilityChange);
     return () => {
-      window.clearTimeout(initialRefresh);
-      window.clearInterval(interval);
+      cancelled = true;
+      if (refreshTimer !== null) window.clearTimeout(refreshTimer);
       document.removeEventListener("visibilitychange", onVisibilityChange);
     };
-  }, [feed.refreshSeconds, fixtureMode, refresh]);
+  }, [
+    feed.refreshSeconds,
+    feed.updatedAt,
+    fixtureMode,
+    refresh,
+    refreshEnabled,
+  ]);
 
   return (
     <nav

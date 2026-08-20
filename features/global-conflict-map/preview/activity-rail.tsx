@@ -42,6 +42,7 @@ const ACTIVITY_DROP_TONE = "#FF5368";
 const ACTIVITY_VOLUME_TONE = "#FFB454";
 const ACTIVITY_REFRESH_MS = 60_000;
 const ACTIVITY_REFRESH_JITTER_MS = 15_000;
+const ACTIVITY_INITIAL_DELAY_MS = 20_000;
 const ACTIVITY_INITIAL_JITTER_MS = 5_000;
 const CONDITION_ID_PATTERN = /^0x[a-f0-9]{64}$/i;
 
@@ -69,6 +70,7 @@ interface ActivityNotice {
 interface ActivityRailProps {
   feed: ConflictPreviewFeed;
   fixtureMode: boolean;
+  liveRefreshEnabled: boolean;
 }
 
 function formatMoney(value: number): string {
@@ -293,6 +295,7 @@ function selectVisibleNotices(notices: ActivityNotice[]): ActivityNotice[] {
 export function ActivityRail({
   feed,
   fixtureMode,
+  liveRefreshEnabled,
 }: ActivityRailProps) {
   const seenNoticeIds = useRef(new Set<string>());
   const previousRollingNoticeIds = useRef(new Set<string>());
@@ -467,7 +470,14 @@ export function ActivityRail({
   );
 
   useEffect(() => {
-    if (fixtureMode || feed.dataMode !== "live" || !marketIdQuery) return;
+    if (
+      fixtureMode ||
+      !liveRefreshEnabled ||
+      feed.dataMode !== "live" ||
+      !marketIdQuery
+    ) {
+      return;
+    }
     let cancelled = false;
 
     const refresh = async () => {
@@ -509,11 +519,13 @@ export function ActivityRail({
       }, delay);
     };
 
-    // Small per-client jitter prevents a traffic spike from turning into a
-    // synchronized polling spike while keeping the rail effectively live.
+    // Rolling feed signals already populate the rail. Delay the optional
+    // trade stream until after the map's first interaction window, then add
+    // per-client jitter to avoid synchronized polling spikes.
     schedule(
       process.env.NODE_ENV === "production"
-        ? Math.floor(Math.random() * ACTIVITY_INITIAL_JITTER_MS)
+        ? ACTIVITY_INITIAL_DELAY_MS +
+            Math.floor(Math.random() * ACTIVITY_INITIAL_JITTER_MS)
         : 0,
     );
     return () => {
@@ -527,6 +539,7 @@ export function ActivityRail({
     eventsByUrl,
     feed.dataMode,
     fixtureMode,
+    liveRefreshEnabled,
     marketIdQuery,
   ]);
 
