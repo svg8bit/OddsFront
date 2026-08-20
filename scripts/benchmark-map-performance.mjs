@@ -90,7 +90,13 @@ function readMetric(metrics, name) {
 }
 
 function networkCategory(url, mimeType, resourceType, origin) {
-  if (url.includes("tiles.openfreemap.org")) return "vectorTiles";
+  let hostname = "";
+  try {
+    hostname = new URL(url).hostname;
+  } catch {
+    // CDP normally reports absolute URLs; malformed entries stay uncategorized.
+  }
+  if (hostname === "tiles.openfreemap.org") return "vectorTiles";
   if (url.startsWith(`${origin}/maps/night-earth/`)) return "rasterTiles";
   if (url.startsWith(`${origin}/api/`)) return "api";
   if (resourceType === "Script" || mimeType.includes("javascript")) return "js";
