@@ -15,11 +15,13 @@
   "scripts": {
     "dev": "next dev --hostname 127.0.0.1",
     "generate:country-anchors": "node scripts/generate-country-anchors.mjs",
+    "generate:map-assets": "node scripts/optimize-map-assets.mjs --write",
+    "check:map-assets": "node scripts/optimize-map-assets.mjs --check",
     "build": "next build",
     "start": "next start --hostname 127.0.0.1",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
-    "check": "npm run lint && npm run typecheck && npm run build",
+    "check": "npm run check:map-assets && npm run lint && npm run typecheck && npm run build",
     "test:e2e": "playwright test",
     "benchmark:map": "node scripts/benchmark-map-performance.mjs",
     "test:visual:reference": "node scripts/compare-map-reference.mjs"

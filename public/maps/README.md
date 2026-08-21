@@ -4,10 +4,11 @@
   data. Natural Earth data is public domain. Source:
   <https://github.com/nvkelso/natural-earth-vector>
 - `ne_110m_admin_0_countries.render.geojson` is the runtime-only derivative with
-  unused properties removed, coordinates rounded, and sub-pixel geometry
-  simplified for the global frame.
+  unused properties and bounding boxes removed, coordinates rounded to three
+  decimals, and sub-pixel geometry simplified for the global frame.
 - `ne_110m_admin_0_country_labels.geojson` contains the source dataset's
-  dedicated label anchors so multipolygon countries receive one label.
+  dedicated label anchors so multipolygon countries receive one label. It keeps
+  only the three properties used by the map style.
 - `fonts/Open Sans Semibold/*.pbf` contains the three Latin glyph ranges used by
   MapLibre country labels. Source: the MapLibre demo tile service. Open Sans is
   licensed under Apache License 2.0.
@@ -21,3 +22,6 @@ regional anchors and do not describe borders, frontlines or territorial control.
 
 See [`THIRD_PARTY_NOTICES.md`](../../THIRD_PARTY_NOTICES.md) for consolidated
 attribution.
+
+Run `npm run generate:map-assets` after changing the Natural Earth derivatives.
+`npm run check:map-assets` enforces deterministic output and payload budgets.

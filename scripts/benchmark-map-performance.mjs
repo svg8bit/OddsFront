@@ -97,6 +97,7 @@ function networkCategory(url, mimeType, resourceType, origin) {
     // CDP normally reports absolute URLs; malformed entries stay uncategorized.
   }
   if (hostname === "tiles.openfreemap.org") return "vectorTiles";
+  if (url.startsWith(`${origin}/maps/ne_110m_admin_0_`)) return "geojson";
   if (url.startsWith(`${origin}/maps/night-earth/`)) return "rasterTiles";
   if (url.startsWith(`${origin}/api/`)) return "api";
   if (resourceType === "Script" || mimeType.includes("javascript")) return "js";
@@ -258,6 +259,38 @@ async function runOnce(
       get: () => deviceMemory,
     });
     window.__oddsfrontPerfLongTasks = [];
+    window.__oddsfrontAlertsVisibleAt = null;
+    window.__oddsfrontAlertObserver = null;
+    const recordAlertsVisible = () => {
+      if (window.__oddsfrontAlertsVisibleAt !== null) return;
+      if (
+        Array.from(document.querySelectorAll("a")).some((link) =>
+          /Market/.test(link.textContent || ""),
+        )
+      ) {
+        window.__oddsfrontAlertsVisibleAt = performance.now();
+        window.__oddsfrontAlertObserver?.disconnect();
+      }
+    };
+    const observeAlerts = () => {
+      recordAlertsVisible();
+      if (document.documentElement) {
+        window.__oddsfrontAlertObserver = new MutationObserver(
+          recordAlertsVisible,
+        );
+        window.__oddsfrontAlertObserver.observe(
+          document.documentElement,
+          { childList: true, subtree: true },
+        );
+      }
+    };
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", observeAlerts, {
+        once: true,
+      });
+    } else {
+      observeAlerts();
+    }
     if (typeof PerformanceObserver !== "undefined") {
       try {
         const observer = new PerformanceObserver((list) => {
@@ -329,16 +362,11 @@ async function runOnce(
     timeout: 120_000,
   });
   const mapReadyMs = Date.now() - startedAt;
-  await page.waitForFunction(
-    () =>
-      Array.from(document.querySelectorAll("a")).some((link) =>
-        /Market/.test(link.textContent || ""),
-      ),
-    null,
-    { timeout: 60_000 },
-  );
-  const alertsVisibleMs = Date.now() - startedAt;
   await page.waitForTimeout(800);
+  const alertsVisibleMs = await page.evaluate(() => {
+    window.__oddsfrontAlertObserver?.disconnect();
+    return window.__oddsfrontAlertsVisibleAt;
+  });
 
   const pageState = await page.evaluate(() => {
     const shell = document.querySelector("[data-map-ready]");
@@ -431,7 +459,11 @@ function aggregate(runs) {
     load: {
       mapReadyMs: Math.round(median(runs.map((run) => run.load.mapReadyMs))),
       alertsVisibleMs: Math.round(
-        median(runs.map((run) => run.load.alertsVisibleMs)),
+        median(
+          runs
+            .map((run) => run.load.alertsVisibleMs)
+            .filter((value) => Number.isFinite(value)),
+        ),
       ),
     },
     drag: {
