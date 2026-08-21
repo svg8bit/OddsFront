@@ -454,16 +454,19 @@ function median(values) {
   return percentile(values, 50);
 }
 
+function roundedFiniteMedianOrNull(values) {
+  const finiteValues = values.filter((value) => Number.isFinite(value));
+  return finiteValues.length === 0
+    ? null
+    : Math.round(median(finiteValues));
+}
+
 function aggregate(runs) {
   return {
     load: {
       mapReadyMs: Math.round(median(runs.map((run) => run.load.mapReadyMs))),
-      alertsVisibleMs: Math.round(
-        median(
-          runs
-            .map((run) => run.load.alertsVisibleMs)
-            .filter((value) => Number.isFinite(value)),
-        ),
+      alertsVisibleMs: roundedFiniteMedianOrNull(
+        runs.map((run) => run.load.alertsVisibleMs),
       ),
     },
     drag: {

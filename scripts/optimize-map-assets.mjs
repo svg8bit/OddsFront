@@ -62,18 +62,31 @@ function requiredNumber(value, field, featureId) {
 const [sourceRaw, renderRaw, labelsRaw] = await Promise.all([
   readFile(sourcePath, "utf8"),
   readFile(renderPath, "utf8"),
-  readFile(labelsPath, "utf8"),
+  shouldCheck ? readFile(labelsPath, "utf8") : Promise.resolve(null),
 ]);
 const source = JSON.parse(sourceRaw);
 const renderSource = JSON.parse(renderRaw);
-const labelsSource = JSON.parse(labelsRaw);
 assertFeatureCollection(source, "Natural Earth source");
 assertFeatureCollection(renderSource, "Natural Earth render derivative");
-assertFeatureCollection(labelsSource, "Natural Earth label derivative");
+if (shouldCheck) {
+  assertFeatureCollection(
+    JSON.parse(labelsRaw),
+    "Natural Earth label derivative",
+  );
+}
 
-const sourceById = new Map(
-  source.features.map((feature) => [feature?.properties?.ADM0_A3, feature]),
-);
+const sourceById = new Map();
+for (const feature of source.features) {
+  const featureId = requiredString(
+    feature?.properties?.ADM0_A3,
+    "ADM0_A3",
+    "source feature",
+  );
+  if (sourceById.has(featureId)) {
+    throw new Error(`Duplicate source feature id: ${featureId}`);
+  }
+  sourceById.set(featureId, feature);
+}
 const seenRenderIds = new Set();
 const render = {
   type: "FeatureCollection",
@@ -113,6 +126,14 @@ const render = {
     };
   }),
 };
+const missingRenderIds = [...sourceById.keys()].filter(
+  (featureId) => !seenRenderIds.has(featureId),
+);
+if (missingRenderIds.length > 0) {
+  throw new Error(
+    `Render derivative is missing source countries: ${missingRenderIds.join(", ")}`,
+  );
+}
 
 const labels = {
   type: "FeatureCollection",
@@ -164,7 +185,7 @@ const outputs = [
   {
     label: "country label derivative",
     filePath: labelsPath,
-    current: labelsRaw,
+    current: labelsRaw ?? "",
     serialized: `${JSON.stringify(labels)}\n`,
     maximumBytes: MAX_LABEL_BYTES,
   },
