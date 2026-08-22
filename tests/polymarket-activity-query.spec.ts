@@ -9,11 +9,11 @@ function conditionId(index: number): string {
   return `0x${index.toString(16).padStart(64, "0")}`;
 }
 
-test("selects exact future liquid markets and rejects expired child markets", () => {
+test("selects future markets from $100K volume and rejects ineligible markets", () => {
   const now = Date.parse("2026-08-11T13:00:00Z");
   const liquidEvents = Array.from({ length: 72 }, (_, index) => ({
     id: `polymarket-${700_000 + index}`,
-    volume: 400_000 + index,
+    volume: 100_000 + index,
     endDate: "2026-08-31T23:59:00Z",
     marketConditionId: conditionId(index + 1),
   }));
@@ -34,7 +34,7 @@ test("selects exact future liquid markets and rejects expired child markets", ()
     },
     {
       id: "polymarket-699999",
-      volume: 399_999,
+      volume: 99_999,
       endDate: "2026-08-31T23:59:00Z",
       marketConditionId: conditionId(999),
     },
@@ -58,7 +58,7 @@ test("caps exact-market coverage at the highest-volume one hundred", () => {
   const now = Date.parse("2026-08-11T13:00:00Z");
   const events = Array.from({ length: 130 }, (_, index) => ({
     id: `polymarket-${710_000 + index}`,
-    volume: 400_000 + index,
+    volume: 100_000 + index,
     endDate: "2026-08-31T23:59:00Z",
     marketConditionId: conditionId(index + 1),
   }));

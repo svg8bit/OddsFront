@@ -4,7 +4,7 @@ import { getConflictPreviewFixtureFeed } from "../features/global-conflict-map/p
 import { releaseAbsentActivityNoticeIds } from "../lib/activity-notice-lifecycle";
 import { buildRollingActivitySignals } from "../lib/conflict-activity-signals";
 
-test("builds only liquid 24h odds signals at or above twenty percent", () => {
+test("builds both directions from 5% at 24h and 20% at 7d", () => {
   const now = Date.parse("2026-08-11T09:00:00.000Z");
   const fixture = getConflictPreviewFixtureFeed();
   const events = fixture.events.slice(0, 5).map((event, index) => ({
@@ -14,10 +14,11 @@ test("builds only liquid 24h odds signals at or above twenty percent", () => {
     updatedAt: new Date(now - 5 * 60_000).toISOString(),
     endDate: new Date(now + 24 * 60 * 60_000).toISOString(),
     marketConditionId: `0x${(index + 1).toString(16).padStart(64, "0")}`,
-    volume: [8_161_752, 483_019, 17_151_386, 399_999, 8_886_800][index]!,
-    volume24h: [20_540, 20_046, 421_439, 20_000, 21_645][index]!,
+    volume: [8_161_752, 483_019, 17_151_386, 99_999, 8_886_800][index]!,
+    volume24h: [1, 2, 0, 20_000, 0][index]!,
     priceChange1h: [0.75, -0.81, 0.66, 0.9, -0.72][index]!,
-    priceChange24h: [0.32, -0.25, 0.2, 0.8, -0.199][index]!,
+    priceChange24h: [0.05, -0.05, 0.06, 0.8, 0.04996][index]!,
+    priceChange7d: [0.199, -0.2, 0.25, -0.9, -0.19996][index]!,
   }));
   const feed = {
     ...fixture,
@@ -38,23 +39,26 @@ test("builds only liquid 24h odds signals at or above twenty percent", () => {
     {
       kind: "odds-rise",
       eventId: "polymarket-70002",
-      windowLabel: "24h",
+      windowLabel: "7d",
+      value: 25,
+    },
+    {
+      kind: "odds-drop",
+      eventId: "polymarket-70001",
+      windowLabel: "7d",
       value: 20,
     },
     {
       kind: "odds-rise",
       eventId: "polymarket-70000",
       windowLabel: "24h",
-      value: 32,
-    },
-    {
-      kind: "odds-drop",
-      eventId: "polymarket-70001",
-      windowLabel: "24h",
-      value: 25,
+      value: 5,
     },
   ]);
   expect(signals.some((signal) => signal.eventId === "polymarket-70003")).toBe(
+    false,
+  );
+  expect(signals.some((signal) => signal.eventId === "polymarket-70004")).toBe(
     false,
   );
 });
@@ -113,7 +117,7 @@ test("keeps a rolling signal identity stable while its live value updates", () =
     volume: 2_000_000,
     volume24h: 100_000,
     priceChange1h: 0.51,
-    priceChange24h: 0.251,
+    priceChange24h: 0.051,
     endDate: new Date(now + 24 * 60 * 60_000).toISOString(),
     marketConditionId: `0x${(72_000).toString(16).padStart(64, "0")}`,
   };
@@ -131,7 +135,7 @@ test("keeps a rolling signal identity stable while its live value updates", () =
         ...event,
         volume24h: 121_000,
         priceChange1h: 0.59,
-        priceChange24h: 0.259,
+        priceChange24h: 0.059,
       },
     ],
   };
@@ -146,7 +150,7 @@ test("keeps a rolling signal identity stable while its live value updates", () =
 test("releases a rolling signal identity only after it disappears", () => {
   const seenNoticeIds = new Set([
     "rolling-24h-polymarket-72000-odds-rise",
-    "rolling-24h-polymarket-72001-odds-drop",
+    "rolling-7d-polymarket-72001-odds-drop",
     "trade-0x1234",
   ]);
 
@@ -154,7 +158,7 @@ test("releases a rolling signal identity only after it disappears", () => {
     seenNoticeIds,
     new Set([
       "rolling-24h-polymarket-72000-odds-rise",
-      "rolling-24h-polymarket-72001-odds-drop",
+      "rolling-7d-polymarket-72001-odds-drop",
     ]),
     new Set(["rolling-24h-polymarket-72000-odds-rise"]),
   );
