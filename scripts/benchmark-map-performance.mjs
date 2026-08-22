@@ -260,8 +260,15 @@ async function runOnce(
     });
     window.__oddsfrontPerfLongTasks = [];
     window.__oddsfrontAlertsVisibleAt = null;
+    window.__oddsfrontActivityLayerReadyAt = null;
     window.__oddsfrontAlertObserver = null;
     const recordAlertsVisible = () => {
+      if (
+        window.__oddsfrontActivityLayerReadyAt === null &&
+        document.querySelector('[data-activity-layer="ready"]')
+      ) {
+        window.__oddsfrontActivityLayerReadyAt = performance.now();
+      }
       if (window.__oddsfrontAlertsVisibleAt !== null) return;
       if (
         Array.from(document.querySelectorAll("a")).some((link) =>
@@ -367,6 +374,9 @@ async function runOnce(
     window.__oddsfrontAlertObserver?.disconnect();
     return window.__oddsfrontAlertsVisibleAt;
   });
+  const activityLayerReadyMs = await page.evaluate(
+    () => window.__oddsfrontActivityLayerReadyAt,
+  );
 
   const pageState = await page.evaluate(() => {
     const shell = document.querySelector("[data-map-ready]");
@@ -436,6 +446,7 @@ async function runOnce(
       canvasVisibleMs,
       mapReadyMs,
       alertsVisibleMs,
+      activityLayerReadyMs,
     },
     page: pageState,
     drag,
@@ -467,6 +478,9 @@ function aggregate(runs) {
       mapReadyMs: Math.round(median(runs.map((run) => run.load.mapReadyMs))),
       alertsVisibleMs: roundedFiniteMedianOrNull(
         runs.map((run) => run.load.alertsVisibleMs),
+      ),
+      activityLayerReadyMs: roundedFiniteMedianOrNull(
+        runs.map((run) => run.load.activityLayerReadyMs),
       ),
     },
     drag: {

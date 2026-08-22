@@ -66,7 +66,7 @@ function normalizeTrade(
     CONDITION_ID_PATTERN.test(trade.conditionId)
       ? trade.conditionId.toLowerCase()
       : null;
-  const side = trade.side === "BUY" || trade.side === "SELL" ? trade.side : null;
+  const side = trade.side === "BUY" ? trade.side : null;
   const size = toFiniteNumber(trade.size);
   const price = toFiniteNumber(trade.price);
   const timestamp = toFiniteNumber(trade.timestamp);
@@ -106,7 +106,7 @@ function normalizeTrade(
 
   return {
     id,
-    kind: side === "BUY" ? "large-buy" : "large-sell",
+    kind: "large-buy",
     title: cleanText(trade.title, "Conflict market activity"),
     outcome: cleanText(trade.outcome, "Market"),
     outcomeOdds: Math.round(price * 100),
@@ -182,7 +182,7 @@ async function fetchActivityFeed(
 
 const getCachedActivityFeed = unstable_cache(
   fetchActivityFeed,
-  ["oddsfront-live-conflict-activity-v5-exact-active-markets"],
+  ["oddsfront-live-conflict-activity-v7-200k-buy-only-active-markets"],
   {
     revalidate: 60,
     tags: ["oddsfront-live-conflict-activity"],

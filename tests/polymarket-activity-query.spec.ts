@@ -90,5 +90,5 @@ test("bounds the Polymarket trade query to a fresh fifteen-minute window", () =>
   expect(url.searchParams.get("end")).toBe(String(nowSeconds + 60));
   expect(url.searchParams.get("limit")).toBe("500");
   expect(url.searchParams.get("filterType")).toBe("CASH");
-  expect(url.searchParams.get("filterAmount")).toBe("5000");
+  expect(url.searchParams.get("filterAmount")).toBe("200000");
 });

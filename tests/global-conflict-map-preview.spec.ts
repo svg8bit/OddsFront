@@ -15,6 +15,7 @@ import {
 import {
   selectMapRenderProfile,
 } from "../features/global-conflict-map/preview/map-render-profile";
+import { createPreviewMapStyle } from "../features/global-conflict-map/preview/map-style";
 
 const artifactRoot = path.resolve(
   process.cwd(),
@@ -84,7 +85,11 @@ test("keeps the full map on a wide desktop with constrained hardware", async ({
   await expect(canvas).toHaveCSS("width", "1917px");
   await expect(page.locator("main[data-map-ready]")).toHaveAttribute(
     "data-map-pixel-ratio",
-    "0.75",
+    "0.6",
+  );
+  await expect(page.locator("main[data-map-ready]")).toHaveAttribute(
+    "data-map-raster-texture",
+    "disabled",
   );
   const canvasResolution = await canvas.evaluate(
     (element: HTMLCanvasElement) => ({
@@ -93,7 +98,7 @@ test("keeps the full map on a wide desktop with constrained hardware", async ({
     }),
   );
   expect(canvasResolution.backingWidth / canvasResolution.cssWidth).toBeCloseTo(
-    0.75,
+    0.6,
     2,
   );
 });
@@ -109,9 +114,9 @@ test("selects a bounded WebGL canvas resolution without shrinking the map", () =
       deviceMemory: 8,
     }),
   ).toEqual({
-    pixelRatio: 0.84,
+    pixelRatio: 0.78,
     quality: "balanced",
-    pixelBudget: 1_050_000,
+    pixelBudget: 900_000,
   });
   expect(
     selectMapRenderProfile({
@@ -123,9 +128,9 @@ test("selects a bounded WebGL canvas resolution without shrinking the map", () =
       deviceMemory: 4,
     }),
   ).toEqual({
-    pixelRatio: 0.75,
+    pixelRatio: 0.6,
     quality: "constrained",
-    pixelBudget: 800_000,
+    pixelBudget: 520_000,
   });
   expect(
     selectMapRenderProfile({
@@ -136,7 +141,7 @@ test("selects a bounded WebGL canvas resolution without shrinking the map", () =
       hardwareConcurrency: 8,
       deviceMemory: 8,
     }).pixelRatio,
-  ).toBe(1);
+  ).toBe(0.93);
   expect(
     selectMapRenderProfile({
       devicePixelRatio: 3,
@@ -147,6 +152,29 @@ test("selects a bounded WebGL canvas resolution without shrinking the map", () =
       deviceMemory: 8,
     }).pixelRatio,
   ).toBe(1);
+});
+
+test("drops expensive texture and glow passes only on constrained hardware", () => {
+  const balanced = createPreviewMapStyle("balanced");
+  const constrained = createPreviewMapStyle("constrained");
+  const balancedLayerIds = new Set(balanced.layers.map((layer) => layer.id));
+  const constrainedLayerIds = new Set(
+    constrained.layers.map((layer) => layer.id),
+  );
+
+  expect(balanced.sources).not.toHaveProperty("night-earth");
+  expect(constrained.sources).not.toHaveProperty("night-earth");
+  expect(balancedLayerIds).not.toContain("night-earth-texture");
+  expect(balancedLayerIds).not.toContain("country-selected-glow");
+  expect(constrainedLayerIds).not.toContain("night-earth-texture");
+  expect(constrainedLayerIds).not.toContain("country-selected-glow");
+  expect(constrainedLayerIds).not.toContain("continent-tonal-depth");
+  expect(constrainedLayerIds).not.toContain("country-selected-fill");
+  expect(constrainedLayerIds).not.toContain("conflict-hotspot-haze-outer");
+  expect(constrainedLayerIds).toContain("country-land-base");
+  expect(constrainedLayerIds).toContain("country-boundaries-local");
+  expect(constrainedLayerIds).toContain("conflict-hotspot-core");
+  expect(constrainedLayerIds).toContain("country-label-major-local");
 });
 
 test("renders the deterministic 1672x941 approval frame", async ({ page }) => {
@@ -463,17 +491,18 @@ test("keeps markers and effects locked to MapLibre while dragging", async ({
   await page.mouse.down();
   await page.mouse.move(startX, startY + dragDistance, { steps: 8 });
   await expect(shell).toHaveAttribute("data-map-moving", "true");
+  await expect(markerTarget).toBeHidden();
+  await page.mouse.up();
+  await expect(shell).toHaveAttribute("data-map-moving", "false");
   await expect(markerTarget).toBeVisible();
   await expect
     .poll(async () => {
-      const markerDuring = await marker.boundingBox();
-      return markerDuring
-        ? Math.abs(markerDuring.y - markerBefore.y - dragDistance)
+      const markerAfter = await marker.boundingBox();
+      return markerAfter
+        ? Math.abs(markerAfter.y - markerBefore.y - dragDistance)
         : Number.POSITIVE_INFINITY;
     })
     .toBeLessThan(4);
-  await page.mouse.up();
-  await expect(shell).toHaveAttribute("data-map-moving", "false");
 });
 
 test("keeps event dates together and shows weekly odds only for the selected event", async ({
@@ -880,7 +909,7 @@ test("groups co-located alliance events behind popup pager arrows", async ({
   await expect(popup).toContainText("Market 2 of 2");
 });
 
-test("fills the rail with liquid rolling signals when the trade stream is quiet", async ({
+test("fills the rail only with liquid 24h odds moves at or above twenty percent", async ({
   page,
 }) => {
   const fixture = getConflictPreviewFixtureFeed();
@@ -901,8 +930,8 @@ test("fills the rail with liquid rolling signals when the trade stream is quiet"
       marketConditionId: mockConditionId(7_000 + index),
       volume: [8_161_752, 483_019, 17_151_386, 399_999, 8_886_800][index]!,
       volume24h: [20_540, 20_046, 421_439, 20_000, 21_645][index]!,
-      priceChange1h: [0.015, 0.005, null, 0.235, -0.01][index]!,
-      priceChange24h: [0.015, -0.11, null, 0.235, -0.07][index]!,
+      priceChange1h: [0.75, -0.81, 0.66, 0.9, -0.72][index]!,
+      priceChange24h: [0.32, -0.25, 0.2, 0.8, -0.199][index]!,
       priceChange7d: index === 3 ? 0.8 : null,
     })),
   };
@@ -931,30 +960,30 @@ test("fills the rail with liquid rolling signals when the trade stream is quiet"
   await openActivityRailPage(page);
   const rail = page.getByRole("complementary", { name: "Live market activity" });
   await expect(rail).toBeVisible();
+  expect(await rail.evaluate((element) => element.closest("main") === null)).toBe(
+    true,
+  );
   await expect(rail).toHaveAttribute("data-activity-count", "3");
-  await expect(rail).toContainText("Odds +1.5%");
-  await expect(rail).toContainText("Odds -11.0%");
+  await expect(rail).toContainText("Odds +32.0%");
+  await expect(rail).toContainText("Odds -25.0%");
+  await expect(rail).toContainText("Odds +20.0%");
   await expect(rail).not.toContainText(" pp");
-  await expect(rail).toContainText("Volume $421.4K");
+  await expect(rail).not.toContainText("Volume");
+  await expect(rail).not.toContainText("1h");
   await expect(rail.locator('[data-activity-source="rolling"]')).toHaveCount(3);
   const oddsMetrics = rail.locator(
     '[data-activity-kind^="odds-"] [data-activity-metric]',
   );
-  await expect(oddsMetrics).toHaveCount(2);
+  await expect(oddsMetrics).toHaveCount(3);
   for (const metric of await oddsMetrics.all()) {
     await expect(metric).toHaveText(/^YES \d+%$/);
     await expect(metric).toHaveCSS("white-space", "nowrap");
   }
-  await expect(
-    rail.locator('[data-activity-kind="high-volume"]'),
-  ).toHaveAttribute("data-activity-direction", "neutral");
-  const volumeCard = rail.locator('[data-activity-kind="high-volume"]');
-  const volumeMetric = volumeCard.locator("[data-activity-metric]");
-  await expect(volumeMetric).toHaveText(`YES ${liveFeed.events[2]!.yesOdds}%`);
-  await expect(volumeMetric).toHaveCSS("white-space", "nowrap");
+  await expect(rail.locator('[data-activity-kind="high-volume"]')).toHaveCount(0);
+  const oddsCard = rail.locator('[data-activity-kind^="odds-"]').first();
   await expect(rail.locator("[data-activity-location]")).toHaveCount(0);
-  await expect(volumeCard.locator("[data-activity-flags]")).toBeVisible();
-  const volumeLayout = await volumeCard.evaluate((card) => {
+  await expect(oddsCard.locator("[data-activity-flags]")).toBeVisible();
+  const oddsLayout = await oddsCard.evaluate((card) => {
     const footer = card.querySelector<HTMLElement>("[data-activity-footer]");
     const flags = card.querySelector<HTMLElement>("[data-activity-flags]");
     const metric = card.querySelector<HTMLElement>("[data-activity-metric]");
@@ -983,21 +1012,22 @@ test("fills the rail with liquid rolling signals when the trade stream is quiet"
       actionsCenter: actionsRect.top + actionsRect.height / 2,
     };
   });
-  expect(volumeLayout).not.toBeNull();
-  if (volumeLayout) {
-    expect(volumeLayout.display).toBe("flex");
-    expect(volumeLayout.flexWrap).toBe("nowrap");
-    expect(volumeLayout.footerHeight).toBeLessThanOrEqual(25);
-    expect(volumeLayout.flagsLeft).toBeGreaterThanOrEqual(volumeLayout.footerLeft);
-    expect(volumeLayout.flagsRight).toBeLessThanOrEqual(volumeLayout.metricLeft);
-    expect(volumeLayout.metricRight).toBeLessThanOrEqual(volumeLayout.actionsLeft);
-    expect(volumeLayout.actionsRight).toBeLessThanOrEqual(
-      volumeLayout.footerRight + 1,
+  expect(oddsLayout).not.toBeNull();
+  if (oddsLayout) {
+    expect(oddsLayout.display).toBe("flex");
+    expect(oddsLayout.flexWrap).toBe("nowrap");
+    expect(oddsLayout.footerHeight).toBeLessThanOrEqual(25);
+    expect(oddsLayout.flagsLeft).toBeGreaterThanOrEqual(oddsLayout.footerLeft);
+    expect(oddsLayout.flagsRight).toBeLessThanOrEqual(oddsLayout.metricLeft);
+    expect(oddsLayout.metricRight).toBeLessThanOrEqual(oddsLayout.actionsLeft);
+    expect(oddsLayout.actionsRight).toBeLessThanOrEqual(
+      oddsLayout.footerRight + 1,
     );
-    expect(Math.abs(volumeLayout.flagsCenter - volumeLayout.metricCenter)).toBeLessThanOrEqual(1);
-    expect(Math.abs(volumeLayout.metricCenter - volumeLayout.actionsCenter)).toBeLessThanOrEqual(1);
+    expect(Math.abs(oddsLayout.flagsCenter - oddsLayout.metricCenter)).toBeLessThanOrEqual(1);
+    expect(Math.abs(oddsLayout.metricCenter - oddsLayout.actionsCenter)).toBeLessThanOrEqual(1);
   }
   await expect(rail).not.toContainText(liveFeed.events[3]!.title);
+  await expect(rail).not.toContainText(liveFeed.events[4]!.title);
   await expect(rail).not.toContainText("7d");
 });
 
@@ -1015,8 +1045,8 @@ test("does not reanimate the same rolling signal after a feed refresh", async ({
     marketUrl: "https://polymarket.com/event/stable-rolling-alert",
     volume: 2_000_000,
     volume24h: 50_000,
-    priceChange1h: 0.02,
-    priceChange24h: 0.02,
+    priceChange1h: 0.9,
+    priceChange24h: 0.22,
     updatedAt: firstUpdatedAt,
     endDate: new Date(Date.now() + 7 * 24 * 60 * 60_000).toISOString(),
     marketConditionId: mockConditionId(777_001),
@@ -1031,7 +1061,7 @@ test("does not reanimate the same rolling signal after a feed refresh", async ({
   const refreshedFeed = {
     ...firstFeed,
     updatedAt: refreshedAt,
-    events: [{ ...event, updatedAt: refreshedAt }],
+    events: [{ ...event, priceChange24h: 0.25, updatedAt: refreshedAt }],
   };
   let currentFeed = firstFeed;
   let feedRequestCount = 0;
@@ -1077,7 +1107,7 @@ test("does not reanimate the same rolling signal after a feed refresh", async ({
   await expect(rollingCard).toHaveAttribute("data-expires-at", initialExpiry!);
 });
 
-test("shows only newly observed odds moves and referral-safe trade pushes", async ({
+test("shows only 20% daily odds moves and referral-safe trades from $200K", async ({
   page,
 }) => {
   const fixture = getConflictPreviewFixtureFeed();
@@ -1098,25 +1128,10 @@ test("shows only newly observed odds moves and referral-safe trade pushes", asyn
       countryCodes:
         index === 4 ? ["US", "IR", "OM"] : event.countryCodes,
       volume: index === 2 ? 900_000 : event.volume,
-      priceChange1h: index === 1 ? -0.0031 : index === 2 ? 0.005 : null,
-      priceChange24h: index === 0 ? 0.00237 : index === 3 ? 0.002 : null,
+      priceChange1h: index === 0 ? 0.9 : index === 3 ? -0.8 : null,
+      priceChange24h: index === 1 ? -0.22 : index === 2 ? 0.25 : 0.1,
       priceChange7d: index === 1 ? -0.29 : index === 2 ? 0.5 : null,
     })),
-  };
-  const movedAt = new Date(Date.now() + 60_000).toISOString();
-  const movedFeed = {
-    ...liveFeed,
-    updatedAt: movedAt,
-    events: liveFeed.events.map((event, index) =>
-      index === 0
-        ? {
-            ...event,
-            yesOdds: event.yesOdds + 5,
-            noOdds: event.noOdds - 5,
-            updatedAt: movedAt,
-          }
-        : event,
-    ),
   };
   const activityMarketIdQueries: string[][] = [];
   let conflictFeedRequestCount = 0;
@@ -1127,9 +1142,7 @@ test("shows only newly observed odds moves and referral-safe trade pushes", asyn
     await route.fulfill({
       status: 200,
       contentType: "application/json",
-      body: JSON.stringify(
-        conflictFeedRequestCount === 1 ? liveFeed : movedFeed,
-      ),
+      body: JSON.stringify(liveFeed),
     });
   });
   await page.route("**/api/global-conflict-activity?**", async (route) => {
@@ -1151,13 +1164,13 @@ test("shows only newly observed odds moves and referral-safe trade pushes", asyn
           {
             id: "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
             kind: "large-sell",
-            title: "US x Iran Effective Ceasefire by July 31?",
+            title: liveFeed.events[3]!.title,
             outcome: "YES",
             outcomeOdds: 92,
-            marketConditionId: mockConditionId(707_496),
-            notional: 93_000,
+            marketConditionId: liveFeed.events[3]!.marketConditionId,
+            notional: 930_000,
             occurredAt: new Date(Date.now() - 30_000).toISOString(),
-            marketUrl: liveFeed.events[4]!.marketUrl,
+            marketUrl: liveFeed.events[3]!.marketUrl,
           },
           {
             id: "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
@@ -1166,9 +1179,20 @@ test("shows only newly observed odds moves and referral-safe trade pushes", asyn
             outcome: "YES",
             outcomeOdds: 100,
             marketConditionId: liveFeed.events[4]!.marketConditionId,
-            notional: 24_500,
+            notional: 250_000,
             occurredAt: validTradeOccurredAt,
             marketUrl: liveFeed.events[4]!.marketUrl,
+          },
+          {
+            id: "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            kind: "large-buy",
+            title: liveFeed.events[3]!.title,
+            outcome: "YES",
+            outcomeOdds: 44,
+            marketConditionId: liveFeed.events[3]!.marketConditionId,
+            notional: 199_999,
+            occurredAt: validTradeOccurredAt,
+            marketUrl: liveFeed.events[3]!.marketUrl,
           },
         ],
       }),
@@ -1199,7 +1223,7 @@ test("shows only newly observed odds moves and referral-safe trade pushes", asyn
     rail
       .locator('[data-activity-kind="large-buy"]')
       .locator("strong"),
-  ).toHaveText("Large BUY $24.5K");
+  ).toHaveText("Large BUY $250K");
   await expect(
     rail
       .locator('[data-activity-kind="large-buy"]')
@@ -1210,25 +1234,31 @@ test("shows only newly observed odds moves and referral-safe trade pushes", asyn
       .locator('[data-activity-kind="large-buy"]')
       .locator("[data-activity-metric]"),
   ).toHaveAttribute("aria-label", "Trade execution odds");
-  await expect(rail).not.toContainText("Odds");
+  await expect(rail).toContainText("Odds +25.0%");
+  await expect(rail).toContainText("Odds -22.0%");
+  await expect(rail).not.toContainText(liveFeed.events[3]!.title);
+  await expect(rail.locator('[data-activity-kind="large-sell"]')).toHaveCount(0);
+  await expect(rail).not.toContainText("Volume");
+  await expect(rail).not.toContainText("1h");
   await expect(rail).not.toContainText("7d");
 
   await page.evaluate(() => window.dispatchEvent(new Event("online")));
   await expect.poll(() => conflictFeedRequestCount).toBeGreaterThanOrEqual(2);
   await expect(rail).toHaveAttribute("data-activity-count", "3");
-  await expect(rail).toContainText("Odds +5.0%");
   await expect(rail).not.toContainText(" pp");
-  await expect(rail).toContainText("live");
+  await expect(rail).toContainText("24h");
   await expect(
     rail.locator('[data-activity-kind="odds-rise"]'),
   ).toHaveAttribute("data-activity-direction", "up");
   await expect(
     rail.locator('[data-activity-kind="odds-rise"]'),
   ).toHaveAttribute("style", /--activity-tone: #22DF91/i);
-  await expect(rail.locator('[data-activity-kind="odds-drop"]')).toHaveCount(0);
+  await expect(rail.locator('[data-activity-kind="odds-drop"]')).toHaveCount(1);
   await expect(rail.locator("[data-country-flag]")).not.toHaveCount(0);
   await expect(
-    rail.locator('[data-country-flag="UA"]').first(),
+    rail.locator(
+      '[data-activity-kind="large-buy"] [data-country-flag="US"]',
+    ),
   ).toBeVisible();
 
   const expiry = Date.parse(
@@ -1401,6 +1431,18 @@ test("refreshes a stale initial conflict feed immediately", async ({ page }) => 
     })),
   };
   let refreshCount = 0;
+  let releaseCountrySource!: () => void;
+  const countrySourceGate = new Promise<void>((resolve) => {
+    releaseCountrySource = resolve;
+  });
+
+  await page.route(
+    "**/maps/ne_110m_admin_0_countries.render.geojson",
+    async (route) => {
+      await countrySourceGate;
+      await route.continue();
+    },
+  );
 
   await page.route("**/api/global-conflict-events", async (route) => {
     refreshCount += 1;
@@ -1424,11 +1466,19 @@ test("refreshes a stale initial conflict feed immediately", async ({ page }) => 
     });
   });
 
-  const shell = await openReadyMap(page, "/global-conflict-map-preview");
+  await page.goto("/global-conflict-map-preview", {
+    waitUntil: "domcontentloaded",
+  });
+  const shell = page.locator("main[data-map-ready]");
+  await expect.poll(() => refreshCount).toBeGreaterThan(0);
+  await expect(shell).toHaveAttribute("data-map-ready", "false");
+  releaseCountrySource();
   await expect(shell).toHaveAttribute("data-feed-mode", "live", {
     timeout: 5_000,
   });
-  expect(refreshCount).toBeGreaterThan(0);
+  await expect(shell).toHaveAttribute("data-map-ready", "true", {
+    timeout: 30_000,
+  });
 });
 
 test("builds bounded DropsBot deep links with a shared Hormuz override", () => {

@@ -5,24 +5,18 @@ import {
 } from "@/lib/polymarket-activity-query";
 
 const MAX_SIGNALS = 3;
-const MAX_ODDS_SIGNALS = 2;
 const MIN_ODDS_VOLUME_24H = 5_000;
-const MIN_MOVE_1H_POINTS = 1;
-const MIN_MOVE_24H_POINTS = 3;
-const MIN_HIGH_VOLUME_24H = 25_000;
+export const MIN_MOVE_24H_POINTS = 20;
 const MIN_SIGNAL_FRESHNESS_MS = 10 * 60 * 1_000;
 
-export type RollingActivitySignalKind =
-  | "odds-rise"
-  | "odds-drop"
-  | "high-volume";
+export type RollingActivitySignalKind = "odds-rise" | "odds-drop";
 
 export interface RollingActivitySignal {
   id: string;
   kind: RollingActivitySignalKind;
   eventId: string;
   value: number;
-  windowLabel: "1h" | "24h";
+  windowLabel: "24h";
   observedAt: number;
 }
 
@@ -42,7 +36,6 @@ function marketQualityScore(changePoints: number, volume24h: number): number {
 
 function rankedOddsSignal(
   event: ConflictPreviewFeed["events"][number],
-  windowLabel: "1h" | "24h",
   observedAt: number,
 ): RankedSignal | null {
   if (
@@ -52,20 +45,23 @@ function rankedOddsSignal(
     return null;
   }
 
-  const rawChange =
-    windowLabel === "1h" ? event.priceChange1h : event.priceChange24h;
+  const rawChange = event.priceChange24h;
   const value = priceChangePoints(rawChange);
-  const threshold =
-    windowLabel === "1h" ? MIN_MOVE_1H_POINTS : MIN_MOVE_24H_POINTS;
-  if (rawChange === null || value === null || value < threshold) return null;
+  if (
+    rawChange === null ||
+    value === null ||
+    value < MIN_MOVE_24H_POINTS
+  ) {
+    return null;
+  }
 
   const kind = rawChange > 0 ? "odds-rise" : "odds-drop";
   return {
-    id: `rolling-${windowLabel}-${event.id}-${kind}`,
+    id: `rolling-24h-${event.id}-${kind}`,
     kind,
     eventId: event.id,
     value,
-    windowLabel,
+    windowLabel: "24h",
     observedAt,
     score: marketQualityScore(value, event.volume24h),
   };
@@ -101,55 +97,9 @@ export function buildRollingActivitySignals(
     isPolymarketActivityEventCurrent(event, now),
   );
 
-  const oneHour = currentEvents
-    .map((event) => rankedOddsSignal(event, "1h", observedAt))
+  return currentEvents
+    .map((event) => rankedOddsSignal(event, observedAt))
     .filter((signal): signal is RankedSignal => Boolean(signal))
-    .toSorted(strongestFirst);
-  const oneDay = currentEvents
-    .map((event) => rankedOddsSignal(event, "24h", observedAt))
-    .filter((signal): signal is RankedSignal => Boolean(signal))
-    .toSorted(strongestFirst);
-  const selected: RollingActivitySignal[] = [];
-  const selectedEventIds = new Set<string>();
-
-  const add = (signal: RollingActivitySignal | undefined) => {
-    if (!signal || selectedEventIds.has(signal.eventId)) return false;
-    selected.push(signal);
-    selectedEventIds.add(signal.eventId);
-    return true;
-  };
-
-  add(oneHour[0]);
-  add(oneDay.find((signal) => !selectedEventIds.has(signal.eventId)));
-  if (selected.length < MAX_ODDS_SIGNALS) {
-    for (const signal of [...oneHour, ...oneDay].toSorted(strongestFirst)) {
-      add(signal);
-      if (selected.length >= MAX_ODDS_SIGNALS) break;
-    }
-  }
-
-  const volumeLeaders = currentEvents
-    .filter(
-      (event) =>
-        event.volume >= POLYMARKET_ACTIVITY_EVENT_MIN_VOLUME &&
-        event.volume24h >= MIN_HIGH_VOLUME_24H &&
-        !selectedEventIds.has(event.id),
-    )
-    .toSorted(
-      (left, right) =>
-        right.volume24h - left.volume24h || right.volume - left.volume,
-    );
-  for (const event of volumeLeaders) {
-    add({
-      id: `rolling-volume-${event.id}`,
-      kind: "high-volume",
-      eventId: event.id,
-      value: event.volume24h,
-      windowLabel: "24h",
-      observedAt,
-    });
-    if (selected.length >= MAX_SIGNALS) break;
-  }
-
-  return selected.slice(0, MAX_SIGNALS);
+    .toSorted(strongestFirst)
+    .slice(0, MAX_SIGNALS);
 }

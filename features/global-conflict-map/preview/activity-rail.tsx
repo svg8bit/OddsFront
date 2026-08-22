@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  Activity as ActivityIcon,
   ArrowDownRight,
   ArrowUpRight,
   ExternalLink,
@@ -24,6 +23,7 @@ import { buildRollingActivitySignals } from "@/lib/conflict-activity-signals";
 import { formatMarketTitle } from "@/lib/market-title";
 import {
   isPolymarketActivityEventCurrent,
+  POLYMARKET_LARGE_TRADE_USD,
   selectPolymarketActivityMarketIds,
 } from "@/lib/polymarket-activity-query";
 import {
@@ -36,19 +36,16 @@ import {
 const ACTIVITY_TTL_MS = 10 * 60 * 1_000;
 const MAX_VISIBLE_NOTICES = 3;
 const MAX_STORED_NOTICES = 12;
-const ODDS_SNAPSHOT_CHANGE_THRESHOLD_POINTS = 2;
 const ACTIVITY_RISE_TONE = "#22DF91";
 const ACTIVITY_DROP_TONE = "#FF5368";
-const ACTIVITY_VOLUME_TONE = "#FFB454";
 const ACTIVITY_REFRESH_MS = 60_000;
 const ACTIVITY_REFRESH_JITTER_MS = 15_000;
-const ACTIVITY_INITIAL_DELAY_MS = 20_000;
-const ACTIVITY_INITIAL_JITTER_MS = 5_000;
+const ACTIVITY_INITIAL_DELAY_MS = 1_000;
 const CONDITION_ID_PATTERN = /^0x[a-f0-9]{64}$/i;
 
-type ActivityWindowLabel = "live" | "1h" | "24h";
-type ActivityNoticeKind = ConflictActivityKind | "high-volume";
-type ActivityNoticeSource = "trade" | "snapshot" | "rolling";
+type ActivityWindowLabel = "24h";
+type ActivityNoticeKind = Exclude<ConflictActivityKind, "large-sell">;
+type ActivityNoticeSource = "trade" | "rolling";
 
 interface ActivityNotice {
   id: string;
@@ -116,72 +113,19 @@ function isActivityFeed(value: unknown): value is ConflictActivityFeed {
   );
 }
 
-function snapshotMoverNotices(
-  previousFeed: ConflictPreviewFeed,
-  feed: ConflictPreviewFeed,
-): ActivityNotice[] {
-  if (previousFeed.dataMode !== "live" || feed.dataMode !== "live") return [];
-  const now = Date.now();
-  const previousUpdatedAt = Date.parse(previousFeed.updatedAt);
-  const currentUpdatedAt = Date.parse(feed.updatedAt);
-  const maximumBaselineAge = Math.max(
-    previousFeed.refreshSeconds * 2 * 1_000,
-    ACTIVITY_TTL_MS,
-  );
-  if (
-    !Number.isFinite(previousUpdatedAt) ||
-    !Number.isFinite(currentUpdatedAt) ||
-    currentUpdatedAt <= previousUpdatedAt ||
-    now - previousUpdatedAt > maximumBaselineAge
-  ) {
-    return [];
-  }
-
-  const previousEvents = new Map(
-    previousFeed.events.map((event) => [event.id, event]),
-  );
-  const notices: ActivityNotice[] = [];
-
-  for (const event of feed.events) {
-    if (!isPolymarketActivityEventCurrent(event, now)) continue;
-    const previousEvent = previousEvents.get(event.id);
-    if (
-      !previousEvent ||
-      previousEvent.marketConditionId !== event.marketConditionId
-    ) {
-      continue;
-    }
-    const change = event.yesOdds - previousEvent.yesOdds;
-    if (Math.abs(change) < ODDS_SNAPSHOT_CHANGE_THRESHOLD_POINTS) continue;
-
-    notices.push({
-      id: `odds-${event.id}-${feed.updatedAt}-${event.yesOdds}`,
-      kind: change > 0 ? "odds-rise" : "odds-drop",
-      source: "snapshot",
-      eventId: event.id,
-      marketConditionId: event.marketConditionId,
-      title: event.title,
-      locationLabel: event.locationLabel,
-      value: Math.abs(change),
-      windowLabel: "live",
-      outcome: null,
-      outcomeOdds: null,
-      occurredAt: now,
-      expiresAt: now + ACTIVITY_TTL_MS,
-      marketUrl: toPolymarketReferralUrl(event.marketUrl),
-    });
-  }
-
-  return notices.sort((left, right) => right.value - left.value).slice(0, 2);
-}
-
 function tradeNotice(
   item: ConflictTradeActivity,
   expiresAfterSeconds: number,
   eventsByUrl: ReadonlyMap<string, ConflictPreviewEvent>,
 ): ActivityNotice | null {
   const occurredAt = Date.parse(item.occurredAt);
-  if (!Number.isFinite(occurredAt)) return null;
+  if (
+    item.kind !== "large-buy" ||
+    !Number.isFinite(occurredAt) ||
+    item.notional < POLYMARKET_LARGE_TRADE_USD
+  ) {
+    return null;
+  }
   const expiresAt = occurredAt + expiresAfterSeconds * 1_000;
   if (expiresAt <= Date.now()) return null;
   const marketUrl = toPolymarketReferralUrl(item.marketUrl);
@@ -216,18 +160,14 @@ function tradeNotice(
 function noticeLabel(notice: ActivityNotice): string {
   if (notice.kind === "odds-rise") return `Odds +${notice.value.toFixed(1)}%`;
   if (notice.kind === "odds-drop") return `Odds -${notice.value.toFixed(1)}%`;
-  if (notice.kind === "high-volume") return `Volume ${formatMoney(notice.value)}`;
-  if (notice.kind === "large-buy") {
-    return `Large BUY ${formatMoney(notice.value)}`;
-  }
-  return `Large SELL ${formatMoney(notice.value)}`;
+  return `Large BUY ${formatMoney(notice.value)}`;
 }
 
 function noticeMetricLabel(
   notice: ActivityNotice,
   event: ConflictPreviewEvent | null,
 ): string | null {
-  if (notice.kind === "large-buy" || notice.kind === "large-sell") {
+  if (notice.kind === "large-buy") {
     const outcome = notice.outcome?.toUpperCase();
     if (!outcome) return null;
     return notice.outcomeOdds === null
@@ -242,21 +182,11 @@ function selectVisibleNotices(notices: ActivityNotice[]): ActivityNotice[] {
     (left, right) =>
       right.occurredAt - left.occurredAt || right.value - left.value,
   );
-  const trades = newestFirst.filter(
-    (notice) => notice.kind === "large-buy" || notice.kind === "large-sell",
-  );
-  const liveMovers = newestFirst.filter(
-    (notice) =>
-      notice.source === "snapshot" &&
-      (notice.kind === "odds-rise" || notice.kind === "odds-drop"),
-  );
+  const trades = newestFirst.filter((notice) => notice.kind === "large-buy");
   const rollingMovers = newestFirst.filter(
     (notice) =>
       notice.source === "rolling" &&
       (notice.kind === "odds-rise" || notice.kind === "odds-drop"),
-  );
-  const volumeSignals = newestFirst.filter(
-    (notice) => notice.kind === "high-volume",
   );
   const selected: ActivityNotice[] = [];
   const selectedIds = new Set<string>();
@@ -279,11 +209,9 @@ function selectVisibleNotices(notices: ActivityNotice[]): ActivityNotice[] {
     if (add(notice)) tradeCount += 1;
     if (tradeCount >= 2) break;
   }
-  for (const group of [liveMovers, rollingMovers, volumeSignals]) {
-    for (const notice of group) {
-      add(notice);
-      if (selected.length >= MAX_VISIBLE_NOTICES) return selected;
-    }
+  for (const notice of rollingMovers) {
+    add(notice);
+    if (selected.length >= MAX_VISIBLE_NOTICES) return selected;
   }
   for (const notice of trades) {
     add(notice);
@@ -292,15 +220,44 @@ function selectVisibleNotices(notices: ActivityNotice[]): ActivityNotice[] {
   return selected;
 }
 
+function buildRollingNotices(feed: ConflictPreviewFeed): ActivityNotice[] {
+  const eventsById = new Map(feed.events.map((event) => [event.id, event]));
+  return buildRollingActivitySignals(feed)
+    .map((signal): ActivityNotice | null => {
+      const event = eventsById.get(signal.eventId);
+      if (!event) return null;
+      return {
+        id: `${signal.id}-${event.marketConditionId}`,
+        kind: signal.kind,
+        source: "rolling",
+        eventId: signal.eventId,
+        marketConditionId: event.marketConditionId,
+        title: event.title,
+        locationLabel: event.locationLabel,
+        value: signal.value,
+        windowLabel: signal.windowLabel,
+        outcome: null,
+        outcomeOdds: null,
+        occurredAt: signal.observedAt,
+        expiresAt: signal.observedAt + ACTIVITY_TTL_MS,
+        marketUrl: toPolymarketReferralUrl(event.marketUrl),
+      };
+    })
+    .filter((notice): notice is ActivityNotice => Boolean(notice));
+}
+
 export function ActivityRail({
   feed,
   fixtureMode,
   liveRefreshEnabled,
 }: ActivityRailProps) {
-  const seenNoticeIds = useRef(new Set<string>());
-  const previousRollingNoticeIds = useRef(new Set<string>());
-  const previousFeed = useRef<ConflictPreviewFeed | null>(null);
-  const [notices, setNotices] = useState<ActivityNotice[]>([]);
+  const [notices, setNotices] = useState<ActivityNotice[]>(() =>
+    fixtureMode ? [] : buildRollingNotices(feed),
+  );
+  const seenNoticeIds = useRef(new Set(notices.map((notice) => notice.id)));
+  const previousRollingNoticeIds = useRef(
+    new Set(notices.map((notice) => notice.id)),
+  );
   const [dismissedNoticeIds, setDismissedNoticeIds] = useState<Set<string>>(
     () => new Set(),
   );
@@ -385,24 +342,6 @@ export function ActivityRail({
     [currentActivityEvents],
   );
 
-  useEffect(() => {
-    if (fixtureMode) return;
-    const baseline = previousFeed.current;
-    previousFeed.current = feed;
-    if (!baseline) return;
-    addNotices(
-      snapshotMoverNotices(baseline, feed),
-      currentActivityEventIds,
-      currentActivityMarketConditionIds,
-    );
-  }, [
-    addNotices,
-    currentActivityEventIds,
-    currentActivityMarketConditionIds,
-    feed,
-    fixtureMode,
-  ]);
-
   const eventsByUrl = useMemo(
     () =>
       new Map(
@@ -420,29 +359,8 @@ export function ActivityRail({
     [feed.events],
   );
   const rollingNotices = useMemo(() => {
-    return buildRollingActivitySignals(feed)
-      .map((signal): ActivityNotice | null => {
-        const event = eventsById.get(signal.eventId);
-        if (!event) return null;
-        return {
-          id: `${signal.id}-${event.marketConditionId}`,
-          kind: signal.kind,
-          source: "rolling",
-          eventId: signal.eventId,
-          marketConditionId: event.marketConditionId,
-          title: event.title,
-          locationLabel: event.locationLabel,
-          value: signal.value,
-          windowLabel: signal.windowLabel,
-          outcome: null,
-          outcomeOdds: null,
-          occurredAt: signal.observedAt,
-          expiresAt: signal.observedAt + ACTIVITY_TTL_MS,
-          marketUrl: toPolymarketReferralUrl(event.marketUrl),
-        };
-      })
-      .filter((notice): notice is ActivityNotice => Boolean(notice));
-  }, [eventsById, feed]);
+    return fixtureMode ? [] : buildRollingNotices(feed);
+  }, [feed, fixtureMode]);
   useEffect(() => {
     const currentRollingNoticeIds = new Set(
       rollingNotices.map((notice) => notice.id),
@@ -501,8 +419,11 @@ export function ActivityRail({
           currentActivityEventIds,
           currentActivityMarketConditionIds,
         );
-      } catch {
-        // The map remains usable when the optional activity stream is unavailable.
+      } catch (error) {
+        console.warn(
+          "Polymarket activity refresh failed; keeping verified alerts.",
+          error instanceof Error ? error.message : "Unknown error",
+        );
       }
     };
 
@@ -519,14 +440,8 @@ export function ActivityRail({
       }, delay);
     };
 
-    // Rolling feed signals already populate the rail. Delay the optional
-    // trade stream until after the map's first interaction window, then add
-    // per-client jitter to avoid synchronized polling spikes.
     schedule(
-      process.env.NODE_ENV === "production"
-        ? ACTIVITY_INITIAL_DELAY_MS +
-            Math.floor(Math.random() * ACTIVITY_INITIAL_JITTER_MS)
-        : 0,
+      process.env.NODE_ENV === "production" ? ACTIVITY_INITIAL_DELAY_MS : 0,
     );
     return () => {
       cancelled = true;
@@ -586,45 +501,36 @@ export function ActivityRail({
       data-feed-updated-at={feed.updatedAt}
     >
       {visibleNotices.map((notice) => {
-          const rising =
-            notice.kind === "odds-rise" || notice.kind === "large-buy";
-          const neutral = notice.kind === "high-volume";
-          const event = notice.eventId
-            ? feed.events.find((candidate) => candidate.id === notice.eventId) ??
-              null
-            : null;
-          const tone = neutral
-            ? ACTIVITY_VOLUME_TONE
-            : rising
-              ? ACTIVITY_RISE_TONE
-              : ACTIVITY_DROP_TONE;
-          const referralMarketUrl = toPolymarketReferralUrl(notice.marketUrl);
-          const trackUrl = event ? buildDropsBotTrackUrl(event.marketUrl) : null;
-          const metricLabel = noticeMetricLabel(notice, event);
-          const metricAriaLabel =
-            notice.kind === "large-buy" || notice.kind === "large-sell"
-              ? "Trade execution odds"
-              : "Current YES probability";
+        const rising =
+          notice.kind === "odds-rise" || notice.kind === "large-buy";
+        const event = notice.eventId
+          ? feed.events.find((candidate) => candidate.id === notice.eventId) ??
+            null
+          : null;
+        const tone = rising ? ACTIVITY_RISE_TONE : ACTIVITY_DROP_TONE;
+        const referralMarketUrl = toPolymarketReferralUrl(notice.marketUrl);
+        const trackUrl = event ? buildDropsBotTrackUrl(event.marketUrl) : null;
+        const metricLabel = noticeMetricLabel(notice, event);
+        const metricAriaLabel =
+          notice.kind === "large-buy"
+            ? "Trade execution odds"
+            : "Current YES probability";
 
-          return (
+        return (
             <article
               key={notice.id}
               className={styles.activityCard}
               style={{ "--activity-tone": tone } as React.CSSProperties}
               data-activity-kind={notice.kind}
               data-activity-source={notice.source}
-              data-activity-direction={
-                neutral ? "neutral" : rising ? "up" : "down"
-              }
+              data-activity-direction={rising ? "up" : "down"}
               data-notice-id={notice.id}
               data-event-id={notice.eventId ?? ""}
               data-expires-at={new Date(notice.expiresAt).toISOString()}
             >
               <div className={styles.activityMeta}>
                 <span className={styles.activitySignal} aria-hidden="true">
-                  {neutral ? (
-                    <ActivityIcon size={15} />
-                  ) : rising ? (
+                  {rising ? (
                     <ArrowUpRight size={15} />
                   ) : (
                     <ArrowDownRight size={15} />
@@ -654,10 +560,7 @@ export function ActivityRail({
                 </button>
               </div>
               <p>{formatMarketTitle(notice.title)}</p>
-              <div
-                className={styles.activityFooter}
-                data-activity-footer
-              >
+              <div className={styles.activityFooter} data-activity-footer>
                 {event && event.countryCodes.length > 0 ? (
                   <div
                     className={styles.activityFlags}
@@ -676,17 +579,11 @@ export function ActivityRail({
                   </div>
                 ) : null}
                 {metricLabel ? (
-                  <b
-                    data-activity-metric
-                    aria-label={metricAriaLabel}
-                  >
+                  <b data-activity-metric aria-label={metricAriaLabel}>
                     {metricLabel}
                   </b>
                 ) : null}
-                <div
-                  className={styles.activityActions}
-                  data-activity-actions
-                >
+                <div className={styles.activityActions} data-activity-actions>
                   {trackUrl ? (
                     <a
                       className={styles.activityTrackLink}
@@ -714,8 +611,8 @@ export function ActivityRail({
                 </div>
               </div>
             </article>
-          );
-        })}
+        );
+      })}
     </aside>
   );
 }
