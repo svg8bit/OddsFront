@@ -18,7 +18,10 @@ import type {
   ConflictPreviewFeed,
   ConflictTradeActivity,
 } from "@/features/global-conflict-map/preview/types";
-import { releaseAbsentActivityNoticeIds } from "@/lib/activity-notice-lifecycle";
+import {
+  getInitialActivityClock,
+  releaseAbsentActivityNoticeIds,
+} from "@/lib/activity-notice-lifecycle";
 import { buildRollingActivitySignals } from "@/lib/conflict-activity-signals";
 import { formatMarketTitle } from "@/lib/market-title";
 import {
@@ -220,9 +223,12 @@ function selectVisibleNotices(notices: ActivityNotice[]): ActivityNotice[] {
   return selected;
 }
 
-function buildRollingNotices(feed: ConflictPreviewFeed): ActivityNotice[] {
+function buildRollingNotices(
+  feed: ConflictPreviewFeed,
+  now = Date.now(),
+): ActivityNotice[] {
   const eventsById = new Map(feed.events.map((event) => [event.id, event]));
-  return buildRollingActivitySignals(feed)
+  return buildRollingActivitySignals(feed, now)
     .map((signal): ActivityNotice | null => {
       const event = eventsById.get(signal.eventId);
       if (!event) return null;
@@ -251,8 +257,9 @@ export function ActivityRail({
   fixtureMode,
   liveRefreshEnabled,
 }: ActivityRailProps) {
+  const feedClock = getInitialActivityClock(feed.updatedAt);
   const [notices, setNotices] = useState<ActivityNotice[]>(() =>
-    fixtureMode ? [] : buildRollingNotices(feed),
+    fixtureMode ? [] : buildRollingNotices(feed, feedClock),
   );
   const seenNoticeIds = useRef(new Set(notices.map((notice) => notice.id)));
   const previousRollingNoticeIds = useRef(
@@ -261,7 +268,15 @@ export function ActivityRail({
   const [dismissedNoticeIds, setDismissedNoticeIds] = useState<Set<string>>(
     () => new Set(),
   );
-  const [clock, setClock] = useState(() => Date.now());
+  const [clock, setClock] = useState(feedClock);
+  const [eligibilityClock, setEligibilityClock] = useState(feedClock);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setEligibilityClock(Date.now());
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [feed.updatedAt]);
 
   const addNotices = useCallback(
     (
@@ -324,9 +339,9 @@ export function ActivityRail({
   const currentActivityEvents = useMemo(
     () =>
       feed.events.filter((event) =>
-        isPolymarketActivityEventCurrent(event),
+        isPolymarketActivityEventCurrent(event, eligibilityClock),
       ),
-    [feed.events],
+    [eligibilityClock, feed.events],
   );
   const currentActivityEventIds = useMemo(
     () => new Set(currentActivityEvents.map((event) => event.id)),
@@ -359,8 +374,8 @@ export function ActivityRail({
     [feed.events],
   );
   const rollingNotices = useMemo(() => {
-    return fixtureMode ? [] : buildRollingNotices(feed);
-  }, [feed, fixtureMode]);
+    return fixtureMode ? [] : buildRollingNotices(feed, eligibilityClock);
+  }, [eligibilityClock, feed, fixtureMode]);
   useEffect(() => {
     const currentRollingNoticeIds = new Set(
       rollingNotices.map((notice) => notice.id),
@@ -459,13 +474,15 @@ export function ActivityRail({
   ]);
 
   useEffect(() => {
-    const interval = window.setInterval(() => {
+    const pruneExpiredNotices = () => {
       const now = Date.now();
       setClock(now);
       setNotices((current) =>
         current.filter((notice) => notice.expiresAt > now),
       );
-    }, 5_000);
+    };
+    pruneExpiredNotices();
+    const interval = window.setInterval(pruneExpiredNotices, 5_000);
     return () => window.clearInterval(interval);
   }, []);
 
