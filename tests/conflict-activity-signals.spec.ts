@@ -1,8 +1,18 @@
 import { expect, test } from "@playwright/test";
 
 import { getConflictPreviewFixtureFeed } from "../features/global-conflict-map/preview/fixture";
-import { releaseAbsentActivityNoticeIds } from "../lib/activity-notice-lifecycle";
+import {
+  getInitialActivityClock,
+  releaseAbsentActivityNoticeIds,
+} from "../lib/activity-notice-lifecycle";
 import { buildRollingActivitySignals } from "../lib/conflict-activity-signals";
+
+test("uses a deterministic feed clock for the hydration frame", () => {
+  const updatedAt = "2026-08-22T16:20:03.843Z";
+
+  expect(getInitialActivityClock(updatedAt)).toBe(Date.parse(updatedAt));
+  expect(getInitialActivityClock("invalid timestamp")).toBe(0);
+});
 
 test("builds both directions from 5% at 24h and 20% at 7d", () => {
   const now = Date.parse("2026-08-11T09:00:00.000Z");
