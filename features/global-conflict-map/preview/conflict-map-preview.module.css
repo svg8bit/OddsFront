@@ -1,3 +1,22 @@
+.mapLoaderRoot {
+  position: relative;
+  width: 100vw;
+  height: 100vh;
+  height: 100dvh;
+  overflow: hidden;
+  background: #050d18;
+}
+
+.externalActivityLayer {
+  position: absolute;
+  z-index: 14;
+  top: 34px;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  pointer-events: none;
+}
+
 .shell {
   --header-height: 0px;
   --market-strip-height: 34px;
@@ -217,6 +236,11 @@
   width: 100%;
   height: 100%;
   font-family: Inter, ui-sans-serif, sans-serif;
+}
+
+.shell[data-map-moving="true"] .markerOverlay {
+  visibility: hidden;
+  pointer-events: none;
 }
 
 .stage :global(.maplibregl-canvas) {
@@ -1109,6 +1133,14 @@
 }
 
 @media (max-width: 560px) {
+  .externalActivityLayer {
+    top: 36px;
+  }
+
+  .mapLoaderRoot[data-popup-open="true"] .externalActivityLayer {
+    display: none;
+  }
+
   .shell {
     --market-strip-height: 36px;
   }
@@ -1155,10 +1187,6 @@
     right: 16px;
     bottom: calc(16px + env(safe-area-inset-bottom, 0px));
     width: min(276px, calc(100vw - 88px));
-  }
-
-  .stage[data-popup-open="true"] .activityRail {
-    display: none;
   }
 
   .activityRail .activityCard:nth-child(n + 2) {

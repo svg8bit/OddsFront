@@ -878,3 +878,49 @@ export const PREVIEW_MAP_STYLE: StyleSpecification = {
     },
   ],
 };
+
+const EFFICIENT_OMITTED_LAYER_IDS = new Set([
+  "night-earth-texture",
+  "country-selected-glow",
+  "conflict-hotspot-haze-outer",
+  "conflict-hotspot-haze-inner",
+  "conflict-hotspot-orbit-outer",
+]);
+
+const CONSTRAINED_OMITTED_LAYER_IDS = new Set([
+  ...EFFICIENT_OMITTED_LAYER_IDS,
+  "continent-tonal-depth",
+  "natural-landcover-depth",
+  "residential-land-texture",
+  "country-selected-fill",
+  "country-selected-pulse",
+  "conflict-hotspot-orbit-inner",
+  HOTSPOT_PULSE_LAYER_ID,
+  "city-light-points",
+  "country-label-secondary-local",
+]);
+
+export function createPreviewMapStyle(
+  quality: "balanced" | "constrained",
+): StyleSpecification {
+  const sources = Object.fromEntries(
+    Object.entries(PREVIEW_MAP_STYLE.sources).filter(
+      ([sourceId]) => sourceId !== "night-earth",
+    ),
+  );
+  return {
+    ...PREVIEW_MAP_STYLE,
+    name:
+      quality === "constrained"
+        ? "DropsBot Midnight Conflict Preview · Constrained"
+        : "DropsBot Midnight Conflict Preview · Efficient",
+    sources,
+    layers: PREVIEW_MAP_STYLE.layers.filter(
+      (layer) =>
+        !(quality === "constrained"
+          ? CONSTRAINED_OMITTED_LAYER_IDS
+          : EFFICIENT_OMITTED_LAYER_IDS
+        ).has(layer.id),
+    ),
+  };
+}

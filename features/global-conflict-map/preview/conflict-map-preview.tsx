@@ -15,7 +15,6 @@ import MapLibreMap, {
   type ViewState,
 } from "react-map-gl/maplibre";
 
-import { ActivityRail } from "@/features/global-conflict-map/preview/activity-rail";
 import { ConflictPopup } from "@/features/global-conflict-map/preview/conflict-popup";
 import {
   TONE_PALETTE,
@@ -36,7 +35,7 @@ import {
 import {
   COUNTRY_CONTEXT_FILL_ACTIVE,
   COUNTRY_CONTEXT_FILL_IDLE,
-  PREVIEW_MAP_STYLE,
+  createPreviewMapStyle,
   SELECTED_COUNTRY_PULSE_ACTIVE,
   SELECTED_COUNTRY_PULSE_IDLE,
 } from "@/features/global-conflict-map/preview/map-style";
@@ -72,22 +71,12 @@ const TRACKPAD_ZOOM_RATE = 1 / 55;
 const WHEEL_ZOOM_RATE = 1 / 140;
 const PULSE_INTERVAL_MS = 3_000;
 const FEED_REFRESH_JITTER_MS = 30_000;
-const FEED_INITIAL_REFRESH_DELAY_MS = 15_000;
+const STALE_FEED_REFRESH_DELAY_MS = 1_000;
 const WORLD_BOUNDS: [number, number, number, number] = [
   -179.9, -75, 179.9, 82,
 ];
 
 type ProjectedPoint = { x: number; y: number };
-
-interface MarkerCameraSnapshot {
-  longitude: number;
-  latitude: number;
-  zoom: number;
-  bearing: number;
-  pitch: number;
-  width: number;
-  height: number;
-}
 
 interface VisibleLocationGroup {
   id: string;
@@ -166,6 +155,7 @@ interface ConflictMapPreviewProps {
   initialFeed: ConflictPreviewFeed;
   initialMarketStrip: MarketStripFeed;
   fixtureMode: boolean;
+  onFeedChange?: (feed: ConflictPreviewFeed) => void;
 }
 
 function isConflictPreviewFeed(value: unknown): value is ConflictPreviewFeed {
@@ -227,6 +217,7 @@ export function ConflictMapPreview({
   initialFeed,
   initialMarketStrip,
   fixtureMode,
+  onFeedChange,
 }: ConflictMapPreviewProps) {
   const mapRef = useRef<MapRef>(null);
   const selectedCountryIds = useRef<Set<string>>(new Set());
@@ -234,7 +225,6 @@ export function ConflictMapPreview({
   const markerElements = useRef<globalThis.Map<string, HTMLDivElement>>(
     new globalThis.Map(),
   );
-  const markerCameraSnapshot = useRef<MarkerCameraSnapshot | null>(null);
   const shellRef = useRef<HTMLElement>(null);
   const readyScheduled = useRef(false);
   const countryPulseFadeTimer = useRef<number | null>(null);
@@ -259,6 +249,10 @@ export function ConflictMapPreview({
     });
   });
   const [feed, setFeed] = useState(initialFeed);
+  const previewMapStyle = useMemo(
+    () => createPreviewMapStyle(mapRenderProfile.quality),
+    [mapRenderProfile.quality],
+  );
   const [viewState, setViewState] = useState<ViewState>(
     INITIAL_VIEW_STATE as ViewState,
   );
@@ -391,7 +385,7 @@ export function ConflictMapPreview({
   }, []);
 
   useEffect(() => {
-    if (fixtureMode || !mapReady) return;
+    if (fixtureMode) return;
 
     let cancelled = false;
     let timer: number | null = null;
@@ -406,7 +400,10 @@ export function ConflictMapPreview({
         });
         if (!response.ok) return;
         const payload: unknown = await response.json();
-        if (!cancelled && isConflictPreviewFeed(payload)) setFeed(payload);
+        if (!cancelled && isConflictPreviewFeed(payload)) {
+          setFeed(payload);
+          onFeedChange?.(payload);
+        }
       } catch {
         // Keep the last verified payload on transient network failures.
       } finally {
@@ -434,53 +431,27 @@ export function ConflictMapPreview({
       ? Math.max(0, Date.now() - feedUpdatedAt)
       : refreshMs;
     const remainingFreshness = Math.max(0, refreshMs - feedAge);
-    // Fresh server payloads wait for the unused part of their refresh window.
-    // An expired production payload stays usable while the map completes its
-    // first interaction window, then refreshes with per-client jitter.
-    const productionDelay =
-      process.env.NODE_ENV === "production"
-        ? FEED_INITIAL_REFRESH_DELAY_MS +
-          Math.floor(Math.random() * FEED_REFRESH_JITTER_MS)
-        : 0;
-    schedule(Math.max(productionDelay, remainingFreshness));
+    // Fresh ISR payloads wait for the unused part of their refresh window.
+    // Stale payloads refresh promptly and independently of WebGL readiness so
+    // alert freshness never waits behind map rendering on weak devices.
+    schedule(
+      remainingFreshness > 0
+        ? remainingFreshness
+        : process.env.NODE_ENV === "production"
+          ? STALE_FEED_REFRESH_DELAY_MS
+          : 0,
+    );
     return () => {
       cancelled = true;
       window.removeEventListener("online", refreshWhenOnline);
       controller?.abort();
       if (timer !== null) window.clearTimeout(timer);
     };
-  }, [feed.refreshSeconds, feed.updatedAt, fixtureMode, mapReady]);
+  }, [feed.refreshSeconds, feed.updatedAt, fixtureMode, onFeedChange]);
 
-  const updateMarkerPositions = useCallback((force = false) => {
+  const updateMarkerPositions = useCallback(() => {
     const map = mapRef.current?.getMap();
     if (!map) return;
-
-    const center = map.getCenter();
-    const canvas = map.getCanvas();
-    const nextCamera: MarkerCameraSnapshot = {
-      longitude: center.lng,
-      latitude: center.lat,
-      zoom: map.getZoom(),
-      bearing: map.getBearing(),
-      pitch: map.getPitch(),
-      width: canvas.clientWidth,
-      height: canvas.clientHeight,
-    };
-    const previousCamera = markerCameraSnapshot.current;
-    if (
-      !force &&
-      previousCamera &&
-      previousCamera.longitude === nextCamera.longitude &&
-      previousCamera.latitude === nextCamera.latitude &&
-      previousCamera.zoom === nextCamera.zoom &&
-      previousCamera.bearing === nextCamera.bearing &&
-      previousCamera.pitch === nextCamera.pitch &&
-      previousCamera.width === nextCamera.width &&
-      previousCamera.height === nextCamera.height
-    ) {
-      return;
-    }
-    markerCameraSnapshot.current = nextCamera;
 
     for (const hotspot of visibleHotspots) {
       const element = markerElements.current.get(hotspot.event.id);
@@ -491,10 +462,6 @@ export function ConflictMapPreview({
       element.style.transform = `translate3d(${x}px, ${y}px, 0)`;
     }
   }, [visibleHotspots]);
-
-  const handleMapRender = useCallback(() => {
-    updateMarkerPositions(false);
-  }, [updateMarkerPositions]);
 
   const updatePopupAnchorPoint = useCallback(() => {
     const map = mapRef.current?.getMap();
@@ -519,13 +486,9 @@ export function ConflictMapPreview({
     if (!mapReady) return;
     const map = mapRef.current?.getMap();
     if (!map) return;
-    updateMarkerPositions(true);
+    updateMarkerPositions();
     updatePopupAnchorPoint();
-    map.on("render", handleMapRender);
-    return () => {
-      map.off("render", handleMapRender);
-    };
-  }, [handleMapRender, mapReady, updateMarkerPositions, updatePopupAnchorPoint]);
+  }, [mapReady, updateMarkerPositions, updatePopupAnchorPoint]);
 
   useEffect(() => {
     if (mapReady) updateHotspotSource();
@@ -890,6 +853,7 @@ export function ConflictMapPreview({
       data-map-pixel-ratio={mapRenderProfile.pixelRatio}
       data-map-render-quality={mapRenderProfile.quality}
       data-map-pixel-budget={mapRenderProfile.pixelBudget}
+      data-map-raster-texture="disabled"
       data-reduced-motion={reduceMotion ? "true" : "false"}
       data-hotspot-rendering="maplibre-native-circles"
       data-marker-glyph="volume-circles"
@@ -942,7 +906,7 @@ export function ConflictMapPreview({
         <MapLibreMap
           ref={mapRef}
           mapLib={maplibregl}
-          mapStyle={PREVIEW_MAP_STYLE}
+          mapStyle={previewMapStyle}
           pixelRatio={mapRenderProfile.pixelRatio}
           refreshExpiredTiles={false}
           validateStyle={false}
@@ -957,7 +921,7 @@ export function ConflictMapPreview({
           fadeDuration={0}
           maxBounds={WORLD_BOUNDS}
           attributionControl={false}
-          onStyleData={() => updateMarkerPositions(true)}
+          onStyleData={updateMarkerPositions}
           onLoad={() => {
             const loadedMap = mapRef.current?.getMap();
             loadedMap?.jumpTo(INITIAL_VIEW_STATE);
@@ -969,7 +933,7 @@ export function ConflictMapPreview({
             }
             setTileHealth("ready");
             updateHotspotSource();
-            window.requestAnimationFrame(() => updateMarkerPositions(true));
+            window.requestAnimationFrame(updateMarkerPositions);
             applyEventCountryState();
             applySelectedCountryState();
             markMapReady();
@@ -977,16 +941,19 @@ export function ConflictMapPreview({
           onIdle={markMapReady}
           onMoveStart={() => {
             if (shellRef.current) shellRef.current.dataset.mapMoving = "true";
+            setHoveredEvent(null);
           }}
           onMoveEnd={(event) => {
             setViewState(event.viewState);
-            if (shellRef.current) shellRef.current.dataset.mapMoving = "false";
             setZoom(event.viewState.zoom);
-            window.requestAnimationFrame(() => updateMarkerPositions(true));
-            window.requestAnimationFrame(updatePopupAnchorPoint);
+            window.requestAnimationFrame(() => {
+              updateMarkerPositions();
+              updatePopupAnchorPoint();
+              if (shellRef.current) shellRef.current.dataset.mapMoving = "false";
+            });
           }}
           onResize={() => {
-            updateMarkerPositions(true);
+            updateMarkerPositions();
             updatePopupAnchorPoint();
           }}
           onClick={() => setHoveredEvent(null)}
@@ -1065,12 +1032,6 @@ export function ConflictMapPreview({
         </div>
 
         {compactViewport === true ? selectedPopup : null}
-
-        <ActivityRail
-          feed={feed}
-          fixtureMode={fixtureMode}
-          liveRefreshEnabled={mapReady}
-        />
 
         <PreviewControls
           onZoomIn={() => updateZoomBy(0.75)}
