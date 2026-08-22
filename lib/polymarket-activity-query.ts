@@ -58,9 +58,34 @@ export function selectPolymarketActivityMarketIds(
       ([leftId, leftVolume], [rightId, rightVolume]) =>
         rightVolume - leftVolume || leftId.localeCompare(rightId),
     )
-    .slice(0, POLYMARKET_ACTIVITY_MAX_MARKET_IDS)
     .map(([marketId]) => marketId)
     .toSorted((left, right) => left.localeCompare(right));
+}
+
+export function batchPolymarketActivityMarketIds(
+  marketIds: readonly string[],
+): string[][] {
+  const normalizedMarketIds = Array.from(
+    new Set(
+      marketIds
+        .filter((marketId) => POLYMARKET_CONDITION_ID_PATTERN.test(marketId))
+        .map((marketId) => marketId.toLowerCase()),
+    ),
+  ).toSorted((left, right) => left.localeCompare(right));
+  const batches: string[][] = [];
+  for (
+    let index = 0;
+    index < normalizedMarketIds.length;
+    index += POLYMARKET_ACTIVITY_MAX_MARKET_IDS
+  ) {
+    batches.push(
+      normalizedMarketIds.slice(
+        index,
+        index + POLYMARKET_ACTIVITY_MAX_MARKET_IDS,
+      ),
+    );
+  }
+  return batches;
 }
 
 export function buildPolymarketActivityUrl(

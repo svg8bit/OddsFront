@@ -1032,6 +1032,70 @@ test("fills the rail with 5% daily and 20% weekly moves in both directions", asy
   await expect(rail.locator('[data-activity-window="24h"]')).toHaveCount(1);
 });
 
+test("batches trade-watch coverage across every eligible $100K market", async ({
+  page,
+}) => {
+  const fixture = getConflictPreviewFixtureFeed();
+  const updatedAt = new Date().toISOString();
+  const liveFeed = {
+    ...fixture,
+    dataMode: "live" as const,
+    updatedAt,
+    sourceLabel: "Polymarket Gamma API",
+    events: Array.from({ length: 136 }, (_, index) => ({
+      ...fixture.events[index % fixture.events.length]!,
+      id: `polymarket-${900_000 + index}`,
+      dataOrigin: "polymarket" as const,
+      evidenceStatus: "country-anchor" as const,
+      marketUrl: `https://polymarket.com/event/batched-activity-${index}`,
+      updatedAt,
+      endDate: new Date(Date.now() + 7 * 24 * 60 * 60_000).toISOString(),
+      marketConditionId: mockConditionId(900_000 + index),
+      volume: 100_000 + index,
+      volume24h: 1,
+      priceChange1h: null,
+      priceChange24h: 0.01,
+      priceChange7d: 0.01,
+    })),
+  };
+  const activityMarketIdQueries: string[][] = [];
+
+  await page.route("**/api/global-conflict-events", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(liveFeed),
+    });
+  });
+  await page.route("**/api/global-conflict-activity?**", async (route) => {
+    activityMarketIdQueries.push(
+      (new URL(route.request().url()).searchParams.get("marketIds") ?? "")
+        .split(",")
+        .filter(Boolean),
+    );
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        dataMode: "live",
+        updatedAt,
+        expiresAfterSeconds: 900,
+        sourceLabel: "Polymarket Data API",
+        items: [],
+      }),
+    });
+  });
+
+  await openActivityRailPage(page);
+  await expect.poll(() => activityMarketIdQueries.length).toBe(2);
+  expect(
+    activityMarketIdQueries.map((marketIds) => marketIds.length).sort((a, b) => a - b),
+  ).toEqual([36, 100]);
+  expect([...new Set(activityMarketIdQueries.flat())].sort()).toEqual(
+    liveFeed.events.map((event) => event.marketConditionId).sort(),
+  );
+});
+
 test("does not reanimate the same rolling signal after a feed refresh", async ({
   page,
 }) => {

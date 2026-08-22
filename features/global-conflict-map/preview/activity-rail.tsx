@@ -25,6 +25,7 @@ import {
 import { buildRollingActivitySignals } from "@/lib/conflict-activity-signals";
 import { formatMarketTitle } from "@/lib/market-title";
 import {
+  batchPolymarketActivityMarketIds,
   isPolymarketActivityEventCurrent,
   POLYMARKET_LARGE_TRADE_USD,
   selectPolymarketActivityMarketIds,
@@ -339,9 +340,9 @@ export function ActivityRail({
   const currentActivityEvents = useMemo(
     () =>
       feed.events.filter((event) =>
-        isPolymarketActivityEventCurrent(event, eligibilityClock),
+        isPolymarketActivityEventCurrent(event, feedClock),
       ),
-    [eligibilityClock, feed.events],
+    [feed.events, feedClock],
   );
   const currentActivityEventIds = useMemo(
     () => new Set(currentActivityEvents.map((event) => event.id)),
@@ -397,8 +398,11 @@ export function ActivityRail({
     currentActivityMarketConditionIds,
     rollingNotices,
   ]);
-  const marketIdQuery = useMemo(
-    () => selectPolymarketActivityMarketIds(feed.events).join(","),
+  const marketIdQueries = useMemo(
+    () =>
+      batchPolymarketActivityMarketIds(
+        selectPolymarketActivityMarketIds(feed.events),
+      ).map((marketIds) => marketIds.join(",")),
     [feed.events],
   );
 
@@ -407,39 +411,58 @@ export function ActivityRail({
       fixtureMode ||
       !liveRefreshEnabled ||
       feed.dataMode !== "live" ||
-      !marketIdQuery
+      marketIdQueries.length === 0
     ) {
       return;
     }
     let cancelled = false;
 
     const refresh = async () => {
-      try {
-        const response = await fetch(
-          `/api/global-conflict-activity?marketIds=${encodeURIComponent(marketIdQuery)}`,
-          { headers: { Accept: "application/json" } },
+      const results = await Promise.allSettled(
+        marketIdQueries.map(async (marketIdQuery) => {
+          const response = await fetch(
+            `/api/global-conflict-activity?marketIds=${encodeURIComponent(marketIdQuery)}`,
+            { headers: { Accept: "application/json" } },
+          );
+          if (!response.ok) {
+            throw new Error(`Activity batch returned ${response.status}`);
+          }
+          const payload: unknown = await response.json();
+          return isActivityFeed(payload) && payload.dataMode === "live"
+            ? payload
+            : null;
+        }),
+      );
+      if (cancelled) return;
+      const failedBatchCount = results.filter(
+        (result) => result.status === "rejected",
+      ).length;
+      if (failedBatchCount > 0) {
+        console.warn(
+          `Polymarket activity refresh kept partial coverage; ${failedBatchCount}/${marketIdQueries.length} batches unavailable.`,
         );
-        if (!response.ok) return;
-        const payload: unknown = await response.json();
-        if (cancelled || !isActivityFeed(payload) || payload.dataMode !== "live") {
-          return;
-        }
-        const tradeNotices = payload.items
+      }
+      const payloads = results
+        .filter(
+          (
+            result,
+          ): result is PromiseFulfilledResult<ConflictActivityFeed | null> =>
+            result.status === "fulfilled",
+        )
+        .map((result) => result.value)
+        .filter((payload): payload is ConflictActivityFeed => payload !== null);
+      const tradeNotices = payloads.flatMap((payload) =>
+        payload.items
           .map((item) =>
             tradeNotice(item, payload.expiresAfterSeconds, eventsByUrl),
           )
-          .filter((notice): notice is ActivityNotice => Boolean(notice));
-        addNotices(
-          tradeNotices,
-          currentActivityEventIds,
-          currentActivityMarketConditionIds,
-        );
-      } catch (error) {
-        console.warn(
-          "Polymarket activity refresh failed; keeping verified alerts.",
-          error instanceof Error ? error.message : "Unknown error",
-        );
-      }
+          .filter((notice): notice is ActivityNotice => Boolean(notice)),
+      );
+      addNotices(
+        tradeNotices,
+        currentActivityEventIds,
+        currentActivityMarketConditionIds,
+      );
     };
 
     let timer: number | null = null;
@@ -470,7 +493,7 @@ export function ActivityRail({
     feed.dataMode,
     fixtureMode,
     liveRefreshEnabled,
-    marketIdQuery,
+    marketIdQueries,
   ]);
 
   useEffect(() => {
