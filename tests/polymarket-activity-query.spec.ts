@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
 
 import {
+  batchPolymarketActivityMarketIds,
   buildPolymarketActivityUrl,
   selectPolymarketActivityMarketIds,
 } from "../lib/polymarket-activity-query";
@@ -54,7 +55,7 @@ test("selects future markets from $100K volume and rejects ineligible markets", 
   expect(marketIds).not.toContain(conditionId(1_000));
 });
 
-test("caps exact-market coverage at the highest-volume one hundred", () => {
+test("keeps every eligible market and batches upstream requests at one hundred", () => {
   const now = Date.parse("2026-08-11T13:00:00Z");
   const events = Array.from({ length: 130 }, (_, index) => ({
     id: `polymarket-${710_000 + index}`,
@@ -64,10 +65,13 @@ test("caps exact-market coverage at the highest-volume one hundred", () => {
   }));
 
   const marketIds = selectPolymarketActivityMarketIds(events, now);
+  const batches = batchPolymarketActivityMarketIds(marketIds);
 
-  expect(marketIds).toHaveLength(100);
+  expect(marketIds).toHaveLength(130);
+  expect(marketIds).toContain(conditionId(1));
   expect(marketIds).toContain(conditionId(130));
-  expect(marketIds).not.toContain(conditionId(1));
+  expect(batches.map((batch) => batch.length)).toEqual([100, 30]);
+  expect(batches.flat()).toEqual(marketIds);
 });
 
 test("bounds the Polymarket trade query to a fresh fifteen-minute window", () => {
