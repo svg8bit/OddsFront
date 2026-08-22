@@ -43,7 +43,7 @@ const ACTIVITY_REFRESH_JITTER_MS = 15_000;
 const ACTIVITY_INITIAL_DELAY_MS = 1_000;
 const CONDITION_ID_PATTERN = /^0x[a-f0-9]{64}$/i;
 
-type ActivityWindowLabel = "24h";
+type ActivityWindowLabel = "24h" | "7d";
 type ActivityNoticeKind = Exclude<ConflictActivityKind, "large-sell">;
 type ActivityNoticeSource = "trade" | "rolling";
 
@@ -523,6 +523,7 @@ export function ActivityRail({
               style={{ "--activity-tone": tone } as React.CSSProperties}
               data-activity-kind={notice.kind}
               data-activity-source={notice.source}
+              data-activity-window={notice.windowLabel ?? ""}
               data-activity-direction={rising ? "up" : "down"}
               data-notice-id={notice.id}
               data-event-id={notice.eventId ?? ""}

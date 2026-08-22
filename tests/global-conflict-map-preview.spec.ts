@@ -909,7 +909,7 @@ test("groups co-located alliance events behind popup pager arrows", async ({
   await expect(popup).toContainText("Market 2 of 2");
 });
 
-test("fills the rail only with liquid 24h odds moves at or above twenty percent", async ({
+test("fills the rail with 5% daily and 20% weekly moves in both directions", async ({
   page,
 }) => {
   const fixture = getConflictPreviewFixtureFeed();
@@ -928,11 +928,11 @@ test("fills the rail only with liquid 24h odds moves at or above twenty percent"
       updatedAt,
       endDate: new Date(Date.now() + 7 * 24 * 60 * 60_000).toISOString(),
       marketConditionId: mockConditionId(7_000 + index),
-      volume: [8_161_752, 483_019, 17_151_386, 399_999, 8_886_800][index]!,
-      volume24h: [20_540, 20_046, 421_439, 20_000, 21_645][index]!,
+      volume: [8_161_752, 483_019, 17_151_386, 99_999, 8_886_800][index]!,
+      volume24h: [1, 2, 0, 20_000, 0][index]!,
       priceChange1h: [0.75, -0.81, 0.66, 0.9, -0.72][index]!,
-      priceChange24h: [0.32, -0.25, 0.2, 0.8, -0.199][index]!,
-      priceChange7d: index === 3 ? 0.8 : null,
+      priceChange24h: [0.05, -0.05, 0.06, 0.8, 0.04996][index]!,
+      priceChange7d: [0.199, -0.2, 0.25, -0.9, -0.19996][index]!,
     })),
   };
 
@@ -964,9 +964,9 @@ test("fills the rail only with liquid 24h odds moves at or above twenty percent"
     true,
   );
   await expect(rail).toHaveAttribute("data-activity-count", "3");
-  await expect(rail).toContainText("Odds +32.0%");
-  await expect(rail).toContainText("Odds -25.0%");
-  await expect(rail).toContainText("Odds +20.0%");
+  await expect(rail).toContainText("Odds +25.0%");
+  await expect(rail).toContainText("Odds -20.0%");
+  await expect(rail).toContainText("Odds +5.0%");
   await expect(rail).not.toContainText(" pp");
   await expect(rail).not.toContainText("Volume");
   await expect(rail).not.toContainText("1h");
@@ -1028,7 +1028,8 @@ test("fills the rail only with liquid 24h odds moves at or above twenty percent"
   }
   await expect(rail).not.toContainText(liveFeed.events[3]!.title);
   await expect(rail).not.toContainText(liveFeed.events[4]!.title);
-  await expect(rail).not.toContainText("7d");
+  await expect(rail.locator('[data-activity-window="7d"]')).toHaveCount(2);
+  await expect(rail.locator('[data-activity-window="24h"]')).toHaveCount(1);
 });
 
 test("does not reanimate the same rolling signal after a feed refresh", async ({
@@ -1107,7 +1108,7 @@ test("does not reanimate the same rolling signal after a feed refresh", async ({
   await expect(rollingCard).toHaveAttribute("data-expires-at", initialExpiry!);
 });
 
-test("shows only 20% daily odds moves and referral-safe trades from $200K", async ({
+test("shows 5% daily and 20% weekly moves with referral-safe buys from $200K", async ({
   page,
 }) => {
   const fixture = getConflictPreviewFixtureFeed();
@@ -1128,9 +1129,10 @@ test("shows only 20% daily odds moves and referral-safe trades from $200K", asyn
       countryCodes:
         index === 4 ? ["US", "IR", "OM"] : event.countryCodes,
       volume: index === 2 ? 900_000 : event.volume,
+      volume24h: index === 1 ? 1 : event.volume24h,
       priceChange1h: index === 0 ? 0.9 : index === 3 ? -0.8 : null,
-      priceChange24h: index === 1 ? -0.22 : index === 2 ? 0.25 : 0.1,
-      priceChange7d: index === 1 ? -0.29 : index === 2 ? 0.5 : null,
+      priceChange24h: index === 1 ? -0.08 : index === 2 ? 0.06 : 0.049,
+      priceChange7d: index === 1 ? -0.19 : index === 2 ? 0.25 : null,
     })),
   };
   const activityMarketIdQueries: string[][] = [];
@@ -1202,7 +1204,7 @@ test("shows only 20% daily odds moves and referral-safe trades from $200K", asyn
   await openActivityRailPage(page);
   await expect.poll(() => conflictFeedRequestCount).toBeGreaterThanOrEqual(1);
   const expectedActivityMarketIds = liveFeed.events
-    .filter((event) => event.volume >= 400_000)
+    .filter((event) => event.volume >= 100_000)
     .map((event) => event.marketConditionId)
     .filter((marketId): marketId is string => Boolean(marketId))
     .sort();
@@ -1235,12 +1237,12 @@ test("shows only 20% daily odds moves and referral-safe trades from $200K", asyn
       .locator("[data-activity-metric]"),
   ).toHaveAttribute("aria-label", "Trade execution odds");
   await expect(rail).toContainText("Odds +25.0%");
-  await expect(rail).toContainText("Odds -22.0%");
+  await expect(rail).toContainText("Odds -8.0%");
   await expect(rail).not.toContainText(liveFeed.events[3]!.title);
   await expect(rail.locator('[data-activity-kind="large-sell"]')).toHaveCount(0);
   await expect(rail).not.toContainText("Volume");
   await expect(rail).not.toContainText("1h");
-  await expect(rail).not.toContainText("7d");
+  await expect(rail).toContainText("7d");
 
   await page.evaluate(() => window.dispatchEvent(new Event("online")));
   await expect.poll(() => conflictFeedRequestCount).toBeGreaterThanOrEqual(2);
