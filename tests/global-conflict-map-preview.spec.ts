@@ -1750,6 +1750,94 @@ test("automatically geolocates unseen conflict events without per-event rules", 
   expect(normalizeConflictPreviewEvent(invalidDateEvent)).toBeNull();
 });
 
+test("defaults multi-market events to the active market with the highest YES odds", () => {
+  const augustEndDate = new Date(
+    Date.now() + 3 * 24 * 60 * 60_000,
+  ).toISOString();
+  const midSeptemberEndDate = new Date(
+    Date.now() + 18 * 24 * 60 * 60_000,
+  ).toISOString();
+  const septemberEndDate = new Date(
+    Date.now() + 33 * 24 * 60 * 60_000,
+  ).toISOString();
+  const event: GammaEvent = {
+    id: "907008",
+    title: "Israel military action against Syria by...?",
+    slug: "israel-military-action-against-syria-byptptpt-21",
+    active: true,
+    closed: false,
+    archived: false,
+    volume: 75_000,
+    volume24hr: 18_000,
+    liquidity: 50_000,
+    updatedAt: "2026-08-28T12:00:00Z",
+    tags: [
+      { slug: "geopolitics", label: "Geopolitics" },
+      { slug: "israel", label: "Israel" },
+      { slug: "syria", label: "Syria" },
+      { slug: "military-action", label: "Military Action" },
+    ],
+    markets: [
+      {
+        id: "3861935",
+        conditionId: mockConditionId(31),
+        question: "Israel military action against Syria by August 31, 2026?",
+        outcomes: '["Yes","No"]',
+        outcomePrices: '["0.10","0.90"]',
+        volume: 60_000,
+        volume24hr: 15_000,
+        liquidity: 30_000,
+        active: true,
+        closed: false,
+        archived: false,
+        acceptingOrders: true,
+        endDate: augustEndDate,
+        updatedAt: "2026-08-28T12:00:00Z",
+      },
+      {
+        id: "3861936",
+        conditionId: mockConditionId(915),
+        question: "Israel military action against Syria by September 15, 2026?",
+        outcomes: '["Yes","No"]',
+        outcomePrices: '["0.441","0.559"]',
+        volume: 50_000,
+        volume24hr: 4_000,
+        liquidity: 25_000,
+        active: true,
+        closed: false,
+        archived: false,
+        acceptingOrders: true,
+        endDate: midSeptemberEndDate,
+        updatedAt: "2026-08-28T12:00:00Z",
+      },
+      {
+        id: "3861937",
+        conditionId: mockConditionId(930),
+        question: "Israel military action against Syria by September 30, 2026?",
+        outcomes: '["Yes","No"]',
+        outcomePrices: '["0.444","0.556"]',
+        volume: 15_000,
+        volume24hr: 3_000,
+        liquidity: 20_000,
+        active: true,
+        closed: false,
+        archived: false,
+        acceptingOrders: true,
+        endDate: septemberEndDate,
+        updatedAt: "2026-08-28T12:00:00Z",
+      },
+    ],
+  };
+
+  expect(normalizeConflictPreviewEvent(event)).toMatchObject({
+    title: "Israel military action against Syria by September 30, 2026?",
+    yesOdds: 44,
+    noOdds: 56,
+    endDate: septemberEndDate,
+    marketConditionId: mockConditionId(930),
+  });
+});
+
 test("keeps the antimeridian and world-copy seams hidden", async ({ page }) => {
   const shell = await openReadyMap(page);
   for (let index = 0; index < 3; index += 1) {

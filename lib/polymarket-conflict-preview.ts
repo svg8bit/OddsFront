@@ -121,7 +121,7 @@ function parseStringArray(value: unknown): string[] | null {
 
 function normalizeBinaryPrices(
   market: GammaMarket,
-): { yes: number; no: number } | null {
+): { yes: number; no: number; yesProbability: number } | null {
   const outcomes = parseStringArray(market.outcomes);
   const prices = parseStringArray(market.outcomePrices)?.map(Number);
   if (!outcomes || !prices || outcomes.length !== prices.length) return null;
@@ -136,8 +136,9 @@ function normalizeBinaryPrices(
 
   const total = yesValue + noValue;
   if (total <= 0) return null;
-  const yes = Math.round((yesValue / total) * 100);
-  return { yes, no: 100 - yes };
+  const yesProbability = yesValue / total;
+  const yes = Math.round(yesProbability * 100);
+  return { yes, no: 100 - yes, yesProbability };
 }
 
 function cleanText(value: string): string {
@@ -221,11 +222,15 @@ export function normalizeConflictPreviewEvent(
     .filter(
       (
         entry,
-      ): entry is { market: GammaMarket & { id: string; question: string }; odds: { yes: number; no: number } } =>
+      ): entry is {
+        market: GammaMarket & { id: string; question: string };
+        odds: { yes: number; no: number; yesProbability: number };
+      } =>
         Boolean(entry.odds && hasOpenOdds(entry.odds)),
     )
     .sort(
       (left, right) =>
+        right.odds.yesProbability - left.odds.yesProbability ||
         toFiniteNumber(right.market.volume) - toFiniteNumber(left.market.volume) ||
         toFiniteNumber(right.market.volume24hr) -
           toFiniteNumber(left.market.volume24hr),
