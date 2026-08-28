@@ -1838,6 +1838,70 @@ test("defaults multi-market events to the active market with the highest YES odd
   });
 });
 
+test("reconciles a stale upstream end date only from an unambiguous live deadline", () => {
+  const realDateNow = Date.now;
+  const currentTime = Date.parse("2026-08-28T18:41:00Z");
+  Date.now = () => currentTime;
+
+  try {
+    const colombiaEvent = {
+      id: "143633",
+      title: "US strike on Colombia by...?",
+      slug: "us-strike-on-colombia-by-january-31",
+      active: true,
+      closed: false,
+      archived: false,
+      volume: 2_171_288,
+      volume24hr: 107,
+      liquidity: 35_442,
+      updatedAt: "2026-08-28T18:40:53Z",
+      tags: [{ slug: "geopolitics", label: "Geopolitics" }],
+      markets: [
+        {
+          id: "1107307",
+          conditionId: mockConditionId(1_107_307),
+          question: "US strike on Colombia by December 31?",
+          outcomes: '["Yes","No"]',
+          outcomePrices: '["0.355","0.645"]',
+          volume: 1_094_073,
+          volume24hr: 107,
+          liquidity: 35_442,
+          active: true,
+          closed: false,
+          archived: false,
+          acceptingOrders: true,
+          startDate: "2026-01-04T19:56:07Z",
+          endDate: "2026-01-31T00:00:00Z",
+          updatedAt: "2026-08-28T18:40:53Z",
+        },
+      ],
+    } as unknown as GammaEvent;
+
+    expect(normalizeConflictPreviewEvent(colombiaEvent)).toMatchObject({
+      id: "polymarket-143633",
+      title: "US strike on Colombia by December 31?",
+      locationLabel: "Colombia",
+      yesOdds: 36,
+      noOdds: 64,
+      endDate: "2026-12-31T23:59:59.999Z",
+      marketConditionId: mockConditionId(1_107_307),
+    });
+
+    const withoutConfirmedOrders = structuredClone(colombiaEvent) as GammaEvent;
+    withoutConfirmedOrders.markets![0]!.acceptingOrders = undefined;
+    expect(normalizeConflictPreviewEvent(withoutConfirmedOrders)).toBeNull();
+
+    const withoutDeadline = structuredClone(colombiaEvent) as GammaEvent;
+    withoutDeadline.markets![0]!.question = "Will the US strike Colombia?";
+    expect(normalizeConflictPreviewEvent(withoutDeadline)).toBeNull();
+
+    Date.now = () => Date.parse("2027-01-01T00:00:00Z");
+    expect(normalizeConflictPreviewEvent(colombiaEvent)).toBeNull();
+  } finally {
+    Date.now = realDateNow;
+  }
+});
+
 test("keeps the antimeridian and world-copy seams hidden", async ({ page }) => {
   const shell = await openReadyMap(page);
   for (let index = 0; index < 3; index += 1) {

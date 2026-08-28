@@ -36,6 +36,7 @@ interface GammaMarket {
   closed?: boolean;
   archived?: boolean;
   acceptingOrders?: boolean;
+  startDate?: string | null;
   endDate?: string | null;
   updatedAt?: string | null;
   oneHourPriceChange?: string | number | null;
@@ -80,6 +81,26 @@ const conflictTagPattern =
 
 const excludedContextPattern =
   /nobel peace prize|election|prime minister|president|leader end|out as|out by|leadership change|regime fall|coup attempt|referendum|visit |will .* visit|meet(?:s|ing)? with|recogniz(?:e|es|ed|ing)|normaliz(?:e|es|ed|ing) relations|economic deal|trade deal|tariff|gdp|inflation|legalize|internet blackout|rejoin the g7|board of peace/i;
+
+const questionDeadlinePattern =
+  /\bby\s+(january|february|march|april|may|june|july|august|september|october|november|december)\s+([12]?\d|3[01])(?:,\s*(\d{4}))?\s*[?.!]*$/i;
+
+const monthIndexByName: Record<string, number> = {
+  january: 0,
+  february: 1,
+  march: 2,
+  april: 3,
+  may: 4,
+  june: 5,
+  july: 6,
+  august: 7,
+  september: 8,
+  october: 9,
+  november: 10,
+  december: 11,
+};
+
+const MAX_INFERRED_DEADLINE_MS = 370 * 24 * 60 * 60_000;
 
 function isConflictRelevant(text: string, tagText: string): boolean {
   const direct = directConflictPattern.test(text);
@@ -167,6 +188,92 @@ function isExpired(endDate: string | null | undefined, now = Date.now()): boolea
   return !Number.isFinite(timestamp) || timestamp <= now;
 }
 
+function buildUtcEndOfDay(year: number, monthIndex: number, day: number) {
+  const timestamp = Date.UTC(year, monthIndex, day, 23, 59, 59, 999);
+  const date = new Date(timestamp);
+  if (
+    date.getUTCFullYear() !== year ||
+    date.getUTCMonth() !== monthIndex ||
+    date.getUTCDate() !== day
+  ) {
+    return null;
+  }
+  return timestamp;
+}
+
+function inferQuestionDeadline(
+  question: string,
+  startDate: string | null | undefined,
+): string | null {
+  const match = cleanText(question).match(questionDeadlinePattern);
+  if (!match) return null;
+
+  const monthIndex = monthIndexByName[match[1]!.toLowerCase()];
+  const day = Number.parseInt(match[2]!, 10);
+  const explicitYear = match[3] ? Number.parseInt(match[3], 10) : null;
+  if (monthIndex === undefined || !Number.isInteger(day)) return null;
+
+  if (explicitYear !== null) {
+    const explicitDeadline = buildUtcEndOfDay(explicitYear, monthIndex, day);
+    return explicitDeadline === null
+      ? null
+      : new Date(explicitDeadline).toISOString();
+  }
+
+  const startTimestamp = Date.parse(startDate ?? "");
+  if (!Number.isFinite(startTimestamp)) return null;
+
+  let inferredYear = new Date(startTimestamp).getUTCFullYear();
+  let inferredDeadline = buildUtcEndOfDay(inferredYear, monthIndex, day);
+  if (inferredDeadline === null) return null;
+  if (inferredDeadline < startTimestamp) {
+    inferredYear += 1;
+    inferredDeadline = buildUtcEndOfDay(inferredYear, monthIndex, day);
+  }
+  if (
+    inferredDeadline === null ||
+    inferredDeadline - startTimestamp > MAX_INFERRED_DEADLINE_MS
+  ) {
+    return null;
+  }
+
+  return new Date(inferredDeadline).toISOString();
+}
+
+function reconcileMarketEndDate(
+  market: GammaMarket,
+  now = Date.now(),
+): string | null {
+  const upstreamEndDate = market.endDate ?? null;
+  if (!upstreamEndDate) return upstreamEndDate;
+
+  const upstreamTimestamp = Date.parse(upstreamEndDate);
+  if (!Number.isFinite(upstreamTimestamp) || upstreamTimestamp > now) {
+    return upstreamEndDate;
+  }
+  if (
+    market.active !== true ||
+    market.closed ||
+    market.archived ||
+    market.acceptingOrders !== true ||
+    !market.question
+  ) {
+    return upstreamEndDate;
+  }
+
+  // Gamma occasionally keeps an earlier ladder deadline after renaming an
+  // actively traded market. Only reconcile a terminal question date when the
+  // order book is explicitly live; yearless dates stay anchored to startDate
+  // so they cannot roll forward forever.
+  const inferredDeadline = inferQuestionDeadline(
+    market.question,
+    market.startDate,
+  );
+  return inferredDeadline && !isExpired(inferredDeadline, now)
+    ? inferredDeadline
+    : upstreamEndDate;
+}
+
 function hasOpenOdds(odds: { yes: number; no: number }): boolean {
   return odds.yes > 0 && odds.no > 0;
 }
@@ -208,6 +315,10 @@ export function normalizeConflictPreviewEvent(
   // open future market is not hidden by a stale event-level date.
 
   const activeMarkets = (event.markets ?? [])
+    .map((market) => ({
+      ...market,
+      endDate: reconcileMarketEndDate(market),
+    }))
     .filter(
       (market) =>
         market.id &&
@@ -223,7 +334,11 @@ export function normalizeConflictPreviewEvent(
       (
         entry,
       ): entry is {
-        market: GammaMarket & { id: string; question: string };
+        market: GammaMarket & {
+          id: string;
+          question: string;
+          endDate: string | null;
+        };
         odds: { yes: number; no: number; yesProbability: number };
       } =>
         Boolean(entry.odds && hasOpenOdds(entry.odds)),
