@@ -278,6 +278,16 @@ function hasOpenOdds(odds: { yes: number; no: number }): boolean {
   return odds.yes > 0 && odds.no > 0;
 }
 
+function marketDeadlineYear(market: GammaMarket): number | null {
+  const deadline =
+    inferQuestionDeadline(market.question ?? "", market.startDate) ??
+    market.endDate;
+  const timestamp = Date.parse(deadline ?? "");
+  return Number.isFinite(timestamp)
+    ? new Date(timestamp).getUTCFullYear()
+    : null;
+}
+
 function minimumZoomForVolume(volume: number): number {
   if (volume >= 5_000_000) return 1;
   if (volume >= 1_000_000) return 1.8;
@@ -352,9 +362,25 @@ export function normalizeConflictPreviewEvent(
     );
 
   const tagText = eventTagText(event);
-  const selected = activeMarkets.find(({ market }) =>
+  const relevantMarkets = activeMarkets.filter(({ market }) =>
     isConflictRelevant(cleanText(`${event.title} ${market.question}`), tagText),
   );
+  const deadlineYears = [
+    ...new Set(
+      relevantMarkets
+        .map(({ market }) => marketDeadlineYear(market))
+        .filter((year): year is number => year !== null),
+    ),
+  ];
+  const nearestDeadlineYear =
+    deadlineYears.length > 1 ? Math.min(...deadlineYears) : null;
+  const representativeMarkets =
+    nearestDeadlineYear === null
+      ? relevantMarkets
+      : relevantMarkets.filter(
+          ({ market }) => marketDeadlineYear(market) === nearestDeadlineYear,
+        );
+  const selected = representativeMarkets[0];
   if (!selected) return null;
 
   const searchableText = cleanText(
@@ -383,6 +409,7 @@ export function normalizeConflictPreviewEvent(
     yesOdds: selected.odds.yes,
     noOdds: selected.odds.no,
     volume: eventVolume,
+    marketVolume: toFiniteNumber(selected.market.volume),
     tone: location.tone,
     severity: severityForEvent(eventVolume, selected.odds.yes),
     regionPolygon: [],

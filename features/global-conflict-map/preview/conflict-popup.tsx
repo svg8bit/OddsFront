@@ -178,7 +178,7 @@ export function ConflictPopup({
       </div>
 
       <div className={styles.volumeRow}>
-        <span>{formatVolume(event.volume)} Vol</span>
+        <span>{formatVolume(event.marketVolume ?? event.volume)} Vol</span>
         {marketUrl ? (
           <a
             href={marketUrl}

@@ -28,6 +28,7 @@ export interface ConflictPreviewEvent {
   yesOdds: number;
   noOdds: number;
   volume: number;
+  marketVolume?: number;
   tone: PreviewTone;
   severity: "elevated" | "high" | "critical";
   regionPolygon: PreviewCoordinate[];
