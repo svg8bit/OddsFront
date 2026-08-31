@@ -852,6 +852,7 @@ test("groups co-located alliance events behind popup pager arrows", async ({
     priceChange1h: null,
     priceChange24h: null,
     volume: index === 0 ? 1_000_000 : 10_000_000,
+    marketVolume: index === 0 ? 900_000 : 2_215_111,
   }));
   const events = [
     {
@@ -895,6 +896,8 @@ test("groups co-located alliance events behind popup pager arrows", async ({
   await expect(shell).toHaveAttribute("data-selected-event", "polymarket-25414");
   const popup = page.getByTestId("conflict-popup");
   await expect(popup).toContainText("Market 1 of 2");
+  await expect(popup).toContainText("$2.2M Vol");
+  await expect(popup).not.toContainText("$10M Vol");
   await expect(
     popup.getByRole("link", { name: "Track this market in DropsBot" }),
   ).toHaveAttribute(
@@ -1835,6 +1838,71 @@ test("defaults multi-market events to the active market with the highest YES odd
     noOdds: 56,
     endDate: septemberEndDate,
     marketConditionId: mockConditionId(930),
+  });
+});
+
+test("keeps the representative market in the nearest active deadline year", () => {
+  const event: GammaEvent = {
+    id: "478472",
+    title: "Russia x Ukraine ceasefire agreement by...?",
+    slug: "russia-x-ukraine-ceasefire-agreement-by",
+    active: true,
+    closed: false,
+    archived: false,
+    volume: 6_276_618,
+    volume24hr: 32_000,
+    liquidity: 380_000,
+    updatedAt: "2026-08-30T18:53:17Z",
+    tags: [
+      { slug: "geopolitics", label: "Geopolitics" },
+      { slug: "ceasefire", label: "Ceasefire" },
+      { slug: "russia", label: "Russia" },
+      { slug: "ukraine", label: "Ukraine" },
+    ],
+    markets: [
+      {
+        id: "2243897",
+        conditionId: mockConditionId(31_2026),
+        question: "Russia x Ukraine ceasefire agreement by December 31, 2026?",
+        outcomes: '["Yes","No"]',
+        outcomePrices: '["0.185","0.815"]',
+        volume: 2_215_111,
+        volume24hr: 1_084,
+        liquidity: 109_036,
+        active: true,
+        closed: false,
+        archived: false,
+        acceptingOrders: true,
+        endDate: "2027-01-01T04:59:00Z",
+        updatedAt: "2026-08-30T18:52:53Z",
+      },
+      {
+        id: "3701688",
+        conditionId: mockConditionId(30_2027),
+        question: "Russia x Ukraine ceasefire agreement by June 30, 2027?",
+        outcomes: '["Yes","No"]',
+        outcomePrices: '["0.495","0.505"]',
+        volume: 3_503,
+        volume24hr: 464,
+        liquidity: 58_434,
+        active: true,
+        closed: false,
+        archived: false,
+        acceptingOrders: true,
+        endDate: "2027-07-01T03:59:00Z",
+        updatedAt: "2026-08-30T18:52:53Z",
+      },
+    ],
+  };
+
+  expect(normalizeConflictPreviewEvent(event)).toMatchObject({
+    title: "Russia x Ukraine ceasefire agreement by December 31, 2026?",
+    yesOdds: 19,
+    noOdds: 81,
+    volume: 6_276_618,
+    marketVolume: 2_215_111,
+    endDate: "2027-01-01T04:59:00Z",
+    marketConditionId: mockConditionId(31_2026),
   });
 });
 
