@@ -1,7 +1,6 @@
 import { Buffer } from "node:buffer";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
-import { ImageResponse } from "next/og";
 import sharp from "sharp";
 import { getNewsArticle } from "@/lib/news/catalog";
 import { articleText, localeDirection, normalizeLocale } from "@/lib/news/locale";
@@ -12,40 +11,97 @@ import type { Locale } from "@/lib/news/types";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const SOCIAL_FONT_FILES: Record<Locale, string> = {
-  en: "inter-social-v1.ttf",
-  zh: "noto-sans-sc-social-v1.ttf",
-  ko: "noto-sans-kr-social-v1.ttf",
-  vi: "inter-social-v1.ttf",
-  de: "inter-social-v1.ttf",
-  es: "inter-social-v1.ttf",
-  "pt-BR": "inter-social-v1.ttf",
-  fr: "inter-social-v1.ttf",
-  ru: "inter-social-v1.ttf",
-  uk: "inter-social-v1.ttf",
-  fa: "almarai-social-v1.ttf",
-  he: "noto-sans-hebrew-social-v1.ttf",
+const SOCIAL_FONTS: Record<Locale, { filename: string; family: string }> = {
+  en: { filename: "inter-social-v1.ttf", family: "Inter" },
+  zh: { filename: "noto-sans-sc-social-v1.ttf", family: "Noto Sans SC" },
+  ko: { filename: "noto-sans-kr-social-v1.ttf", family: "Noto Sans KR" },
+  vi: { filename: "inter-social-v1.ttf", family: "Inter" },
+  de: { filename: "inter-social-v1.ttf", family: "Inter" },
+  es: { filename: "inter-social-v1.ttf", family: "Inter" },
+  "pt-BR": { filename: "inter-social-v1.ttf", family: "Inter" },
+  fr: { filename: "inter-social-v1.ttf", family: "Inter" },
+  ru: { filename: "inter-social-v1.ttf", family: "Inter" },
+  uk: { filename: "inter-social-v1.ttf", family: "Inter" },
+  fa: { filename: "almarai-social-v1.ttf", family: "Almarai" },
+  he: { filename: "noto-sans-hebrew-social-v1.ttf", family: "Noto Sans Hebrew" },
 };
-const fontCache = new Map<string, Promise<ArrayBuffer | null>>();
 
-function toArrayBuffer(value: Buffer): ArrayBuffer {
-  return value.buffer.slice(value.byteOffset, value.byteOffset + value.byteLength) as ArrayBuffer;
+function fontPath(locale: Locale) {
+  return path.join(process.cwd(), "public", "fonts", SOCIAL_FONTS[locale].filename);
 }
 
-function loadSocialFont(locale: Locale) {
-  const filename = SOCIAL_FONT_FILES[locale];
-  let pending = fontCache.get(filename);
-  if (!pending) {
-    pending = readFile(path.join(process.cwd(), "public", "fonts", filename))
-      .then((value) => {
-        const data = toArrayBuffer(value);
-        return data.byteLength > 1_000 && new DataView(data).getUint32(0) === 0x00010000 ? data : null;
-      })
-      .catch(() => null);
-    fontCache.set(filename, pending);
-    void pending.then((data) => { if (!data) fontCache.delete(filename); });
+function escapeMarkup(value: string) {
+  return value
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&apos;");
+}
+
+async function textLayer(
+  text: string,
+  locale: Locale,
+  size: number,
+  width: number,
+  align: "left" | "right" = "left",
+) {
+  return sharp({
+    text: {
+      text: `<span foreground="#ffffff">${escapeMarkup(text)}</span>`,
+      font: `${SOCIAL_FONTS[locale].family} Bold ${size}`,
+      fontfile: fontPath(locale),
+      width,
+      align,
+      wrap: "word-char",
+      rgba: true,
+      spacing: Math.max(5, Math.round(size * 0.12)),
+    },
+  }).png().toBuffer({ resolveWithObject: true });
+}
+
+async function fittedTitle(text: string, locale: Locale) {
+  const initialSize = text.length > 125 ? 43 : text.length > 82 ? 51 : 60;
+  for (let size = initialSize; size >= 35; size -= 4) {
+    const layer = await textLayer(
+      text,
+      locale,
+      size,
+      1030,
+      localeDirection(locale) === "rtl" ? "right" : "left",
+    );
+    if (layer.info.height <= 330 || size === 35) return layer;
   }
-  return pending;
+  throw new Error("Unable to fit social title");
+}
+
+function brandOverlay(fallbackBackground: boolean) {
+  return Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+    <defs>
+      <linearGradient id="fallback" x1="0" y1="1" x2="1" y2="0">
+        <stop offset="0" stop-color="#07111e"/><stop offset="0.62" stop-color="#101c36"/><stop offset="1" stop-color="#3538aa"/>
+      </linearGradient>
+      <linearGradient id="side" x1="0" y1="0" x2="1" y2="0">
+        <stop offset="0" stop-color="#030912" stop-opacity="0.96"/><stop offset="0.58" stop-color="#030912" stop-opacity="0.80"/><stop offset="1" stop-color="#030912" stop-opacity="0.30"/>
+      </linearGradient>
+      <linearGradient id="bottom" x1="0" y1="1" x2="0" y2="0">
+        <stop offset="0" stop-color="#030912" stop-opacity="0.95"/><stop offset="0.66" stop-color="#030912" stop-opacity="0.22"/><stop offset="1" stop-color="#030912" stop-opacity="0"/>
+      </linearGradient>
+      <linearGradient id="purple" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0" stop-color="#7778ff"/><stop offset="1" stop-color="#5548ff"/>
+      </linearGradient>
+      <filter id="glow" x="-80%" y="-80%" width="260%" height="260%"><feGaussianBlur stdDeviation="8"/></filter>
+    </defs>
+    ${fallbackBackground ? '<rect width="1200" height="630" fill="url(#fallback)"/>' : ""}
+    <rect width="1200" height="630" fill="url(#side)"/>
+    <rect width="1200" height="630" fill="url(#bottom)"/>
+    <g transform="translate(66 52) skewX(-25)">
+      <rect x="0" y="0" width="13" height="43" rx="2" fill="#665cff" opacity="0.48" filter="url(#glow)"/>
+      <rect x="26" y="0" width="13" height="43" rx="2" fill="#665cff" opacity="0.48" filter="url(#glow)"/>
+      <rect x="0" y="0" width="13" height="43" rx="2" fill="url(#purple)"/>
+      <rect x="26" y="0" width="13" height="43" rx="2" fill="url(#purple)"/>
+    </g>
+  </svg>`);
 }
 
 export async function GET(
@@ -59,53 +115,50 @@ export async function GET(
     return new Response(null, { status: 404, headers: { "Cache-Control": "no-store" } });
   }
   const text = articleText(article, locale);
-  const direction = localeDirection(locale);
-  const font = await loadSocialFont(locale);
   const source = article.sources.find((candidate) => candidate.kind === "media");
   const cover = source ? await fetchPartnerCover(source.url) : null;
   let coverImage: Buffer | null = null;
   if (cover) {
     try {
-      coverImage = await sharp(Buffer.from(cover.body)).rotate().resize(1200, 630, { fit: "cover", position: "centre" }).png({ compressionLevel: 8 }).toBuffer();
+      coverImage = await sharp(Buffer.from(cover.body))
+        .rotate()
+        .resize(1200, 630, { fit: "cover", position: "centre" })
+        .png({ compressionLevel: 8 })
+        .toBuffer();
     } catch { /* A malformed partner image falls back to branded artwork. */ }
   }
-  const titleSize = text.title.length > 125 ? 43 : text.title.length > 82 ? 51 : 60;
-  const renderCard = (fallbackBackground: boolean) => new ImageResponse(
-    <div style={{ position: "relative", width: "100%", height: "100%", display: "flex", overflow: "hidden", color: "white", fontFamily: font ? "OddsFront Social" : "sans-serif", backgroundColor: fallbackBackground ? "#07121f" : "transparent", backgroundImage: fallbackBackground ? "radial-gradient(circle at 75% 25%, #3538aa 0, transparent 36%), linear-gradient(135deg, #101c36 0%, #07111e 70%)" : "linear-gradient(transparent, transparent)" }}>
-      <div style={{ position: "relative", width: "100%", height: "100%", boxSizing: "border-box", padding: "48px 58px", display: "flex", flexDirection: "column", backgroundImage: "linear-gradient(90deg, rgba(3,9,18,.95) 0%, rgba(3,9,18,.80) 58%, rgba(3,9,18,.30) 100%), linear-gradient(0deg, rgba(3,9,18,.94) 0%, rgba(3,9,18,.22) 66%)" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 18, fontSize: 29, fontWeight: 700 }}>
-          <div style={{ width: 58, height: 48, display: "flex", alignItems: "center", justifyContent: "center", gap: 9 }}>
-            <span style={{ display: "flex", width: 12, height: 42, transform: "skew(-25deg)", background: "linear-gradient(145deg,#7778ff,#5548ff)", boxShadow: "0 8px 24px rgba(92,91,255,.42)" }}/>
-            <span style={{ display: "flex", width: 12, height: 42, transform: "skew(-25deg)", background: "linear-gradient(145deg,#7778ff,#5548ff)", boxShadow: "0 8px 24px rgba(92,91,255,.42)" }}/>
-          </div>
-          <span>OddsFront</span>
-        </div>
-        <div style={{ display: "flex", flexDirection: "column", width: "100%", maxWidth: 1030, alignSelf: direction === "rtl" ? "flex-end" : "flex-start", marginTop: "auto", marginBottom: 48 }}>
-          <div dir={direction} style={{ display: "flex", direction, textAlign: direction === "rtl" ? "right" : "left", fontSize: titleSize, fontWeight: 700, lineHeight: 1.08, letterSpacing: direction === "rtl" ? 0 : -1.7, textShadow: "0 2px 24px rgba(0,0,0,.72)" }}>{text.title}</div>
-        </div>
-      </div>
-    </div>,
-    { width: 1200, height: 630, fonts: font ? [{ name: "OddsFront Social", data: font.slice(0), weight: 700 }] : undefined },
-  );
+
   const cacheControl = "public, max-age=3600, s-maxage=86400, stale-while-revalidate=604800";
-  const pngResponse = (body: ArrayBuffer) => new Response(body, { headers: { "Content-Type": "image/png", "Cache-Control": cacheControl } });
-  let overlay: Buffer | null = null;
+  const pngResponse = (body: Buffer | ArrayBuffer) => {
+    const arrayBuffer = body instanceof ArrayBuffer
+      ? body
+      : body.buffer.slice(body.byteOffset, body.byteOffset + body.byteLength) as ArrayBuffer;
+    return new Response(arrayBuffer, { headers: { "Content-Type": "image/png", "Cache-Control": cacheControl } });
+  };
+
   try {
-    overlay = Buffer.from(await renderCard(!coverImage).arrayBuffer());
-  } catch { /* Continue to the static brand fallback only if text rendering fails. */ }
-  if (overlay) {
-    if (coverImage) {
-      try {
-        const composed = await sharp(coverImage).composite([{ input: overlay }]).png({ compressionLevel: 8 }).toBuffer();
-        return pngResponse(composed.buffer.slice(composed.byteOffset, composed.byteOffset + composed.byteLength) as ArrayBuffer);
-      } catch { /* Keep the localized title layer if partner-image composition fails. */ }
-    }
-    return pngResponse(overlay.buffer.slice(overlay.byteOffset, overlay.byteOffset + overlay.byteLength) as ArrayBuffer);
-  }
-  try {
-    const fallback = await readFile(path.join(process.cwd(), "public", SOCIAL_PREVIEW_PATH.replace(/^\/+/, "")));
-    return pngResponse(toArrayBuffer(fallback));
+    const [wordmark, title] = await Promise.all([
+      textLayer("OddsFront", "en", 30, 250),
+      fittedTitle(text.title, locale),
+    ]);
+    const base = coverImage
+      ? sharp(coverImage)
+      : sharp({ create: { width: 1200, height: 630, channels: 4, background: "#07121f" } });
+    const titleLeft = localeDirection(locale) === "rtl"
+      ? 1200 - 58 - title.info.width
+      : 58;
+    const composed = await base.composite([
+      { input: brandOverlay(!coverImage), top: 0, left: 0 },
+      { input: wordmark.data, top: 56, left: 126 },
+      { input: title.data, top: 630 - 58 - title.info.height, left: titleLeft },
+    ]).png({ compressionLevel: 8 }).toBuffer();
+    return pngResponse(composed);
   } catch {
-    return new Response(null, { status: 500, headers: { "Cache-Control": "no-store" } });
+    try {
+      const fallback = await readFile(path.join(process.cwd(), "public", SOCIAL_PREVIEW_PATH.replace(/^\/+/, "")));
+      return pngResponse(fallback);
+    } catch {
+      return new Response(null, { status: 500, headers: { "Cache-Control": "no-store" } });
+    }
   }
 }
