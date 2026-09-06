@@ -8,6 +8,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { createPortal } from "react-dom";
 import { Minus, Plus } from "lucide-react";
 import * as maplibregl from "maplibre-gl";
 import MapLibreMap, {
@@ -63,8 +64,6 @@ const INITIAL_VIEW_STATE: PreviewViewState = {
 
 const MIN_ZOOM = 1.6;
 const MAX_ZOOM = 7;
-const TRACKPAD_ZOOM_RATE = 1 / 55;
-const WHEEL_ZOOM_RATE = 1 / 140;
 const WORLD_BOUNDS: [number, number, number, number] = [
   -179.9, -75, 179.9, 82,
 ];
@@ -188,8 +187,7 @@ export function ConflictMapPreview({
   fixtureMode,
 }: ConflictMapPreviewProps) {
   const mapRef = useRef<MapRef>(null);
-  const resizingCanvas = useRef(false);
-  const resolutionRestoreTimer = useRef<number | null>(null);
+  const buttonZoomTarget = useRef<number | null>(null);
   const selectedCountryIds = useRef<Set<string>>(new Set());
   const eventCountryIds = useRef<Set<string>>(new Set());
   const markerElements = useRef<globalThis.Map<string, HTMLDivElement>>(
@@ -216,40 +214,6 @@ export function ConflictMapPreview({
     });
   });
   const feed = initialFeed;
-  const setCanvasResolution = useCallback((ratio: number) => {
-    const map = mapRef.current?.getMap();
-    if (!map || map.getPixelRatio() === ratio) return;
-    // MapLibre emits movement events from resize; ignore those synthetic events.
-    resizingCanvas.current = true;
-    try { map.setPixelRatio(ratio); }
-    finally { resizingCanvas.current = false; }
-  }, []);
-  const scheduleCanvasRestore = useCallback(() => {
-    if (resolutionRestoreTimer.current !== null) window.clearTimeout(resolutionRestoreTimer.current);
-    const restore = () => {
-      if (mapRef.current?.getMap().isMoving()) {
-        resolutionRestoreTimer.current = window.setTimeout(restore, 150);
-        return;
-      }
-      setCanvasResolution(mapRenderProfile.pixelRatio);
-      resolutionRestoreTimer.current = null;
-    };
-    resolutionRestoreTimer.current = window.setTimeout(restore, 200);
-  }, [mapRenderProfile.pixelRatio, setCanvasResolution]);
-  const prepareCameraMotion = useCallback(() => {
-    const map = mapRef.current?.getMap();
-    if (!map) return;
-    const canvas = map.getCanvas();
-    const budget = mapRenderProfile.quality === "constrained" ? 600_000 : 900_000;
-    // Resize before the gesture begins. Resizing inside movestart interrupts
-    // MapLibre's gesture handler; capture runs before its input listener.
-    setCanvasResolution(Math.min(mapRenderProfile.pixelRatio, Math.max(0.6,
-      Math.sqrt(budget / Math.max(1, canvas.clientWidth * canvas.clientHeight)))));
-    scheduleCanvasRestore();
-  }, [mapRenderProfile, scheduleCanvasRestore, setCanvasResolution]);
-  useEffect(() => () => {
-    if (resolutionRestoreTimer.current !== null) window.clearTimeout(resolutionRestoreTimer.current);
-  }, []);
   const previewMapStyle = useMemo(
     () => createPreviewMapStyle(mapRenderProfile.quality),
     [mapRenderProfile.quality],
@@ -258,6 +222,7 @@ export function ConflictMapPreview({
     INITIAL_VIEW_STATE as ViewState,
   );
   const [mapReady, setMapReady] = useState(false);
+  const [markerContainer, setMarkerContainer] = useState<HTMLElement | null>(null);
   const [mapError, setMapError] = useState("");
   const [engineCamera, setEngineCamera] = useState("");
   const [compactViewport, setCompactViewport] = useState<boolean | null>(null);
@@ -513,13 +478,13 @@ export function ConflictMapPreview({
 
       const map = mapRef.current;
       if (!map) return;
-      const nextZoom = Math.max(viewState.zoom, event.minimumZoom, DETAIL_TILE_MIN_ZOOM);
+      buttonZoomTarget.current = null;
+      const nextZoom = Math.max(map.getZoom(), event.minimumZoom, DETAIL_TILE_MIN_ZOOM);
       const camera = { center: event.coordinates, zoom: nextZoom };
       if (reduceMotion) map.jumpTo(camera);
       else {
         window.requestAnimationFrame(() => {
           window.requestAnimationFrame(() => {
-            prepareCameraMotion();
             map.easeTo({ ...camera, duration: 360, essential: false });
           });
         });
@@ -527,9 +492,7 @@ export function ConflictMapPreview({
     },
     [
       reduceMotion,
-      prepareCameraMotion,
       selectEventInStore,
-      viewState.zoom,
     ],
   );
 
@@ -556,17 +519,18 @@ export function ConflictMapPreview({
   );
 
   const updateZoomBy = (delta: number) => {
-    const nextZoom = Math.min(
-      MAX_ZOOM,
-      Math.max(MIN_ZOOM, viewState.zoom + delta),
-    );
     const map = mapRef.current;
     if (!map) return;
+    const nextZoom = Math.min(
+      MAX_ZOOM,
+      Math.max(MIN_ZOOM, (buttonZoomTarget.current ?? map.getZoom()) + delta),
+    );
+    // Stop the previous animation before recording the next target: stop emits
+    // moveend. Consecutive taps then accumulate even before a frame is drawn.
+    map.stop();
+    buttonZoomTarget.current = nextZoom;
     if (reduceMotion) map.jumpTo({ zoom: nextZoom });
-    else {
-      prepareCameraMotion();
-      map.easeTo({ zoom: nextZoom, duration: 240 });
-    }
+    else map.easeTo({ zoom: nextZoom, duration: 180 });
   };
 
   const syncCameraFromMap = useCallback(() => {
@@ -682,8 +646,12 @@ export function ConflictMapPreview({
         tabIndex={0}
         aria-label="Interactive map of global conflict prediction markets"
         aria-describedby="conflict-map-long-description"
-        onPointerDownCapture={prepareCameraMotion}
-        onWheelCapture={prepareCameraMotion}
+        onPointerDownCapture={(event) => {
+          if ((event.target as HTMLElement).closest(".maplibregl-map")) {
+            buttonZoomTarget.current = null;
+          }
+        }}
+        onWheelCapture={() => { buttonZoomTarget.current = null; }}
         onKeyDown={(event) => {
           const target = event.target as HTMLElement;
           if (target.closest("button, [role='dialog']")) return;
@@ -732,8 +700,7 @@ export function ConflictMapPreview({
             const loadedMap = mapRef.current?.getMap();
             loadedMap?.jumpTo(INITIAL_VIEW_STATE);
             if (loadedMap) {
-              loadedMap.scrollZoom.setZoomRate(TRACKPAD_ZOOM_RATE);
-              loadedMap.scrollZoom.setWheelZoomRate(WHEEL_ZOOM_RATE);
+              setMarkerContainer(loadedMap.getCanvasContainer());
               syncCameraFromMap();
               window.requestAnimationFrame(syncCameraFromMap);
             }
@@ -746,14 +713,11 @@ export function ConflictMapPreview({
           }}
           onIdle={markMapReady}
           onMoveStart={() => {
-            if (resizingCanvas.current) return;
-            if (resolutionRestoreTimer.current !== null) window.clearTimeout(resolutionRestoreTimer.current);
             if (shellRef.current) shellRef.current.dataset.mapMoving = "true";
             setHoveredEvent(null);
           }}
           onMoveEnd={(event) => {
-            if (resizingCanvas.current) return;
-            scheduleCanvasRestore();
+            buttonZoomTarget.current = null;
             setViewState(event.viewState);
             setZoom(event.viewState.zoom);
             window.requestAnimationFrame(() => {
@@ -773,7 +737,7 @@ export function ConflictMapPreview({
           }}
         />
 
-        <div className={styles.markerOverlay}>
+        {mapReady && markerContainer ? createPortal(<div className={styles.markerOverlay}>
           {mapReady
             ? visibleGroups.map((group, index) => {
                 const event = group.primary;
@@ -835,14 +799,17 @@ export function ConflictMapPreview({
                       {event.locationLabel}
                     </span>
 
-                    {compactViewport === false && selected
-                      ? selectedPopup
-                      : null}
                   </div>
                 );
               })
             : null}
-        </div>
+        </div>, markerContainer) : null}
+
+        {compactViewport === false && selectedPopup ? (
+          <div className={styles.popupAnchor} style={{
+            transform: `translate3d(${popupAnchorPoint.x}px, ${popupAnchorPoint.y}px, 0)`,
+          }}>{selectedPopup}</div>
+        ) : null}
 
         {compactViewport === true ? selectedPopup : null}
 

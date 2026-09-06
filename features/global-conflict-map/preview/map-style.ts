@@ -89,16 +89,6 @@ const hotspotLayers: LayerSpecification[] = [
       "circle-stroke-width": 0.8,
     },
   },
-  {
-    id: "conflict-hotspot-pinpoint",
-    type: "circle",
-    source: HOTSPOT_SOURCE_ID,
-    paint: {
-      "circle-radius": hotspotRadius(1.25),
-      "circle-color": "#F1F5FF",
-      "circle-opacity": 0.88,
-    },
-  },
 ];
 
 export const SELECTED_COUNTRY_PULSE_ACTIVE: ExpressionSpecification = [
