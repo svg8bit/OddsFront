@@ -413,6 +413,7 @@ test("captures the regional country-and-city zoom state", async ({ page }) => {
   await expect(
     page.getByTestId("participant-flags").locator('[data-country-flag="IR"]'),
   ).toBeVisible();
+  await page.getByRole("button", { name: "Zoom in", exact: true }).click({ clickCount: 4 });
   await expect
     .poll(async () => Number(await shell.getAttribute("data-map-zoom")))
     .toBeGreaterThanOrEqual(3);
@@ -427,7 +428,7 @@ test("captures the regional country-and-city zoom state", async ({ page }) => {
   });
 });
 
-test("keeps a selected weak beacon within eight pulses and opens geographic detail", async ({ page }) => {
+test("keeps selected beacons within eight pulses and loads detail only on explicit zoom", async ({ page }) => {
   const fixture = getConflictPreviewFixtureFeed();
   const feed = {
     ...fixture,
@@ -448,6 +449,7 @@ test("keeps a selected weak beacon within eight pulses and opens geographic deta
     return route.fulfill({ contentType: "application/x-protobuf", body: Buffer.alloc(0) });
   });
   const shell = await openReadyMap(page, "/global-conflict-map-preview");
+  const initialZoom = await shell.getAttribute("data-map-zoom");
   const beacons = page.locator('[data-pulse-active="true"]');
   await expect(beacons).toHaveCount(8);
   const weak = page.locator('[data-event-id="pulse-cap-9"]');
@@ -456,6 +458,9 @@ test("keeps a selected weak beacon within eight pulses and opens geographic deta
   await weak.locator("button").click();
   await expect(weak).toHaveAttribute("data-pulse-active", "true");
   await expect(beacons).toHaveCount(8);
+  await expect(shell).toHaveAttribute("data-map-zoom", initialZoom!);
+  expect(detailRequests).toHaveLength(0);
+  await page.getByRole("button", { name: "Zoom in", exact: true }).click({ clickCount: 4 });
   await expect.poll(async () => Number(await shell.getAttribute("data-map-zoom"))).toBeGreaterThanOrEqual(4);
   await expect.poll(() => detailRequests.length).toBeGreaterThan(0);
 });
@@ -478,7 +483,7 @@ test("supports zoom, drag, hotspot selection and popup close", async ({ page }) 
   if (box) {
     await page.mouse.move(box.x + box.width * 0.55, box.y + box.height * 0.55);
     await page.mouse.down();
-    await page.mouse.move(box.x + box.width * 0.68, box.y + box.height * 0.55, {
+    await page.mouse.move(box.x + box.width * 0.42, box.y + box.height * 0.55, {
       steps: 8,
     });
     await page.mouse.up();
@@ -487,12 +492,12 @@ test("supports zoom, drag, hotspot selection and popup close", async ({ page }) 
     .poll(async () => Number(await shell.getAttribute("data-map-longitude")))
     .not.toBe(initialLongitude);
 
-  const eastAsia = page.getByRole("button", {
-    name: /East Asia: Japan.*US strike before EOY/,
+  const easternEurope = page.getByRole("button", {
+    name: /Eastern Europe: Ukraine.*Ceasefire by Sep/,
   });
-  await eastAsia.click();
-  await expect(shell).toHaveAttribute("data-selected-event", "east-asia-strike");
-  await expect(page.getByTestId("conflict-popup")).toContainText("US strike before EOY?");
+  await easternEurope.click();
+  await expect(shell).toHaveAttribute("data-selected-event", "ukraine-ceasefire");
+  await expect(page.getByTestId("conflict-popup")).toContainText("Ceasefire by Sep?");
 
   const popup = page.getByTestId("conflict-popup");
   await expect(popup.getByRole("button")).toHaveCount(1);
@@ -500,9 +505,9 @@ test("supports zoom, drag, hotspot selection and popup close", async ({ page }) 
     popup.getByRole("link", { name: "Track this market in DropsBot" }),
   ).toHaveCount(0);
 
-  await page.getByRole("button", { name: /Close East Asia market popup/ }).click();
+  await page.getByRole("button", { name: /Close Eastern Europe market popup/ }).click();
   await expect(page.getByTestId("conflict-popup")).toHaveCount(0);
-  await eastAsia.click();
+  await easternEurope.click();
   await expect(page.getByTestId("conflict-popup")).toBeVisible();
 });
 
@@ -534,7 +539,7 @@ test("keeps markers and effects locked to MapLibre while dragging", async ({
   await page.mouse.down();
   await page.mouse.move(startX, startY + dragDistance, { steps: 8 });
   await expect(shell).toHaveAttribute("data-map-moving", "true");
-  await expect(markerTarget).toBeHidden();
+  await expect(markerTarget).toBeVisible();
   await page.mouse.up();
   await expect(shell).toHaveAttribute("data-map-moving", "false");
   await expect(markerTarget).toBeVisible();
@@ -930,6 +935,7 @@ test("keeps every qualified event visible at the world view and regional zoom", 
       .getByTestId("conflict-popup")
       .getByRole("button", { name: /Close .* market popup/ })
       .click();
+    await page.getByRole("button", { name: "Zoom in", exact: true }).click({ clickCount: 3 });
     await expect
       .poll(async () => Number(await shell.getAttribute("data-map-zoom")))
       .toBeGreaterThanOrEqual(3);

@@ -321,7 +321,8 @@ async function runOnce(
   const page = await context.newPage();
   const cdp = await context.newCDPSession(page);
   await cdp.send("Network.enable");
-  await cdp.send("Network.setCacheDisabled", { cacheDisabled: true });
+  // Each run gets a fresh incognito context. Keep normal caching within that
+  // navigation so the main thread and worker can reuse identical module URLs.
   await cdp.send("Performance.enable");
   if (profile.cpuThrottle > 1) {
     await cdp.send("Emulation.setCPUThrottlingRate", {
@@ -588,6 +589,7 @@ async function main() {
     deviceHints,
     viewport: mobile ? MOBILE_VIEWPORT : DEFAULT_VIEWPORT,
     device: mobile ? "mobile" : "desktop",
+    cache: "fresh-context",
     runs,
     median: aggregate(runs),
   };

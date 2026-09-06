@@ -11,6 +11,7 @@ export default defineConfig({
   expect: { timeout: 12_000 },
   reporter: [["list"], ["html", { outputFolder: "output/playwright/report", open: "never" }]],
   use: {
+    actionTimeout: 12_000,
     baseURL: "http://127.0.0.1:3100",
     viewport: { width: 1672, height: 941 },
     deviceScaleFactor: 1,

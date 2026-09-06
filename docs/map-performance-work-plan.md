@@ -34,7 +34,7 @@ for the rollback procedure.
   resume refresh, old/failed responses, renewed alert expiry, static first
   frame, gesture alignment, repeated zoom taps, reversed wheel input, two-finger
   mobile pinch, stable canvas density, reduced motion, the selected-beacon pulse
-  cap and geographic detail on selection.
+  cap and geographic detail on explicit zoom.
 - Desktop 1440x900 and touch/mobile 390x844 (device pixel ratio 3): live map,
   focus refresh, zoom controls, no horizontal overflow or runtime errors.
 - Six-second selected-marker idle comparison against `5872689`: main-thread
@@ -54,6 +54,22 @@ for the rollback procedure.
 - Reduced mobile canvas density from 2 to a fixed 1.5, drawing 44% fewer pixels.
 - Enabled server-emitted map chunk preloads without attempting WebGL on the server.
 - Added `--device=mobile` to the performance benchmark for cold mobile comparisons.
+
+## Popup continuity and map startup
+
+- Selecting a point opens a persistent card without automatically zooming the
+  map or requesting regional tiles. Changing points preserves the same card.
+- Desktop placement is calculated before paint and transitions for 180 ms;
+  mobile placement stays fixed. Markers and cards follow camera gestures without
+  being hidden and shown again.
+- Selection no longer rebuilds the marker source or changes marker identities.
+- Removed the extra WebGL probe context and the desynchronized canvas mode.
+- Serve original versioned MapLibre modules with module preloads, sharing the
+  same common module between the main thread and worker. Asset checks verify
+  the production modules and license against the pinned installed release.
+- Performance runs use a new empty browser context, allowing ordinary cache
+  reuse within the first navigation. Disabling cache within a navigation would
+  incorrectly force the shared module to download twice.
 
 ## Working agreement
 
