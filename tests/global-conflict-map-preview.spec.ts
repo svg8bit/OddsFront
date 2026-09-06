@@ -666,26 +666,36 @@ test("serves the approved map on the canonical public route", async ({ page }) =
   await expect(page.locator('[data-market-strip="true"]')).toBeVisible();
   await expect(page.locator('meta[property="og:image"]')).toHaveAttribute(
     "content",
-    "https://oddsfront.com/brand/oddsfront-social-preview-v1.png",
+    "https://oddsfront.com/brand/oddsfront-social-preview-v2.png",
   );
   await expect(page.locator('meta[name="twitter:image"]')).toHaveAttribute(
     "content",
-    "https://oddsfront.com/brand/oddsfront-social-preview-v1.png",
+    "https://oddsfront.com/brand/oddsfront-social-preview-v2.png",
   );
-  await expect(page.locator('link[rel="icon"]')).toHaveAttribute(
+  await expect(page.locator('link[rel="icon"][type="image/svg+xml"]')).toHaveAttribute(
     "href",
-    "/brand/dropsbot-app-icon-v4.svg",
+    "/brand/oddsfront-icon-v1.svg",
   );
 
   const favicon = await page.request.get("/favicon.ico");
   expect(favicon.ok()).toBeTruthy();
-  expect(favicon.headers()["content-type"]).toContain("image/svg+xml");
-  const faviconSvg = await favicon.text();
-  expect(faviconSvg).toContain('viewBox="0 0 64 64"');
-  expect(faviconSvg).toContain('fill="#020A16"');
+  expect(favicon.url()).toMatch(/\/favicon\.ico$/);
+  expect(favicon.headers()["content-type"]).toMatch(/image\/(x-icon|vnd.microsoft.icon)/);
+  const faviconBytes = await favicon.body();
+  expect([...faviconBytes.subarray(0, 6)]).toEqual([0, 0, 1, 0, 4, 0]);
+  expect([0, 1, 2, 3].map(index => faviconBytes[6 + index * 16])).toEqual([16, 32, 48, 64]);
+
+  const appleIcon = page.locator('link[rel="apple-touch-icon"]');
+  await expect(appleIcon).toHaveAttribute("type", "image/png");
+  const apple = await page.request.get((await appleIcon.getAttribute("href"))!);
+  expect(apple.ok()).toBeTruthy();
+  const appleBytes = await apple.body();
+  expect(appleBytes.readUInt32BE(16)).toBe(180);
+  expect(appleBytes.readUInt32BE(20)).toBe(180);
+  await expect(page.locator('body img[src*="/brand/oddsfront-"]')).toHaveCount(0);
 
   const socialPreview = await page.request.get(
-    "/brand/oddsfront-social-preview-v1.png",
+    "/brand/oddsfront-social-preview-v2.png",
   );
   expect(socialPreview.ok()).toBeTruthy();
   expect(socialPreview.headers()["content-type"]).toContain("image/png");
@@ -693,9 +703,11 @@ test("serves the approved map on the canonical public route", async ({ page }) =
   expect([...previewBytes.subarray(0, 8)]).toEqual([
     0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a,
   ]);
+  expect(previewBytes.readUInt32BE(16)).toBe(1200);
+  expect(previewBytes.readUInt32BE(20)).toBe(630);
   await expect(page.locator('meta[property="og:site_name"]')).toHaveAttribute(
     "content",
-    "OddsFront by DropsBot",
+    "OddsFront",
   );
   await expect(page.locator('meta[name="application-name"]')).toHaveAttribute(
     "content",
@@ -747,15 +759,24 @@ test("serves the live map and fresh social metadata at the root URL", async ({
     page.locator('meta[property="og:image:secure_url"]'),
   ).toHaveAttribute(
     "content",
-    "https://oddsfront.com/brand/oddsfront-social-preview-v1.png",
+    "https://oddsfront.com/brand/oddsfront-social-preview-v2.png",
   );
   await expect(page.locator('link[rel="image_src"]')).toHaveAttribute(
     "href",
-    "https://oddsfront.com/brand/oddsfront-social-preview-v1.png",
+    "https://oddsfront.com/brand/oddsfront-social-preview-v2.png",
   );
-  await expect(page.locator('link[rel="manifest"]')).toHaveCount(0);
+  await expect(page.locator('link[rel="manifest"]')).toHaveAttribute("href", "/site.webmanifest");
   const manifest = await page.request.get("/site.webmanifest");
-  expect(manifest.status()).toBe(404);
+  expect(manifest.ok()).toBeTruthy();
+  const appManifest = await manifest.json();
+  expect(appManifest.name).toBe("OddsFront");
+  expect(appManifest.display).toBe("browser");
+  expect(appManifest.icons.map((icon: { purpose: string }) => icon.purpose)).toEqual(["any", "any", "maskable"]);
+  for (const icon of appManifest.icons) {
+    const response = await page.request.get(icon.src);
+    expect(response.ok()).toBeTruthy();
+    expect(response.headers()["content-type"]).toContain("image/png");
+  }
   const robots = await page.request.get("/robots.txt");
   expect(robots.ok()).toBeTruthy();
   expect(await robots.text()).toContain("Allow: /");

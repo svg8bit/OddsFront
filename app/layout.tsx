@@ -4,6 +4,8 @@ import "maplibre-gl/dist/maplibre-gl.css";
 
 import {
   APP_ICON_PATH,
+  APPLE_ICON_PATH,
+  BRAND_COLOR,
   buildOddsFrontSocialMetadata,
   ODDSFRONT_URL,
   SOCIAL_PREVIEW_URL,
@@ -15,11 +17,26 @@ export const metadata: Metadata = {
   ...buildOddsFrontSocialMetadata("/global-conflict-map"),
   metadataBase: new URL(ODDSFRONT_URL),
   applicationName: "OddsFront",
+  manifest: "/site.webmanifest",
+  appleWebApp: {
+    title: "OddsFront",
+    capable: false,
+  },
   alternates: {
     canonical: "/global-conflict-map",
   },
   icons: {
     icon: [
+      {
+        url: "/brand/oddsfront-favicon-48-v1.png",
+        type: "image/png",
+        sizes: "48x48",
+      },
+      {
+        url: "/brand/oddsfront-favicon-96-v1.png",
+        type: "image/png",
+        sizes: "96x96",
+      },
       {
         url: APP_ICON_PATH,
         type: "image/svg+xml",
@@ -28,15 +45,14 @@ export const metadata: Metadata = {
     ],
     shortcut: [
       {
-        url: APP_ICON_PATH,
-        type: "image/svg+xml",
-        sizes: "any",
+        url: "/favicon.ico?v=oddsfront-1",
+        type: "image/x-icon",
       },
     ],
     apple: [
       {
-        url: APP_ICON_PATH,
-        type: "image/svg+xml",
+        url: APPLE_ICON_PATH,
+        type: "image/png",
         sizes: "180x180",
       },
     ],
@@ -56,6 +72,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
       <head>
         <meta property="og:image:secure_url" content={SOCIAL_PREVIEW_URL} />
         <link rel="image_src" href={SOCIAL_PREVIEW_URL} />
+        <link rel="mask-icon" href="/brand/oddsfront-pinned-tab-v1.svg" color={BRAND_COLOR} />
       </head>
       <body>
         {children}

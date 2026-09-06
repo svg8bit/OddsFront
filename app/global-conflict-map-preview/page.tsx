@@ -5,7 +5,7 @@ import { getConflictPreviewFixtureFeed } from "@/features/global-conflict-map/pr
 import { getDropstabMarketStripFixture } from "@/lib/dropstab-market-strip";
 
 export const metadata: Metadata = {
-  title: "Interactive Global Conflict Map · DropsBot",
+  title: "Interactive Global Conflict Map · OddsFront",
   description:
     "Interactive map for tracking active conflict and geopolitics prediction markets.",
 };
