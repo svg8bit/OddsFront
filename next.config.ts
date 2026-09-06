@@ -4,6 +4,8 @@ const CANONICAL_ORIGIN = "https://oddsfront.com";
 const REDIRECT_HOSTS = [
   "www.oddsfront.com",
   "oddsfront.vercel.app",
+  "oddsfront-sevas-projects-78158da5.vercel.app",
+  "oddsfront-git-main-sevas-projects-78158da5.vercel.app",
   "dropsradar.vercel.app",
   "dropsradar-sevas-projects-78158da5.vercel.app",
   "dropsradar-svg8bit-sevas-projects-78158da5.vercel.app",

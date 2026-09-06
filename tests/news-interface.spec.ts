@@ -6,6 +6,20 @@ import { getConflictPreviewFixtureFeed } from "../features/global-conflict-map/p
 import { newsArticlePath } from "../lib/news/routing";
 import { PNG } from "pngjs";
 
+test("assigned Vercel aliases redirect to the canonical host", async ({ request }) => {
+  for (const host of [
+    "oddsfront-sevas-projects-78158da5.vercel.app",
+    "oddsfront-git-main-sevas-projects-78158da5.vercel.app",
+  ]) {
+    const response = await request.get("/news", {
+      headers: { Host: host },
+      maxRedirects: 0,
+    });
+    expect(response.status()).toBe(308);
+    expect(response.headers().location).toBe("https://oddsfront.com/news");
+  }
+});
+
 test("news remains lightweight and preserves language and region selection",async({page})=>{
   const requests:string[]=[];page.on("request",request=>requests.push(request.url()));
   await page.goto("/news");await expect(page.getByRole("heading",{level:1})).toBeVisible();
