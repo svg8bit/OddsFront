@@ -4,6 +4,7 @@ import sharp from "sharp";
 import { getNewsArticle } from "@/lib/news/catalog";
 import { articleText, normalizeLocale } from "@/lib/news/locale";
 import { fetchPartnerCover } from "@/lib/news/partner-images";
+import { SOCIAL_PREVIEW_PATH } from "@/lib/oddsfront-site";
 
 export const runtime = "nodejs";
 export const revalidate = 3600;
@@ -46,14 +47,20 @@ export async function GET(
     { width: 1200, height: 630 },
   );
   const cacheControl = "public, max-age=3600, s-maxage=86400, stale-while-revalidate=604800";
+  const pngResponse = (body: ArrayBuffer) => new Response(body, { headers: { "Content-Type": "image/png", "Cache-Control": cacheControl } });
   if (coverImage) {
     try {
       const overlay = Buffer.from(await renderCard(false).arrayBuffer());
       const composed = await sharp(coverImage).composite([{ input: overlay }]).png({ compressionLevel: 8 }).toBuffer();
-      return new Response(new Uint8Array(composed), { headers: { "Content-Type": "image/png", "Cache-Control": cacheControl } });
+      return pngResponse(composed.buffer.slice(composed.byteOffset, composed.byteOffset + composed.byteLength) as ArrayBuffer);
     } catch { /* Preserve a valid social image if composition fails. */ }
   }
-  const response = renderCard(true);
-  response.headers.set("Cache-Control", cacheControl);
-  return response;
+  try {
+    return pngResponse(await renderCard(true).arrayBuffer());
+  } catch {
+    const fallback = await fetch(new URL(SOCIAL_PREVIEW_PATH, _request.url), { cache: "force-cache" });
+    return fallback.ok
+      ? pngResponse(await fallback.arrayBuffer())
+      : new Response(null, { status: 500, headers: { "Cache-Control": "no-store" } });
+  }
 }
