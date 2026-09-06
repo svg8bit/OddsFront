@@ -74,7 +74,10 @@ Tracked units: `ops/systemd/oddsfront-news.service` and `.timer`. The oneshot
 publisher runs every five hours with Nice 10, one CPU quota and a 3 GB memory
 limit. Translation follows research. `edition.lock` uses OS flock for both
 processes, preventing lost updates and releasing automatically after termination.
-No lock-file deletion is required after a crash.
+No lock-file deletion is required after a crash. The Codex CLI also needs its
+shared `/root/.codex` runtime directory writable for its app-server SQLite state,
+temporary aliases and subscription session refresh. Other product roots remain
+inaccessible to the service; its research child uses a read-only sandbox.
 
 ```bash
 systemctl status oddsfront-news.timer oddsfront-news.service
