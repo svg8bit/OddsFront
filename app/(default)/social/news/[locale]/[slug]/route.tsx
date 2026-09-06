@@ -89,19 +89,23 @@ export async function GET(
   );
   const cacheControl = "public, max-age=3600, s-maxage=86400, stale-while-revalidate=604800";
   const pngResponse = (body: ArrayBuffer) => new Response(body, { headers: { "Content-Type": "image/png", "Cache-Control": cacheControl } });
+  let overlay: Buffer | null = null;
   try {
-    const overlay = Buffer.from(await renderCard(!coverImage).arrayBuffer());
+    overlay = Buffer.from(await renderCard(!coverImage).arrayBuffer());
+  } catch { /* Continue to the static brand fallback only if text rendering fails. */ }
+  if (overlay) {
     if (coverImage) {
-      const composed = await sharp(coverImage).composite([{ input: overlay }]).png({ compressionLevel: 8 }).toBuffer();
-      return pngResponse(composed.buffer.slice(composed.byteOffset, composed.byteOffset + composed.byteLength) as ArrayBuffer);
+      try {
+        const composed = await sharp(coverImage).composite([{ input: overlay }]).png({ compressionLevel: 8 }).toBuffer();
+        return pngResponse(composed.buffer.slice(composed.byteOffset, composed.byteOffset + composed.byteLength) as ArrayBuffer);
+      } catch { /* Keep the localized title layer if partner-image composition fails. */ }
     }
     return pngResponse(overlay.buffer.slice(overlay.byteOffset, overlay.byteOffset + overlay.byteLength) as ArrayBuffer);
+  }
+  try {
+    const fallback = await readFile(path.join(process.cwd(), "public", SOCIAL_PREVIEW_PATH.replace(/^\/+/, "")));
+    return pngResponse(toArrayBuffer(fallback));
   } catch {
-    try {
-      const fallback = await readFile(path.join(process.cwd(), "public", SOCIAL_PREVIEW_PATH.replace(/^\/+/, "")));
-      return pngResponse(toArrayBuffer(fallback));
-    } catch {
-      return new Response(null, { status: 500, headers: { "Cache-Control": "no-store" } });
-    }
+    return new Response(null, { status: 500, headers: { "Cache-Control": "no-store" } });
   }
 }
