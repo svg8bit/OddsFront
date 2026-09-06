@@ -136,17 +136,20 @@ export async function GET(
     return new Response(arrayBuffer, { headers: { "Content-Type": "image/png", "Cache-Control": cacheControl } });
   };
 
+  let renderStage = "text layers";
   try {
     const [wordmark, title] = await Promise.all([
       textLayer("OddsFront", "en", 30, 250),
       fittedTitle(text.title, locale),
     ]);
+    renderStage = "background";
     const base = coverImage
       ? sharp(coverImage)
       : sharp({ create: { width: 1200, height: 630, channels: 4, background: "#07121f" } });
     const titleLeft = localeDirection(locale) === "rtl"
       ? 1200 - 58 - title.info.width
       : 58;
+    renderStage = "composition";
     const composed = await base.composite([
       { input: brandOverlay(!coverImage), top: 0, left: 0 },
       { input: wordmark.data, top: 56, left: 126 },
@@ -154,7 +157,7 @@ export async function GET(
     ]).png({ compressionLevel: 8 }).toBuffer();
     return pngResponse(composed);
   } catch (error) {
-    console.error("OddsFront social-card render failed", { locale, slug, error });
+    console.error("OddsFront social-card render failed", { locale, slug, renderStage, error });
     try {
       const fallback = await readFile(path.join(process.cwd(), "public", SOCIAL_PREVIEW_PATH.replace(/^\/+/, "")));
       return pngResponse(fallback);
