@@ -1,5 +1,5 @@
 // Adapted from ColdMath's evidence, originality and duplicate publication gates.
-import type { NewsArticle, NewsDraft } from "./types.ts";
+import type { NewsAlert, NewsArticle, NewsDraft } from "./types.ts";
 import { isNewsPublisher, isOfficialSource, sourceHost } from "./sources.ts";
 
 export function normalizedWords(value: string) {
@@ -15,11 +15,94 @@ export function isDuplicateTitle(title: string, existing: Pick<NewsArticle, "tit
   });
 }
 
+const ALERT_COUNTRY_ALIASES: Readonly<Record<string, readonly string[]>> = {
+  US: ["united states", "u s", "american"],
+  RU: ["russia", "russian"],
+  UA: ["ukraine", "ukrainian"],
+  IL: ["israel", "israeli"],
+  PS: ["palestine", "palestinian", "gaza"],
+  IR: ["iran", "iranian"],
+  LB: ["lebanon", "lebanese", "hezbollah"],
+  IQ: ["iraq", "iraqi"],
+  SY: ["syria", "syrian"],
+  YE: ["yemen", "yemeni", "houthi"],
+  IN: ["india", "indian"],
+  PK: ["pakistan", "pakistani"],
+  CN: ["china", "chinese"],
+  TW: ["taiwan", "taiwanese"],
+  KP: ["north korea", "north korean"],
+  KR: ["south korea", "south korean"],
+};
+const MAJOR_ALERT_PAIRS = new Set([
+  "IL-IR", "IL-LB", "IL-PS", "IN-PK", "IQ-US", "IR-US", "KP-KR",
+  "CN-TW", "RU-UA", "SY-US", "US-YE",
+]);
+const STRIKE_LANGUAGE = /\b(?:air\s*strikes?|strikes?|struck|attacks?|attacked|bomb(?:s|ed|ing)?|missile\s+attacks?|military\s+(?:action|operation))\b/i;
+const CEASEFIRE_LANGUAGE = /\b(?:ceasefire|truce)\b/i;
+const SPECULATIVE_LANGUAGE = /\b(?:could|may|might|plans?|planning|proposal|proposed|talks?|negotiations?|threatens?|considers?|expected|forecast|prediction|will\s+(?:strike|attack|bomb))\b/i;
+
+function mentionsCountry(text: string, code: string): boolean {
+  const normalized = ` ${normalizedWords(text).join(" ")} `;
+  return (ALERT_COUNTRY_ALIASES[code] ?? []).some(alias =>
+    normalized.includes(` ${alias} `),
+  );
+}
+
+function hasMajorAlertPair(actors: string[], targets: string[]): boolean {
+  return actors.some(actor => targets.some(target =>
+    MAJOR_ALERT_PAIRS.has([actor, target].sort().join("-")),
+  ));
+}
+
+export function verifiedNewsAlert(draft: NewsDraft): NewsAlert | null {
+  const alert = draft.alert;
+  if (
+    !alert ||
+    alert.eligible !== true ||
+    (alert.kind !== "strike" && alert.kind !== "ceasefire")
+  ) {
+    return null;
+  }
+  const actors = [...new Set(alert.actorCountries)];
+  const targets = [...new Set(alert.targetCountries)];
+  const codes = [...actors, ...targets];
+  if (
+    actors.length < 1 || actors.length > 3 ||
+    targets.length < 1 || targets.length > 3 ||
+    codes.some(code => !/^[A-Z]{2}$/.test(code) || !draft.countries.includes(code)) ||
+    !hasMajorAlertPair(actors, targets)
+  ) return null;
+
+  const headline = `${draft.title} ${draft.description}`;
+  const actionPattern = alert.kind === "strike" ? STRIKE_LANGUAGE : CEASEFIRE_LANGUAGE;
+  if (
+    !actionPattern.test(headline) ||
+    SPECULATIVE_LANGUAGE.test(headline) ||
+    !actors.some(code => mentionsCountry(headline, code)) ||
+    !targets.some(code => mentionsCountry(headline, code))
+  ) return null;
+
+  const sourceKinds = new Map(draft.sources.map(source => [source.id, source.kind]));
+  const confirmedClaim = draft.factChecks.some(fact =>
+    actionPattern.test(fact.claim) &&
+    actors.some(code => mentionsCountry(fact.claim, code)) &&
+    targets.some(code => mentionsCountry(fact.claim, code)) &&
+    fact.sourceIds.some(id => sourceKinds.get(id) === "media") &&
+    fact.sourceIds.some(id => sourceKinds.get(id) === "official"),
+  );
+  return confirmedClaim
+    ? { kind: alert.kind, actorCountries: actors, targetCountries: targets }
+    : null;
+}
+
 export function validateNewsDraft(draft: NewsDraft, existing: NewsArticle[], now = new Date()) {
   const reasons: string[] = [];
   if (!draft || typeof draft !== "object" || !Array.isArray(draft.body) || !Array.isArray(draft.sources)) return ["Invalid article structure"];
   if (typeof draft.title !== "string" || typeof draft.description !== "string" ||
       draft.body.length > 50 || draft.sources.length > 12 ||
+      !draft.alert || typeof draft.alert.eligible !== "boolean" ||
+      !["none", "strike", "ceasefire"].includes(draft.alert.kind) ||
+      !Array.isArray(draft.alert.actorCountries) || !Array.isArray(draft.alert.targetCountries) ||
       draft.body.some(block => !block || typeof block.text !== "string" || block.text.length > 8000) ||
       draft.sources.some(source => !source || [source.id,source.title,source.publisher,source.evidence,source.url,source.publishedAt].some(value => typeof value !== "string") || !["official","media"].includes(source.kind)) ||
       !Array.isArray(draft.factChecks) || draft.factChecks.some(fact => !fact || typeof fact.claim !== "string" || !Array.isArray(fact.sourceIds))) return ["Invalid article structure"];

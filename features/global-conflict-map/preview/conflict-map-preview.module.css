@@ -7,11 +7,6 @@
   background: #050d18;
 }
 
-.mapLoaderRoot[data-popup-open="true"] > nav {
-  visibility: hidden;
-  pointer-events: none;
-}
-
 .externalActivityLayer {
   position: absolute;
   z-index: 14;
@@ -548,8 +543,39 @@
   color: white;
 }
 
-.popupTitle {
+.popupHeadline {
+  display: flex;
+  align-items: center;
+  gap: 10px;
   margin: 6px 0 8px;
+}
+
+.popupHeadline[data-has-market-image="false"] {
+  display: block;
+}
+
+.popupMarketImage {
+  display: grid;
+  width: 42px;
+  height: 42px;
+  overflow: hidden;
+  place-items: center;
+  border: 1px solid rgba(143, 168, 205, 0.2);
+  border-radius: 9px;
+  background: rgba(21, 34, 53, 0.92);
+}
+
+.popupMarketImage img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.popupTitle {
+  min-width: 0;
+  flex: 1 1 auto;
+  margin: 0;
   color: #f5f8fd;
   font-size: 15px;
   font-weight: 640;
@@ -887,7 +913,8 @@
   color: var(--activity-tone);
 }
 
-.activityCard > p {
+.activityCard > p,
+.activityNewsLink {
   display: -webkit-box;
   overflow: hidden;
   margin: 7px 0 8px;
@@ -901,6 +928,24 @@
   word-break: normal;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
+}
+
+.activityNewsLink {
+  text-decoration: none;
+}
+
+.activityNewsLink:hover,
+.activityNewsLink:focus-visible {
+  outline: 0;
+  color: #ffffff;
+}
+
+.activityCard[data-activity-kind="news"] {
+  border-color: rgba(92, 144, 255, 0.26);
+  background:
+    radial-gradient(circle at 12% -28%, rgba(130, 173, 255, 0.16), transparent 44%),
+    linear-gradient(112deg, rgba(46, 102, 203, 0.2), transparent 62%),
+    rgba(5, 17, 32, 0.96);
 }
 
 .activityFooter {
@@ -939,9 +984,11 @@
 
 .activityActions {
   display: flex;
+  min-width: 0;
   flex: 0 0 auto;
   align-items: center;
   gap: 5px;
+  margin-inline-start: auto;
 }
 
 .activityActions button,
@@ -959,6 +1006,7 @@
   font: 620 9px/1 Inter, ui-sans-serif, sans-serif;
   text-decoration: none;
   cursor: pointer;
+  white-space: nowrap;
 }
 
 .activityActions .activityTrackLink {

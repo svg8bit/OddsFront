@@ -1,9 +1,9 @@
 [Unit]
-Description=Refresh OddsFront news every five hours
+Description=Refresh OddsFront news every two hours
 
 [Timer]
 OnBootSec=10min
-OnUnitActiveSec=5h
+OnUnitActiveSec=2h
 AccuracySec=1min
 Persistent=true
 Unit=oddsfront-news.service

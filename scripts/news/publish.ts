@@ -4,7 +4,7 @@ import { spawnSync } from "node:child_process";
 import path from "node:path";
 import { executeSubscriptionCodex } from "../../lib/news/writer.ts";
 import { NEWS_BATCH_SCHEMA, researchPrompt } from "../../lib/news/research.ts";
-import { articleSlug, validateNewsDraft } from "../../lib/news/validation.ts";
+import { articleSlug, validateNewsDraft, verifiedNewsAlert } from "../../lib/news/validation.ts";
 import type { NewsArticle, NewsCatalog, NewsDraft } from "../../lib/news/types.ts";
 import { articleSummary } from "../../lib/news/publication.ts";
 
@@ -38,7 +38,7 @@ if (!process.env.ODDSFRONT_EDITION_LOCKED) {
     const slug = articleSlug(draft.title);
     const id = createHash("sha256").update(slug).digest("hex").slice(0, 20);
     const { title, description, body, countries, topics } = draft;
-    published.push({ id, slug, title, description, body, countries, topics, author: "OddsFront Newsdesk", publishedAt: now, updatedAt: now, translations: {},
+    published.push({ id, slug, title, description, body, countries, topics, alert: verifiedNewsAlert(draft), author: "OddsFront Newsdesk", publishedAt: now, updatedAt: now, translations: {},
       sources: draft.sources.map(source => ({ id:source.id,title:source.title,publisher:source.publisher,url:source.url,kind:source.kind,publishedAt:source.publishedAt })) });
   }
   const receipt = { startedAt, finishedAt: new Date().toISOString(), requested: maxArticles, published: published.map(article => article.slug), rejected };

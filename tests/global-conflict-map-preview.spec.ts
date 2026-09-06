@@ -1807,6 +1807,17 @@ test("automatically geolocates unseen conflict events without per-event rules", 
     expect.arrayContaining(["BDI", "RWA"]),
   );
 
+  const imageEvent = event(
+    "900006",
+    "Will Rwanda launch a military operation in Burundi before 2027?",
+    [{ slug: "armed-conflict", label: "Armed Conflict" }],
+  );
+  imageEvent.image = "https://polymarket-upload.s3.us-east-2.amazonaws.com/event.png";
+  imageEvent.markets![0]!.image = "https://evil.example/market.png";
+  expect(normalizeConflictPreviewEvent(imageEvent)?.imageUrl).toBe(
+    "https://polymarket-upload.s3.us-east-2.amazonaws.com/event.png",
+  );
+
   const tagFallback = normalizeConflictPreviewEvent(
     event("900002", "Will forces capture Goma before 2027?", [
       { slug: "armed-conflict", label: "Armed Conflict" },

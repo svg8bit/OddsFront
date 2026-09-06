@@ -1,4 +1,5 @@
 "use client";
+import Link from "next/link";
 import { marketLabel } from "@/lib/news/market-labels";
 import { useLocale } from "@/components/locale-provider";
 
@@ -7,6 +8,7 @@ import {
   ArrowDownRight,
   ArrowUpRight,
   ExternalLink,
+  Newspaper,
   X,
 } from "lucide-react";
 
@@ -25,6 +27,9 @@ import {
 } from "@/lib/activity-notice-lifecycle";
 import { buildRollingActivitySignals } from "@/lib/conflict-activity-signals";
 import { formatMarketTitle } from "@/lib/market-title";
+import { articleText } from "@/lib/news/locale";
+import type { NewsMarketAlert } from "@/lib/news/alert-matching";
+import type { NewsArticle } from "@/lib/news/types";
 import {
   batchPolymarketActivityMarketIds,
   isPolymarketActivityEventCurrent,
@@ -43,14 +48,15 @@ const MAX_VISIBLE_NOTICES = 3;
 const MAX_STORED_NOTICES = 12;
 const ACTIVITY_RISE_TONE = "#22DF91";
 const ACTIVITY_DROP_TONE = "#FF5368";
+const NEWS_ALERT_TONE = "#5A8DFF";
 const ACTIVITY_REFRESH_MS = 60_000;
 const ACTIVITY_REFRESH_JITTER_MS = 15_000;
 const ACTIVITY_INITIAL_DELAY_MS = 1_000;
 const CONDITION_ID_PATTERN = /^0x[a-f0-9]{64}$/i;
 
 type ActivityWindowLabel = "24h" | "7d";
-type ActivityNoticeKind = Exclude<ConflictActivityKind, "large-sell">;
-type ActivityNoticeSource = "trade" | "rolling";
+type ActivityNoticeKind = Exclude<ConflictActivityKind, "large-sell"> | "news";
+type ActivityNoticeSource = "trade" | "rolling" | "news";
 
 interface ActivityNotice {
   id: string;
@@ -67,12 +73,15 @@ interface ActivityNotice {
   occurredAt: number;
   expiresAt: number;
   marketUrl: string | null;
+  article: NewsArticle | null;
+  articleUrl: string | null;
 }
 
 interface ActivityRailProps {
   feed: ConflictPreviewFeed;
   fixtureMode: boolean;
   liveRefreshEnabled: boolean;
+  newsRefreshEnabled: boolean;
 }
 
 function formatMoney(value: number): string {
@@ -159,10 +168,13 @@ function tradeNotice(
     occurredAt,
     expiresAt,
     marketUrl,
+    article: null,
+    articleUrl: null,
   };
 }
 
 function noticeLabel(notice: ActivityNotice): string {
+  if (notice.kind === "news") return "News";
   if (notice.kind === "odds-rise") return `Odds +${notice.value.toFixed(1)}%`;
   if (notice.kind === "odds-drop") return `Odds -${notice.value.toFixed(1)}%`;
   return `Large BUY ${formatMoney(notice.value)}`;
@@ -172,6 +184,7 @@ function noticeMetricLabel(
   notice: ActivityNotice,
   event: ConflictPreviewEvent | null,
 ): string | null {
+  if (notice.kind === "news") return null;
   if (notice.kind === "large-buy") {
     const outcome = notice.outcome?.toUpperCase();
     if (!outcome) return null;
@@ -187,6 +200,7 @@ function selectVisibleNotices(notices: ActivityNotice[]): ActivityNotice[] {
     (left, right) =>
       right.occurredAt - left.occurredAt || right.value - left.value,
   );
+  const news = newestFirst.filter((notice) => notice.kind === "news");
   const trades = newestFirst.filter((notice) => notice.kind === "large-buy");
   const rollingMovers = newestFirst.filter(
     (notice) =>
@@ -198,6 +212,7 @@ function selectVisibleNotices(notices: ActivityNotice[]): ActivityNotice[] {
   const selectedEventIds = new Set<string>();
   const add = (notice: ActivityNotice) => {
     if (
+      selected.length >= MAX_VISIBLE_NOTICES ||
       selectedIds.has(notice.id) ||
       (notice.eventId !== null && selectedEventIds.has(notice.eventId))
     ) {
@@ -208,6 +223,11 @@ function selectVisibleNotices(notices: ActivityNotice[]): ActivityNotice[] {
     if (notice.eventId !== null) selectedEventIds.add(notice.eventId);
     return true;
   };
+
+  for (const notice of news.slice(0, 2)) {
+    add(notice);
+  }
+  if (selected.length >= MAX_VISIBLE_NOTICES) return selected;
 
   let tradeCount = 0;
   for (const notice of trades) {
@@ -249,15 +269,59 @@ function buildRollingNotices(
         occurredAt: signal.observedAt,
         expiresAt: signal.observedAt + ACTIVITY_TTL_MS,
         marketUrl: toPolymarketReferralUrl(event.marketUrl),
+        article: null,
+        articleUrl: null,
       };
     })
     .filter((notice): notice is ActivityNotice => Boolean(notice));
+}
+
+function isNewsIndex(value: unknown): value is { updatedAt: string; articles: NewsArticle[] } {
+  if (!value || typeof value !== "object") return false;
+  const candidate = value as { updatedAt?: unknown; articles?: unknown };
+  return typeof candidate.updatedAt === "string" &&
+    Number.isFinite(Date.parse(candidate.updatedAt)) &&
+    Array.isArray(candidate.articles) &&
+    candidate.articles.every(article =>
+      article &&
+      typeof article.id === "string" &&
+      typeof article.slug === "string" &&
+      typeof article.title === "string" &&
+      typeof article.publishedAt === "string" &&
+      Array.isArray(article.countries) &&
+      (article.alert === null || article.alert === undefined ||
+        ((article.alert.kind === "strike" || article.alert.kind === "ceasefire") &&
+          Array.isArray(article.alert.actorCountries) &&
+          Array.isArray(article.alert.targetCountries))),
+    );
+}
+
+function newsNotice(alert: NewsMarketAlert): ActivityNotice {
+  return {
+    id: `news-${alert.article.id}-${alert.event.id}`,
+    kind: "news",
+    source: "news",
+    eventId: alert.event.id,
+    marketConditionId: alert.event.marketConditionId,
+    title: alert.article.title,
+    locationLabel: alert.event.locationLabel,
+    value: alert.event.marketVolume ?? alert.event.volume,
+    windowLabel: null,
+    outcome: null,
+    outcomeOdds: null,
+    occurredAt: alert.publishedAt,
+    expiresAt: alert.expiresAt,
+    marketUrl: toPolymarketReferralUrl(alert.event.marketUrl),
+    article: alert.article,
+    articleUrl: `/news/${(alert.article.countries[0] || "world").toLowerCase()}/${alert.article.slug}`,
+  };
 }
 
 export function ActivityRail({
   feed,
   fixtureMode,
   liveRefreshEnabled,
+  newsRefreshEnabled,
 }: ActivityRailProps) {
   const { locale, t, translate } = useLocale();
   const feedClock = getInitialActivityClock(feed.updatedAt);
@@ -269,6 +333,12 @@ export function ActivityRail({
   // This rail mounts after hydration: use wall time, never an old ISR timestamp
   // as "now", which made expired server-rendered cards flash and disappear.
   const [clock, setClock] = useState(() => Date.now());
+  const [newsIndex, setNewsIndex] = useState<{
+    articles: NewsArticle[];
+    receivedAt: number;
+    updatedAt: string;
+  }>({ articles: [], receivedAt: 0, updatedAt: "" });
+  const [newsNotices, setNewsNotices] = useState<ActivityNotice[]>([]);
   const addNotices = useCallback(
     (
       incoming: ActivityNotice[],
@@ -371,6 +441,23 @@ export function ActivityRail({
     () => fixtureMode ? [] : buildRollingNotices(feed, Math.max(clock, feedClock)),
     [clock, feed, feedClock, fixtureMode],
   );
+  useEffect(() => {
+    if (fixtureMode || newsIndex.receivedAt === 0) return;
+    let cancelled = false;
+    void import("@/lib/news/alert-matching")
+      .then(({ buildNewsMarketAlerts }) => {
+        const next = buildNewsMarketAlerts(
+          newsIndex.articles,
+          feed.events,
+          newsIndex.receivedAt,
+        ).map(newsNotice);
+        if (!cancelled) setNewsNotices(next);
+      })
+      .catch(() => {
+        // Market activity stays available when the additive News matcher fails.
+      });
+    return () => { cancelled = true; };
+  }, [feed.events, fixtureMode, newsIndex]);
   const marketIdQueries = useMemo(
     () =>
       batchPolymarketActivityMarketIds(
@@ -378,6 +465,69 @@ export function ActivityRail({
       ).map((marketIds) => marketIds.join(",")),
     [feed.events],
   );
+
+  useEffect(() => {
+    if (fixtureMode || !newsRefreshEnabled) return;
+    let cancelled = false;
+    let inFlight = false;
+    let timer: number | null = null;
+    let controller: AbortController | null = null;
+
+    const refresh = async () => {
+      if (cancelled || inFlight || document.visibilityState !== "visible") return;
+      inFlight = true;
+      controller = new AbortController();
+      const timeout = window.setTimeout(() => controller?.abort(), 8_000);
+      try {
+        const response = await fetch("/api/news", {
+          headers: { Accept: "application/json" },
+          cache: "no-store",
+          priority: "low",
+          signal: controller.signal,
+        });
+        const payload: unknown = response.ok ? await response.json() : null;
+        if (!cancelled && isNewsIndex(payload)) {
+          setNewsIndex(current => current.updatedAt === payload.updatedAt
+            ? current
+            : {
+                articles: payload.articles.slice(0, 24),
+                receivedAt: Date.now(),
+                updatedAt: payload.updatedAt,
+              });
+        }
+      } catch {
+        // News alerts are additive; a failed refresh does not affect market alerts.
+      } finally {
+        window.clearTimeout(timeout);
+        controller = null;
+        inFlight = false;
+      }
+    };
+    const schedule = (delay: number) => {
+      if (timer !== null) window.clearTimeout(timer);
+      timer = window.setTimeout(async () => {
+        await refresh();
+        if (!cancelled) schedule(60_000);
+      }, delay);
+    };
+    const resume = () => {
+      if (document.visibilityState === "visible") void refresh();
+    };
+    schedule(0);
+    window.addEventListener("focus", resume);
+    window.addEventListener("pageshow", resume);
+    window.addEventListener("online", resume);
+    document.addEventListener("visibilitychange", resume);
+    return () => {
+      cancelled = true;
+      if (timer !== null) window.clearTimeout(timer);
+      controller?.abort();
+      window.removeEventListener("focus", resume);
+      window.removeEventListener("pageshow", resume);
+      window.removeEventListener("online", resume);
+      document.removeEventListener("visibilitychange", resume);
+    };
+  }, [fixtureMode, newsRefreshEnabled]);
 
   useEffect(() => {
     if (
@@ -504,7 +654,7 @@ export function ActivityRail({
   }, []);
 
   const visibleNotices = selectVisibleNotices(
-    [...notices, ...rollingNotices].filter(
+    [...newsNotices, ...notices, ...rollingNotices].filter(
       (notice) => {
         if (
           notice.expiresAt <= clock ||
@@ -514,6 +664,9 @@ export function ActivityRail({
         }
         if (notice.eventId === null) return true;
         const event = eventsById.get(notice.eventId);
+        if (notice.kind === "news") {
+          return Boolean(event && isPolymarketActivityEventCurrent(event, clock));
+        }
         return Boolean(
           event &&
             isPolymarketActivityEventCurrent(event, clock) &&
@@ -535,13 +688,16 @@ export function ActivityRail({
       data-feed-updated-at={feed.updatedAt}
     >
       {visibleNotices.map((notice) => {
+        const news = notice.kind === "news";
         const rising =
           notice.kind === "odds-rise" || notice.kind === "large-buy";
         const event = notice.eventId
           ? feed.events.find((candidate) => candidate.id === notice.eventId) ??
             null
           : null;
-        const tone = rising ? ACTIVITY_RISE_TONE : ACTIVITY_DROP_TONE;
+        const tone = news
+          ? NEWS_ALERT_TONE
+          : rising ? ACTIVITY_RISE_TONE : ACTIVITY_DROP_TONE;
         const referralMarketUrl = toPolymarketReferralUrl(notice.marketUrl);
         const trackUrl = event ? buildDropsBotTrackUrl(event.marketUrl) : null;
         const metricLabel = noticeMetricLabel(notice, event);
@@ -565,13 +721,15 @@ export function ActivityRail({
             >
               <div className={styles.activityMeta}>
                 <span className={styles.activitySignal} aria-hidden="true">
-                  {rising ? (
+                  {news ? (
+                    <Newspaper size={14} />
+                  ) : rising ? (
                     <ArrowUpRight size={15} />
                   ) : (
                     <ArrowDownRight size={15} />
                   )}
                 </span>
-                <strong>{locale === "en" ? noticeLabel(notice) : noticeLabel(notice).replace("Large BUY",marketLabel(locale,"Large BUY")).replace("Odds",marketLabel(locale,"Odds"))}</strong>
+                <strong>{news || locale === "en" ? noticeLabel(notice) : noticeLabel(notice).replace("Large BUY",marketLabel(locale,"Large BUY")).replace("Odds",marketLabel(locale,"Odds"))}</strong>
                 {notice.windowLabel ? <span>{notice.windowLabel}</span> : null}
                 <time dateTime={new Date(notice.occurredAt).toISOString()}>
                   {locale === "en" ? relativeTime(notice.occurredAt, clock) : new Intl.RelativeTimeFormat(locale,{numeric:"auto",style:"narrow"}).format(-Math.max(0,Math.floor((clock-notice.occurredAt)/60_000)),"minute")}
@@ -594,7 +752,13 @@ export function ActivityRail({
                   <X size={13} aria-hidden="true" />
                 </button>
               </div>
-              <p>{locale === "en" ? formatMarketTitle(notice.title) : translate(notice.title)}</p>
+              {news && notice.article && notice.articleUrl ? (
+                <Link className={styles.activityNewsLink} href={`${notice.articleUrl}?lang=${locale}`} prefetch={false}>
+                  {articleText(notice.article, locale).title}
+                </Link>
+              ) : (
+                <p>{locale === "en" ? formatMarketTitle(notice.title) : translate(notice.title)}</p>
+              )}
               <div className={styles.activityFooter} data-activity-footer>
                 {event && event.countryCodes.length > 0 ? (
                   <div
@@ -628,7 +792,7 @@ export function ActivityRail({
                       aria-label="Track this market in DropsBot"
                     >
                       <DropsBotTrackIcon className={styles.trackIcon} />
-                      {locale === "en" ? "Track" : t("track")}
+                      {locale === "en" ? "Track" : "DropsBot"}
                     </a>
                   ) : null}
                   {referralMarketUrl ? (
@@ -640,7 +804,7 @@ export function ActivityRail({
                       data-referral-code={POLYMARKET_REFERRAL_CODE}
                       title="Polymarket · DropsBot referral"
                     >
-                      {locale === "en" ? "Market" : t("market")} <ExternalLink size={12} aria-hidden="true" />
+                      Market <ExternalLink size={12} aria-hidden="true" />
                     </a>
                   ) : null}
                 </div>

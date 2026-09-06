@@ -32,7 +32,7 @@ OddsFront task worktrees and reaches production through verified pull requests.
 - [x] Add all-news and country sections, source citations, publication time, article metadata and RSS.
 - [x] Configure Reuters World, Axios World, Al Jazeera Middle East, Kyiv Independent and BBC World.
 - [x] Show related geopolitical events with fresh odds, market links and DropsBot tracking.
-- [x] Run an isolated five-hour publishing cycle with deduplication and editorial evidence checks.
+- [x] Run an isolated publishing cycle with deduplication and editorial evidence checks.
 - [x] Store news at runtime without commits or redeploys per article.
 - [x] Publish and verify the initial real-news batch.
 
@@ -45,6 +45,18 @@ OddsFront task worktrees and reaches production through verified pull requests.
 - [x] Support RTL for Persian and Hebrew.
 - [x] Translate interface strings locally; provide article translation without paid APIs.
 - [x] Keep translation work outside the map loading and rendering path.
+
+## News alert and compact-layout follow-up
+
+- [x] Gate 15-minute blue News alerts by confirmed strike/ceasefire semantics,
+      exact participants and direction, and at least $1 million market volume.
+- [x] Keep odds out of News alerts while retaining validated DropsBot and market actions.
+- [x] Add Polymarket event images to map popups and news related-event cards only.
+- [x] Unmount News/language controls while a popup is open and repair compact navigation.
+- [x] Remove the public partner directory, add the OddsFront Telegram footer link,
+      reduce news spacing and proxy credited partner covers with a safe fallback.
+- [x] Schedule up to nine verified stories every two hours.
+- [x] Pass project checks, 57-scenario browser QA and desktop/mobile performance runs.
 
 ## Release acceptance
 

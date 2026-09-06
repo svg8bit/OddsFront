@@ -114,6 +114,7 @@ interface ConflictMapPreviewProps {
   initialFeed: ConflictPreviewFeed;
   initialMarketStrip: MarketStripFeed;
   fixtureMode: boolean;
+  onReady?: () => void;
 }
 
 function WebGlFallback({
@@ -151,6 +152,7 @@ export function ConflictMapPreview({
   initialFeed,
   initialMarketStrip,
   fixtureMode,
+  onReady,
 }: ConflictMapPreviewProps) {
   const { locale } = useLocale();
   const mapRef = useRef<MapRef>(null);
@@ -199,6 +201,10 @@ export function ConflictMapPreview({
   const [tileHealth, setTileHealth] = useState<"loading" | "ready" | "degraded">(
     "loading",
   );
+
+  useEffect(() => {
+    if (mapReady || mapUnavailable) onReady?.();
+  }, [mapReady, mapUnavailable, onReady]);
 
   const hoveredEventId = useConflictMapPreviewStore(
     (state) => state.hoveredEventId,
