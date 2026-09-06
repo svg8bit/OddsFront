@@ -21,7 +21,6 @@ import {
 } from "@/features/global-conflict-map/preview/fixture";
 import {
   createHotspotFeatureCollection,
-  HOTSPOT_PULSE_LAYER_ID,
   HOTSPOT_SOURCE_ID,
 } from "@/features/global-conflict-map/preview/layers";
 import { MarketStrip } from "@/features/global-conflict-map/preview/market-strip";
@@ -33,11 +32,7 @@ import {
   type PreviewHotspot,
 } from "@/features/global-conflict-map/preview/marker-visuals";
 import {
-  COUNTRY_CONTEXT_FILL_ACTIVE,
-  COUNTRY_CONTEXT_FILL_IDLE,
   createPreviewMapStyle,
-  SELECTED_COUNTRY_PULSE_ACTIVE,
-  SELECTED_COUNTRY_PULSE_IDLE,
 } from "@/features/global-conflict-map/preview/map-style";
 import {
   selectMapRenderProfile,
@@ -69,9 +64,6 @@ const MIN_ZOOM = 1.6;
 const MAX_ZOOM = 7;
 const TRACKPAD_ZOOM_RATE = 1 / 55;
 const WHEEL_ZOOM_RATE = 1 / 140;
-const PULSE_INTERVAL_MS = 3_000;
-const FEED_REFRESH_JITTER_MS = 30_000;
-const STALE_FEED_REFRESH_DELAY_MS = 1_000;
 const WORLD_BOUNDS: [number, number, number, number] = [
   -179.9, -75, 179.9, 82,
 ];
@@ -107,7 +99,9 @@ function clampPopupOffset(
 function supportsWebGl2(): boolean {
   try {
     const canvas = document.createElement("canvas");
-    return Boolean(canvas.getContext("webgl2"));
+    const context = canvas.getContext("webgl2");
+    context?.getExtension("WEBGL_lose_context")?.loseContext();
+    return Boolean(context);
   } catch {
     return false;
   }
@@ -155,32 +149,6 @@ interface ConflictMapPreviewProps {
   initialFeed: ConflictPreviewFeed;
   initialMarketStrip: MarketStripFeed;
   fixtureMode: boolean;
-  onFeedChange?: (feed: ConflictPreviewFeed) => void;
-}
-
-function isConflictPreviewFeed(value: unknown): value is ConflictPreviewFeed {
-  if (!value || typeof value !== "object") return false;
-  const candidate = value as Partial<ConflictPreviewFeed>;
-  return (
-    (candidate.dataMode === "live" || candidate.dataMode === "fallback") &&
-    typeof candidate.updatedAt === "string" &&
-    typeof candidate.refreshSeconds === "number" &&
-    typeof candidate.minimumVolume === "number" &&
-    Array.isArray(candidate.events) &&
-    candidate.events.every(
-      (event) =>
-        event &&
-        typeof event.id === "string" &&
-        typeof event.title === "string" &&
-        Array.isArray(event.coordinates) &&
-        event.coordinates.length === 2 &&
-        ["place", "country", "regional", "alliance"].includes(
-          event.geographyKind,
-        ) &&
-        typeof event.volume === "number" &&
-        event.volume >= candidate.minimumVolume!,
-    )
-  );
 }
 
 function WebGlFallback({
@@ -217,9 +185,10 @@ export function ConflictMapPreview({
   initialFeed,
   initialMarketStrip,
   fixtureMode,
-  onFeedChange,
 }: ConflictMapPreviewProps) {
   const mapRef = useRef<MapRef>(null);
+  const resizingCanvas = useRef(false);
+  const resolutionRestoreTimer = useRef<number | null>(null);
   const selectedCountryIds = useRef<Set<string>>(new Set());
   const eventCountryIds = useRef<Set<string>>(new Set());
   const markerElements = useRef<globalThis.Map<string, HTMLDivElement>>(
@@ -227,9 +196,6 @@ export function ConflictMapPreview({
   );
   const shellRef = useRef<HTMLElement>(null);
   const readyScheduled = useRef(false);
-  const countryPulseFadeTimer = useRef<number | null>(null);
-  const hotspotPulseFrame = useRef<number | null>(null);
-  const pulseEpoch = useRef(0);
   const reduceMotion = usePrefersReducedMotion();
   const [webGlSupported] = useState(supportsWebGl2);
   const [mapRenderProfile] = useState(() => {
@@ -248,7 +214,41 @@ export function ConflictMapPreview({
       deviceMemory: navigatorWithMemory.deviceMemory,
     });
   });
-  const [feed, setFeed] = useState(initialFeed);
+  const feed = initialFeed;
+  const setCanvasResolution = useCallback((ratio: number) => {
+    const map = mapRef.current?.getMap();
+    if (!map || map.getPixelRatio() === ratio) return;
+    // MapLibre emits movement events from resize; ignore those synthetic events.
+    resizingCanvas.current = true;
+    try { map.setPixelRatio(ratio); }
+    finally { resizingCanvas.current = false; }
+  }, []);
+  const scheduleCanvasRestore = useCallback(() => {
+    if (resolutionRestoreTimer.current !== null) window.clearTimeout(resolutionRestoreTimer.current);
+    const restore = () => {
+      if (mapRef.current?.getMap().isMoving()) {
+        resolutionRestoreTimer.current = window.setTimeout(restore, 150);
+        return;
+      }
+      setCanvasResolution(mapRenderProfile.pixelRatio);
+      resolutionRestoreTimer.current = null;
+    };
+    resolutionRestoreTimer.current = window.setTimeout(restore, 200);
+  }, [mapRenderProfile.pixelRatio, setCanvasResolution]);
+  const prepareCameraMotion = useCallback(() => {
+    const map = mapRef.current?.getMap();
+    if (!map) return;
+    const canvas = map.getCanvas();
+    const budget = mapRenderProfile.quality === "constrained" ? 600_000 : 900_000;
+    // Resize before the gesture begins. Resizing inside movestart interrupts
+    // MapLibre's gesture handler; capture runs before its input listener.
+    setCanvasResolution(Math.min(mapRenderProfile.pixelRatio, Math.max(0.6,
+      Math.sqrt(budget / Math.max(1, canvas.clientWidth * canvas.clientHeight)))));
+    scheduleCanvasRestore();
+  }, [mapRenderProfile, scheduleCanvasRestore, setCanvasResolution]);
+  useEffect(() => () => {
+    if (resolutionRestoreTimer.current !== null) window.clearTimeout(resolutionRestoreTimer.current);
+  }, []);
   const previewMapStyle = useMemo(
     () => createPreviewMapStyle(mapRenderProfile.quality),
     [mapRenderProfile.quality],
@@ -342,6 +342,14 @@ export function ConflictMapPreview({
     () => visibleGroups.map((group) => group.hotspot),
     [visibleGroups],
   );
+  const pulsingEventIds = useMemo(
+    () => new Set(visibleHotspots
+      .filter((hotspot) => hotspot.markerStrength >= 0.6)
+      .toSorted((left, right) => right.markerStrength - left.markerStrength)
+      .slice(0, 8)
+      .map((hotspot) => hotspot.event.id)),
+    [visibleHotspots],
+  );
   const hotspotFeatureCollection = useMemo(
     () =>
       createHotspotFeatureCollection(
@@ -385,69 +393,13 @@ export function ConflictMapPreview({
   }, []);
 
   useEffect(() => {
-    if (fixtureMode) return;
-
-    let cancelled = false;
-    let timer: number | null = null;
-    let controller: AbortController | null = null;
-    const refresh = async () => {
-      if (controller) return;
-      controller = new AbortController();
-      try {
-        const response = await fetch("/api/global-conflict-events", {
-          headers: { Accept: "application/json" },
-          signal: controller.signal,
-        });
-        if (!response.ok) return;
-        const payload: unknown = await response.json();
-        if (!cancelled && isConflictPreviewFeed(payload)) {
-          setFeed(payload);
-          onFeedChange?.(payload);
-        }
-      } catch {
-        // Keep the last verified payload on transient network failures.
-      } finally {
-        controller = null;
-      }
+    const syncVisibility = () => {
+      if (shellRef.current) shellRef.current.dataset.pageVisible = String(document.visibilityState === "visible");
     };
-
-    const refreshMs = Math.max(60, feed.refreshSeconds) * 1_000;
-    const schedule = (delay: number) => {
-      timer = window.setTimeout(async () => {
-        if (document.visibilityState === "visible") await refresh();
-        if (!cancelled) {
-          schedule(
-            refreshMs + Math.floor(Math.random() * FEED_REFRESH_JITTER_MS),
-          );
-        }
-      }, delay);
-    };
-    const refreshWhenOnline = () => {
-      if (document.visibilityState === "visible") void refresh();
-    };
-    window.addEventListener("online", refreshWhenOnline);
-    const feedUpdatedAt = Date.parse(feed.updatedAt);
-    const feedAge = Number.isFinite(feedUpdatedAt)
-      ? Math.max(0, Date.now() - feedUpdatedAt)
-      : refreshMs;
-    const remainingFreshness = Math.max(0, refreshMs - feedAge);
-    // Fresh ISR payloads wait for the unused part of their refresh window.
-    // Stale payloads refresh promptly and independently of WebGL readiness so
-    // alert freshness never waits behind map rendering on weak devices.
-    schedule(
-      remainingFreshness > 0
-        ? remainingFreshness
-        : process.env.NODE_ENV === "production"
-          ? STALE_FEED_REFRESH_DELAY_MS
-          : 0,
-    );
-    return () => {
-      cancelled = true;
-      window.removeEventListener("online", refreshWhenOnline);
-      controller?.abort();
-      if (timer !== null) window.clearTimeout(timer);
-    };
-  }, [feed.refreshSeconds, feed.updatedAt, fixtureMode, onFeedChange]);
+    syncVisibility();
+    document.addEventListener("visibilitychange", syncVisibility);
+    return () => document.removeEventListener("visibilitychange", syncVisibility);
+  }, []);
 
   const updateMarkerPositions = useCallback(() => {
     const map = mapRef.current?.getMap();
@@ -551,165 +503,9 @@ export function ConflictMapPreview({
     if (mapReady) applyEventCountryState();
   }, [applyEventCountryState, mapReady]);
 
-  const pulseSelectedCountryOutline = useCallback(() => {
-    const map = mapRef.current?.getMap();
-    if (
-      !map?.getLayer("country-selected-pulse") ||
-      !map.getLayer("country-selected-fill") ||
-      selectedCountryIds.current.size === 0
-    ) {
-      return;
-    }
-
-    if (countryPulseFadeTimer.current !== null) {
-      window.clearTimeout(countryPulseFadeTimer.current);
-    }
-    map.setPaintProperty(
-      "country-selected-pulse",
-      "line-opacity",
-      SELECTED_COUNTRY_PULSE_ACTIVE,
-    );
-    map.setPaintProperty(
-      "country-selected-fill",
-      "fill-opacity",
-      COUNTRY_CONTEXT_FILL_ACTIVE,
-    );
-    countryPulseFadeTimer.current = window.setTimeout(() => {
-      if (map.getLayer("country-selected-pulse")) {
-        map.setPaintProperty(
-          "country-selected-pulse",
-          "line-opacity",
-          SELECTED_COUNTRY_PULSE_IDLE,
-        );
-      }
-      if (map.getLayer("country-selected-fill")) {
-        map.setPaintProperty(
-          "country-selected-fill",
-          "fill-opacity",
-          COUNTRY_CONTEXT_FILL_IDLE,
-        );
-      }
-      countryPulseFadeTimer.current = null;
-    }, 650);
-  }, []);
-
-  const recordPulseEpoch = useCallback((epoch: number) => {
-    if (shellRef.current) {
-      shellRef.current.dataset.pulseEpoch = String(epoch);
-    }
-  }, []);
-
-  const pulseHotspotOutline = useCallback(() => {
-    const map = mapRef.current?.getMap();
-    if (!selectedEventId || !map?.getLayer(HOTSPOT_PULSE_LAYER_ID)) return;
-
-    if (hotspotPulseFrame.current !== null) {
-      window.cancelAnimationFrame(hotspotPulseFrame.current);
-    }
-    const scale: maplibregl.ExpressionSpecification = [
-      "number",
-      ["get", "markerScale"],
-      1,
-    ];
-    const emphasis: maplibregl.ExpressionSpecification = [
-      "number",
-      ["get", "emphasis"],
-      1,
-    ];
-    map.setPaintProperty(HOTSPOT_PULSE_LAYER_ID, "circle-radius-transition", {
-      duration: 0,
-      delay: 0,
-    });
-    map.setPaintProperty(
-      HOTSPOT_PULSE_LAYER_ID,
-      "circle-stroke-opacity-transition",
-      { duration: 0, delay: 0 },
-    );
-    map.setPaintProperty(
-      HOTSPOT_PULSE_LAYER_ID,
-      "circle-radius",
-      ["*", 9.5, scale, emphasis],
-    );
-    map.setPaintProperty(
-      HOTSPOT_PULSE_LAYER_ID,
-      "circle-stroke-opacity",
-      0.36,
-    );
-
-    hotspotPulseFrame.current = window.requestAnimationFrame(() => {
-      if (!map.getLayer(HOTSPOT_PULSE_LAYER_ID)) return;
-      map.setPaintProperty(
-        HOTSPOT_PULSE_LAYER_ID,
-        "circle-radius-transition",
-        { duration: 620, delay: 0 },
-      );
-      map.setPaintProperty(
-        HOTSPOT_PULSE_LAYER_ID,
-        "circle-stroke-opacity-transition",
-        { duration: 620, delay: 0 },
-      );
-      map.setPaintProperty(
-        HOTSPOT_PULSE_LAYER_ID,
-        "circle-radius",
-        ["*", 31, scale, emphasis],
-      );
-      map.setPaintProperty(
-        HOTSPOT_PULSE_LAYER_ID,
-        "circle-stroke-opacity",
-        0,
-      );
-      hotspotPulseFrame.current = null;
-    });
-  }, [selectedEventId]);
-
-  useEffect(
-    () => () => {
-      if (countryPulseFadeTimer.current !== null) {
-        window.clearTimeout(countryPulseFadeTimer.current);
-      }
-      if (hotspotPulseFrame.current !== null) {
-        window.cancelAnimationFrame(hotspotPulseFrame.current);
-      }
-    },
-    [],
-  );
-
-  useEffect(() => {
-    if (!mapReady || reduceMotion || !effectsVisible) return;
-
-    let stopped = false;
-    let timer = 0;
-    const pulse = () => {
-      if (stopped) return;
-      pulseEpoch.current += 1;
-      recordPulseEpoch(pulseEpoch.current);
-      pulseHotspotOutline();
-      pulseSelectedCountryOutline();
-      timer = window.setTimeout(pulse, PULSE_INTERVAL_MS);
-    };
-
-    timer = window.setTimeout(pulse, 900);
-    return () => {
-      stopped = true;
-      window.clearTimeout(timer);
-    };
-  }, [
-    effectsVisible,
-    mapReady,
-    pulseHotspotOutline,
-    pulseSelectedCountryOutline,
-    recordPulseEpoch,
-    reduceMotion,
-  ]);
-
   const selectEvent = useCallback(
     (event: ConflictPreviewEvent, moveCamera = true) => {
       selectEventInStore(event.id);
-      if (!reduceMotion && effectsVisible) {
-        window.requestAnimationFrame(() => {
-          window.requestAnimationFrame(pulseHotspotOutline);
-        });
-      }
       if (!moveCamera) return;
 
       const map = mapRef.current;
@@ -720,15 +516,15 @@ export function ConflictMapPreview({
       else {
         window.requestAnimationFrame(() => {
           window.requestAnimationFrame(() => {
+            prepareCameraMotion();
             map.easeTo({ ...camera, duration: 360, essential: false });
           });
         });
       }
     },
     [
-      effectsVisible,
-      pulseHotspotOutline,
       reduceMotion,
+      prepareCameraMotion,
       selectEventInStore,
       viewState.zoom,
     ],
@@ -764,7 +560,10 @@ export function ConflictMapPreview({
     const map = mapRef.current;
     if (!map) return;
     if (reduceMotion) map.jumpTo({ zoom: nextZoom });
-    else map.easeTo({ zoom: nextZoom, duration: 240 });
+    else {
+      prepareCameraMotion();
+      map.easeTo({ zoom: nextZoom, duration: 240 });
+    }
   };
 
   const syncCameraFromMap = useCallback(() => {
@@ -856,10 +655,11 @@ export function ConflictMapPreview({
       data-map-raster-texture="disabled"
       data-reduced-motion={reduceMotion ? "true" : "false"}
       data-hotspot-rendering="maplibre-native-circles"
-      data-marker-glyph="volume-circles"
+      data-marker-glyph="precision-beacons"
+      data-effects-visible={effectsVisible ? "true" : "false"}
       data-special-signal-count="0"
-      data-pulse-interval={PULSE_INTERVAL_MS}
-      data-pulse-epoch="0"
+      data-pulse-interval="4000"
+      data-pulse-renderer="css-compositor"
       data-tense-zone-count={visibleHotspots.filter((hotspot) => hotspot.isTense).length}
       data-weekly-surge-count="0"
       data-highlighted-country-count={highlightedCountryIds.length}
@@ -879,6 +679,8 @@ export function ConflictMapPreview({
         tabIndex={0}
         aria-label="Interactive map of global conflict prediction markets"
         aria-describedby="conflict-map-long-description"
+        onPointerDownCapture={prepareCameraMotion}
+        onWheelCapture={prepareCameraMotion}
         onKeyDown={(event) => {
           const target = event.target as HTMLElement;
           if (target.closest("button, [role='dialog']")) return;
@@ -909,6 +711,7 @@ export function ConflictMapPreview({
           mapStyle={previewMapStyle}
           pixelRatio={mapRenderProfile.pixelRatio}
           refreshExpiredTiles={false}
+          canvasContextAttributes={{ antialias: false, alpha: false, desynchronized: true }}
           validateStyle={false}
           initialViewState={INITIAL_VIEW_STATE}
           minZoom={MIN_ZOOM}
@@ -940,10 +743,14 @@ export function ConflictMapPreview({
           }}
           onIdle={markMapReady}
           onMoveStart={() => {
+            if (resizingCanvas.current) return;
+            if (resolutionRestoreTimer.current !== null) window.clearTimeout(resolutionRestoreTimer.current);
             if (shellRef.current) shellRef.current.dataset.mapMoving = "true";
             setHoveredEvent(null);
           }}
           onMoveEnd={(event) => {
+            if (resizingCanvas.current) return;
+            scheduleCanvasRestore();
             setViewState(event.viewState);
             setZoom(event.viewState.zoom);
             window.requestAnimationFrame(() => {
@@ -965,7 +772,7 @@ export function ConflictMapPreview({
 
         <div className={styles.markerOverlay}>
           {mapReady
-            ? visibleGroups.map((group) => {
+            ? visibleGroups.map((group, index) => {
                 const event = group.primary;
                 const hotspot = group.hotspot;
                 const selected = event.id === selectedEventId;
@@ -984,6 +791,7 @@ export function ConflictMapPreview({
                       "--event-tone": TONE_PALETTE[event.tone].hex,
                       "--marker-scale": hotspot.markerScale,
                       "--marker-strength": hotspot.markerStrength,
+                      "--pulse-delay": `${-(index % 8) * 0.5}s`,
                     } as React.CSSProperties}
                     data-event-id={event.id}
                     data-selected={selected ? "true" : "false"}
@@ -998,7 +806,9 @@ export function ConflictMapPreview({
                     data-clustered={hotspot.eventCount > 1 ? "true" : "false"}
                     data-marker-offset={`${hotspot.pixelOffset[0].toFixed(1)},${hotspot.pixelOffset[1].toFixed(1)}`}
                     data-render-shape={hotspot.isSpecialSignal ? "special" : "circle"}
+                    data-pulse-active={selected || pulsingEventIds.has(event.id) ? "true" : "false"}
                   >
+                    <span className={styles.beaconPulse} aria-hidden="true" />
                     <button
                       type="button"
                       className={styles.hotspotTarget}

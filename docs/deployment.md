@@ -25,6 +25,13 @@ can run without them by using the public fallbacks.
 
 ## Release checks
 
+Release through a pull request from the temporary task branch to protected
+`main`. Wait for both `verify` and `analyze (javascript-typescript)` and inspect
+the Vercel preview before merging. Record the current production deployment
+and commit as the rollback target. Merge the verified PR head; the dedicated
+Vercel project `oddsfront` publishes `main` automatically. Confirm that the
+deployment serving `oddsfront.com` is READY and points to the merge commit.
+
 ```bash
 npm ci
 npm run check

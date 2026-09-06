@@ -36,6 +36,7 @@ async function openReadyMap(
   });
   const shell = page.locator("main[data-map-ready]");
   await expect(shell).toHaveAttribute("data-map-ready", "true", { timeout: 30_000 });
+  await expect(page.locator("[data-initial-basemap]")).toBeHidden();
   await page.evaluate(async () => document.fonts.ready);
   await page.waitForTimeout(250);
   return shell;
@@ -63,6 +64,18 @@ async function openActivityRailPage(page: Page) {
   return shell;
 }
 
+test("shows the geographic backdrop before JavaScript is available", async ({ browser }) => {
+  const context = await browser.newContext({ javaScriptEnabled: false });
+  try {
+    const page = await context.newPage();
+    await page.goto("http://127.0.0.1:3100/global-conflict-map-preview?fixture=1");
+    const backdrop = page.locator("[data-initial-basemap]");
+    await expect(backdrop).toBeVisible();
+    await expect(backdrop).toHaveCSS("background-image", /world-loading-v1\.svg/);
+    await expect(backdrop.locator("[data-market-event-id]")).toHaveCount(0);
+  } finally { await context.close(); }
+});
+
 test("keeps the full map on a wide desktop with constrained hardware", async ({
   page,
 }) => {
@@ -85,7 +98,7 @@ test("keeps the full map on a wide desktop with constrained hardware", async ({
   await expect(canvas).toHaveCSS("width", "1917px");
   await expect(page.locator("main[data-map-ready]")).toHaveAttribute(
     "data-map-pixel-ratio",
-    "0.6",
+    "1",
   );
   await expect(page.locator("main[data-map-ready]")).toHaveAttribute(
     "data-map-raster-texture",
@@ -98,9 +111,18 @@ test("keeps the full map on a wide desktop with constrained hardware", async ({
     }),
   );
   expect(canvasResolution.backingWidth / canvasResolution.cssWidth).toBeCloseTo(
-    0.6,
+    1,
     2,
   );
+  await page.mouse.move(250, 500);
+  await page.mouse.down();
+  await page.mouse.move(350, 550, { steps: 8 });
+  await expect.poll(() => canvas.evaluate((element: HTMLCanvasElement) => element.width / element.clientWidth))
+    .toBeLessThan(0.8);
+  await expect(canvas).toHaveCSS("width", "1917px");
+  await page.mouse.up();
+  await expect.poll(() => canvas.evaluate((element: HTMLCanvasElement) => element.width / element.clientWidth))
+    .toBe(1);
 });
 
 test("selects a bounded WebGL canvas resolution without shrinking the map", () => {
@@ -114,9 +136,9 @@ test("selects a bounded WebGL canvas resolution without shrinking the map", () =
       deviceMemory: 8,
     }),
   ).toEqual({
-    pixelRatio: 0.78,
+    pixelRatio: 1.1,
     quality: "balanced",
-    pixelBudget: 900_000,
+    pixelBudget: 1_800_000,
   });
   expect(
     selectMapRenderProfile({
@@ -128,9 +150,9 @@ test("selects a bounded WebGL canvas resolution without shrinking the map", () =
       deviceMemory: 4,
     }),
   ).toEqual({
-    pixelRatio: 0.6,
+    pixelRatio: 1,
     quality: "constrained",
-    pixelBudget: 520_000,
+    pixelBudget: 1_200_000,
   });
   expect(
     selectMapRenderProfile({
@@ -141,7 +163,7 @@ test("selects a bounded WebGL canvas resolution without shrinking the map", () =
       hardwareConcurrency: 8,
       deviceMemory: 8,
     }).pixelRatio,
-  ).toBe(0.93);
+  ).toBe(1);
   expect(
     selectMapRenderProfile({
       devicePixelRatio: 3,
@@ -151,7 +173,7 @@ test("selects a bounded WebGL canvas resolution without shrinking the map", () =
       hardwareConcurrency: 8,
       deviceMemory: 8,
     }).pixelRatio,
-  ).toBe(1);
+  ).toBe(2);
 });
 
 test("drops expensive texture and glow passes only on constrained hardware", () => {
@@ -328,7 +350,7 @@ test("scales hotspot prominence by market volume without loading detail tiles", 
     "data-hotspot-rendering",
     "maplibre-native-circles",
   );
-  await expect(shell).toHaveAttribute("data-marker-glyph", "volume-circles");
+  await expect(shell).toHaveAttribute("data-marker-glyph", "precision-beacons");
   await expect(shell).toHaveAttribute("data-special-signal-count", "0");
   await expect(page.locator('[data-render-shape="circle"]')).not.toHaveCount(0);
 
@@ -350,41 +372,27 @@ test("scales hotspot prominence by market volume without loading detail tiles", 
   expect(detailTileRequests).toEqual([]);
 });
 
-test("animates rich native map beacons without DOM marker visuals", async ({
-  page,
-}) => {
+test("animates a bounded set of CSS pulses and respects reduced motion", async ({ page }) => {
   await page.emulateMedia({ reducedMotion: "no-preference", colorScheme: "dark" });
-  await page.goto("/global-conflict-map-preview?fixture=1", {
-    waitUntil: "domcontentloaded",
-  });
+  await page.goto("/global-conflict-map-preview?fixture=1", { waitUntil: "domcontentloaded" });
   const shell = page.locator("main[data-map-ready]");
-  await expect(shell).toHaveAttribute("data-map-ready", "true", {
-    timeout: 30_000,
-  });
-
+  await expect(shell).toHaveAttribute("data-map-ready", "true", { timeout: 30_000 });
   await expect(page.locator("canvas")).toHaveCount(1);
-  await expect(page.locator("[data-hotspot-visual]")).toHaveCount(0);
-  await expect(shell).toHaveAttribute(
-    "data-hotspot-rendering",
-    "maplibre-native-circles",
-  );
-  await expect(shell).toHaveAttribute("data-pulse-interval", "3000");
-  await expect
-    .poll(async () => Number(await shell.getAttribute("data-pulse-epoch")), {
-      timeout: 2_500,
-    })
-    .toBeGreaterThan(0);
-  const firstPulse = Number(await shell.getAttribute("data-pulse-epoch"));
-  await expect
-    .poll(async () => Number(await shell.getAttribute("data-pulse-epoch")), {
-      // One pulse interval is 3s. Software WebGL on a loaded single-core CI
-      // host can delay the callback, so allow one additional interval.
-      timeout: 7_000,
-    })
-    .toBeGreaterThan(firstPulse);
-  expect(Number(await shell.getAttribute("data-tense-zone-count"))).toBeGreaterThan(0);
-  await expect(shell).toHaveAttribute("data-weekly-surge-count", "0");
-  await expect(page.getByTestId("weekly-surge-label")).toHaveCount(0);
+  await expect(shell).toHaveAttribute("data-pulse-renderer", "css-compositor");
+  const beacons = page.locator('[data-pulse-active="true"]');
+  expect(await beacons.count()).toBeGreaterThan(0);
+  expect(await beacons.count()).toBeLessThanOrEqual(8);
+  const pulseTime = () => page.evaluate(() => Number(document.getAnimations().find(
+    (animation) => animation instanceof CSSAnimation && animation.animationName.includes("beaconRipple"),
+  )?.currentTime));
+  await expect.poll(pulseTime).toBeGreaterThanOrEqual(0);
+  const before = await pulseTime();
+  await page.waitForTimeout(350);
+  expect(await pulseTime()).toBeGreaterThan(before);
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await expect.poll(() => page.evaluate(() => document.getAnimations().filter(
+    (animation) => animation instanceof CSSAnimation && animation.animationName.includes("beaconRipple"),
+  ).length)).toBe(0);
 });
 
 test("captures the regional country-and-city zoom state", async ({ page }) => {
@@ -731,11 +739,12 @@ test("serves the approved map on the canonical public route", async ({ page }) =
 
   const feedResponse = await page.request.get("/api/global-conflict-events");
   expect(feedResponse.headers()["cdn-cache-control"]).toContain(
-    "stale-if-error=900",
+    "stale-if-error=60",
   );
   expect(feedResponse.headers()["cdn-cache-control"]).toContain(
-    "stale-while-revalidate=60",
+    "stale-while-revalidate=15",
   );
+  expect(feedResponse.headers()["cache-control"]).toBe("no-store");
 });
 
 test("serves the live map and fresh social metadata at the root URL", async ({
@@ -750,7 +759,7 @@ test("serves the live map and fresh social metadata at the root URL", async ({
   const shell = await openReadyMap(page, "/");
   await expect(shell).toHaveAttribute("data-map-ready", "true");
   await page.waitForTimeout(1_800);
-  expect(duplicateFeedRequests).toBe(0);
+  expect(duplicateFeedRequests).toBe(1);
   await expect(page.locator('meta[property="og:url"]')).toHaveAttribute(
     "content",
     "https://oddsfront.com",
@@ -892,6 +901,7 @@ test("groups co-located alliance events behind popup pager arrows", async ({
       body: JSON.stringify({
         ...fixture,
         dataMode: "live",
+        updatedAt: new Date().toISOString(),
         events,
       }),
     });
@@ -1193,7 +1203,8 @@ test("does not reanimate the same rolling signal after a feed refresh", async ({
   await page.evaluate(() => window.dispatchEvent(new Event("online")));
   await expect.poll(() => feedRequestCount).toBeGreaterThanOrEqual(2);
   await expect(rail).toHaveAttribute("data-feed-updated-at", refreshedAt);
-  await expect(rollingCard).toHaveAttribute("data-expires-at", initialExpiry!);
+  await expect(rollingCard).toHaveAttribute("data-expires-at", new Date(Date.parse(refreshedAt) + 10 * 60_000).toISOString());
+  expect(await rollingCard.getAttribute("data-expires-at")).not.toBe(initialExpiry);
 });
 
 test("shows 5% daily and 20% weekly moves with referral-safe buys from $200K", async ({

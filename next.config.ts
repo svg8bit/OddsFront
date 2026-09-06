@@ -69,6 +69,16 @@ const nextConfig: NextConfig = {
   poweredByHeader: false,
   reactStrictMode: true,
   devIndicators: false,
+  async rewrites() {
+    return {
+      beforeFiles: [{
+        source: "/maps/fonts/inter-medium-v1/:range.pbf",
+        destination: "/maps/fonts/inter-medium-v1/:range.pbf.gz",
+      }],
+      afterFiles: [],
+      fallback: [],
+    };
+  },
   async redirects() {
     const canonicalHostRedirects = REDIRECT_HOSTS.map((host) => ({
       source: "/:path*",
@@ -98,6 +108,13 @@ const nextConfig: NextConfig = {
             value:
               "public, max-age=86400, s-maxage=31536000, stale-while-revalidate=604800",
           },
+        ],
+      },
+      {
+        source: "/maps/fonts/inter-medium-v1/:range.pbf",
+        headers: [
+          { key: "Content-Encoding", value: "gzip" },
+          { key: "Content-Type", value: "application/x-protobuf" },
         ],
       },
       {

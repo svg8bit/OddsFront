@@ -1,8 +1,8 @@
-const STANDARD_CANVAS_PIXEL_BUDGET = 900_000;
-const CONSTRAINED_CANVAS_PIXEL_BUDGET = 520_000;
-const MINIMUM_PIXEL_RATIO = 0.6;
-const STANDARD_PIXEL_RATIO_CAP = 1.15;
-const COMPACT_PIXEL_RATIO_CAP = 1;
+const STANDARD_CANVAS_PIXEL_BUDGET = 1_800_000;
+const CONSTRAINED_CANVAS_PIXEL_BUDGET = 1_200_000;
+const MINIMUM_PIXEL_RATIO = 1;
+const STANDARD_PIXEL_RATIO_CAP = 1.25;
+const COMPACT_PIXEL_RATIO_CAP = 2;
 
 interface MapRenderProfileInput {
   devicePixelRatio: number;
@@ -59,8 +59,8 @@ export function selectMapRenderProfile({
     : STANDARD_CANVAS_PIXEL_BUDGET;
   const cssPixelArea = Math.max(1, viewportWidth * viewportHeight);
   // The CSS canvas always fills the viewport. Only its WebGL backing store is
-  // bounded, preventing large and high-DPI screens from multiplying the
-  // fragment workload without a meaningful visual benefit for this dark map.
+  // bounded. Never undersample CSS pixels: that blurred country labels even
+  // on ordinary laptop screens. Mobile gets enough density for readable text.
   const budgetRatio = Math.sqrt(pixelBudget / cssPixelArea);
   const normalizedDevicePixelRatio = isPositiveFinite(devicePixelRatio)
     ? devicePixelRatio

@@ -13,9 +13,11 @@
     "url": "https://github.com/svg8bit/OddsFront/issues"
   },
   "scripts": {
+    "task:start": "node scripts/start-task.mjs",
     "dev": "next dev --hostname 127.0.0.1",
     "generate:country-anchors": "node scripts/generate-country-anchors.mjs",
     "generate:map-assets": "node scripts/optimize-map-assets.mjs --write",
+    "generate:map-font": "node scripts/generate-map-font.mjs",
     "check:map-assets": "node scripts/optimize-map-assets.mjs --check",
     "build": "next build",
     "start": "next start --hostname 127.0.0.1",

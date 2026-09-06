@@ -383,7 +383,10 @@ async function runOnce(
     const canvas = document.querySelector("canvas.maplibregl-canvas");
     const canvasBox = canvas?.getBoundingClientRect();
     const navigation = performance.getEntriesByType("navigation")[0];
+    const initialBackdrop = performance.getEntriesByType("resource")
+      .find((entry) => entry.name.endsWith("/maps/world-loading-v1.svg"));
     return {
+      initialBackdropLoadedMs: initialBackdrop ? Math.round(initialBackdrop.responseEnd) : null,
       eventCount: Number(shell?.getAttribute("data-event-count") ?? 0),
       markerCount: Number(
         shell?.getAttribute("data-visible-marker-count") ?? 0,

@@ -19,6 +19,7 @@ const labelsPath = path.join(
   appRoot,
   "public/maps/ne_110m_admin_0_country_labels.geojson",
 );
+const previewPath = path.join(appRoot, "public/maps/world-loading-v1.svg");
 
 const shouldWrite = process.argv.includes("--write");
 const shouldCheck = process.argv.includes("--check");
@@ -190,6 +191,37 @@ const outputs = [
     maximumBytes: MAX_LABEL_BYTES,
   },
 ];
+
+// A small, static geographic backdrop is visible before the WebGL bundle is
+// ready. It contains no event markers or simulated live data.
+const previewPaths = render.features.map((feature) => {
+  const polygons = feature.geometry.type === "Polygon"
+    ? [feature.geometry.coordinates] : feature.geometry.coordinates;
+  const paths = polygons.flatMap(polygon => polygon.map(ring => {
+    const points = ring.map(([longitude, latitude]) => {
+      const limitedLatitude = Math.max(-75, Math.min(82, latitude));
+      const x = Math.round((longitude + 180) * 4);
+      const y = Math.round(450 - Math.log(Math.tan((90 + limitedLatitude) * Math.PI / 360)) * 240);
+      return [x, y];
+    }).filter((point, index, points) => index === 0 || point[0] !== points[index - 1][0] || point[1] !== points[index - 1][1])
+      .filter((point, index, points) => {
+        if (index === 0 || index === points.length - 1) return true;
+        const previous = points[index - 1];
+        const next = points[index + 1];
+        return (point[0] - previous[0]) * (next[1] - point[1]) !==
+          (point[1] - previous[1]) * (next[0] - point[0]);
+      });
+    return points.length > 2 ? `M${points.map(point => point.join(",")).join("L")}Z` : "";
+  }));
+  return `<path d="${paths.join("")}"/>`;
+}).join("");
+outputs.push({
+  label: "initial geographic backdrop",
+  filePath: previewPath,
+  current: shouldCheck ? await readFile(previewPath, "utf8") : "",
+  serialized: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1440 900"><rect width="1440" height="900" fill="#091321"/><g fill="#14243a" stroke="#294058" stroke-width=".6" fill-rule="evenodd">${previewPaths}</g></svg>\n`,
+  maximumBytes: 75_000,
+});
 
 for (const output of outputs) {
   const bytes = Buffer.byteLength(output.serialized);
