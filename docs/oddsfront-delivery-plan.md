@@ -32,9 +32,9 @@ OddsFront task worktrees and reaches production through verified pull requests.
 - [x] Add all-news and country sections, source citations, publication time, article metadata and RSS.
 - [x] Configure Reuters World, Axios World, Al Jazeera Middle East, Kyiv Independent and BBC World.
 - [x] Show related geopolitical events with fresh odds, market links and DropsBot tracking.
-- [ ] Run an isolated five-hour publishing cycle with deduplication and editorial evidence checks.
+- [x] Run an isolated five-hour publishing cycle with deduplication and editorial evidence checks.
 - [x] Store news at runtime without commits or redeploys per article.
-- [ ] Publish and verify the initial real-news batch.
+- [x] Publish and verify the initial real-news batch.
 
 ## Languages
 
@@ -52,5 +52,24 @@ OddsFront task worktrees and reaches production through verified pull requests.
 - [x] Run lint, typecheck, build and the required project test suite.
 - [x] Inspect desktop/mobile and RTL article views, empty/error states and source links.
       The expanded suite passes 54 tests; map language preview QA is recorded separately.
-- [ ] Merge reviewed code to main, verify the dedicated Vercel deployment and production routes.
-- [ ] Record exact commits, deployment IDs, service status and remaining factual limitations.
+- [x] Merge reviewed code to main, verify the dedicated Vercel deployment and production routes.
+- [x] Record exact commits, deployment IDs, service status and remaining factual limitations.
+
+## Release evidence
+
+- UI/news release: PR #37, main `4c58884ee5223d987acddeeecd9ba6d76d694058`,
+  READY `dpl_HLMNqnrRyLgrMf9LZLeC2kKKUYAi`, with `oddsfront.com` alias verified.
+- CI `verify`: all 55 tests passed. CodeQL analysis passed.
+- Desktop/mobile production news, article and zh/fa map checks: no browser errors;
+  four related live markets; news pages did not request the map engine.
+- Publisher timer is enabled. Its first successful systemd cycle finished at
+  2026-09-06 17:49:54 UTC with exit status 0, preserving the verified edition
+  when no additional stories met evidence requirements. All eleven translation
+  caches were refreshed. Publication is intentionally quality-gated, not a quota.
+- Initial real article is available in English and eleven translated editions;
+  RSS, sitemap, public news API and authenticated source export were verified.
+- Shared Codex runtime write access is required by the subscription app-server;
+  other product roots remain inaccessible in the publishing unit.
+- Constrained software-renderer benchmark remains a limitation: roughly 6.68 s
+  to interactive map, 24.8 fps drag and 18.2 fps zoom at 4x CPU/slow 4G. These
+  figures are not a promise of 60 fps on every device.
