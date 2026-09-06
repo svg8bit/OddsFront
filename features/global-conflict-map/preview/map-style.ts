@@ -3,6 +3,7 @@ import type {
   LayerSpecification,
   StyleSpecification,
 } from "maplibre-gl";
+import type { Locale } from "@/lib/news/types";
 
 import {
   HOTSPOT_SOURCE_ID,
@@ -819,16 +820,36 @@ const CONSTRAINED_OMITTED_LAYER_IDS = new Set([
   "city-light-points",
 ]);
 
+const OCEANS: Record<Exclude<Locale,"en">, string[]> = {
+  ru:["Северная Атлантика","Южная Атлантика","Индийский океан","Северный Тихий океан"],
+  uk:["Північна Атлантика","Південна Атлантика","Індійський океан","Північний Тихий океан"],
+  de:["Nordatlantik","Südatlantik","Indischer Ozean","Nordpazifik"],
+  es:["Atlántico Norte","Atlántico Sur","Océano Índico","Pacífico Norte"],
+  "pt-BR":["Atlântico Norte","Atlântico Sul","Oceano Índico","Pacífico Norte"],
+  fr:["Atlantique Nord","Atlantique Sud","Océan Indien","Pacifique Nord"],
+  zh:["北大西洋","南大西洋","印度洋","北太平洋"],
+  ko:["북대서양","남대서양","인도양","북태평양"],
+  vi:["Bắc Đại Tây Dương","Nam Đại Tây Dương","Ấn Độ Dương","Bắc Thái Bình Dương"],
+  fa:["اطلس شمالی","اطلس جنوبی","اقیانوس هند","آرام شمالی"],
+  he:["צפון האוקיינוס האטלנטי","דרום האוקיינוס האטלנטי","האוקיינוס ההודי","צפון האוקיינוס השקט"],
+};
+
 export function createPreviewMapStyle(
   quality: "balanced" | "constrained",
+  locale: Locale = "en",
 ): StyleSpecification {
   const sources = Object.fromEntries(
     Object.entries(PREVIEW_MAP_STYLE.sources).filter(
       ([sourceId]) => sourceId !== "night-earth",
     ),
   );
+  if (locale !== "en") {
+    sources["country-labels"] = { type:"geojson", data:`/maps/localized-v1/countries-${locale}.geojson` };
+    sources.oceans = {type:"geojson",data:{...oceanLabels,features:oceanLabels.features.map((feature,index)=>({...feature,properties:{name:OCEANS[locale][index]}}))}};
+  }
   return {
     ...PREVIEW_MAP_STYLE,
+    glyphs: locale === "en" ? PREVIEW_MAP_STYLE.glyphs : "/maps/fonts/unicode-v1/{range}.pbf",
     name:
       quality === "constrained"
         ? "OddsFront · Essential"
@@ -840,6 +861,13 @@ export function createPreviewMapStyle(
           ? CONSTRAINED_OMITTED_LAYER_IDS
           : EFFICIENT_OMITTED_LAYER_IDS
         ).has(layer.id),
-    ),
+    ).map(layer => {
+      if (locale === "en" || layer.type !== "symbol") return layer;
+      const layout = { ...layer.layout, "text-font": ["OddsFront Unicode"], "text-letter-spacing": 0 };
+      if (layer.source === "openmaptiles") {
+        layout["text-field"] = ["coalesce", ["get", `name:${locale === "pt-BR" ? "pt" : locale}`], ["get", `name_${locale}`], ...placeName.slice(1)] as ExpressionSpecification;
+      }
+      return { ...layer, layout };
+    }),
   };
 }

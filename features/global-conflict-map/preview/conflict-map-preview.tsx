@@ -10,6 +10,7 @@ import {
   useState,
 } from "react";
 import { createPortal } from "react-dom";
+import { useLocale } from "@/components/locale-provider";
 import { Minus, Plus } from "lucide-react";
 import type { GeoJSONSource } from "maplibre-gl";
 import MapLibreMap, {
@@ -94,13 +95,14 @@ function PreviewControls({
   onZoomIn,
   onZoomOut,
 }: PreviewControlsProps) {
+  const { t } = useLocale();
   return (
-    <div className={styles.controls} aria-label="Map controls">
+    <div className={styles.controls} aria-label={t("marketControls")}>
       <div className={styles.zoomGroup}>
-        <button type="button" onClick={onZoomIn} aria-label="Zoom in">
+        <button type="button" onClick={onZoomIn} aria-label={t("zoomIn")}>
           <Plus size={21} aria-hidden="true" />
         </button>
-        <button type="button" onClick={onZoomOut} aria-label="Zoom out">
+        <button type="button" onClick={onZoomOut} aria-label={t("zoomOut")}>
           <Minus size={21} aria-hidden="true" />
         </button>
       </div>
@@ -123,19 +125,20 @@ function WebGlFallback({
   initialMarketStrip: MarketStripFeed;
   fixtureMode: boolean;
 }) {
+  const { t, translate } = useLocale();
   return (
     <main className={styles.shell} data-map-ready="true">
       <MarketStrip initialFeed={initialMarketStrip} fixtureMode={fixtureMode} />
       <section className={styles.fallback} aria-labelledby="map-fallback-title">
-        <span>Interactive map unavailable</span>
-        <h1 id="map-fallback-title">The interactive map could not start.</h1>
-        <p>The latest verified event list remains available as a text summary.</p>
+        <span>{t("mapUnavailable")}</span>
+        <h1 id="map-fallback-title">{t("mapStartFailed")}</h1>
+        <p>{t("fallbackSummary")}</p>
         <ul>
           {events.map((event) => (
             <li key={event.id}>
-              <strong>{event.region}</strong>
-              <span>{event.title}</span>
-              <b>{event.yesOdds}% YES</b>
+              <strong>{translate(event.region)}</strong>
+              <span>{translate(event.title)}</span>
+              <b>{event.yesOdds}% {t("yes")}</b>
             </li>
           ))}
         </ul>
@@ -149,6 +152,7 @@ export function ConflictMapPreview({
   initialMarketStrip,
   fixtureMode,
 }: ConflictMapPreviewProps) {
+  const { locale } = useLocale();
   const mapRef = useRef<MapRef>(null);
   const popupAnchorRef = useRef<HTMLDivElement>(null);
   const popupSize = useRef({ width: 244, height: 256 });
@@ -181,8 +185,8 @@ export function ConflictMapPreview({
   });
   const feed = initialFeed;
   const previewMapStyle = useMemo(
-    () => createPreviewMapStyle(mapRenderProfile.quality),
-    [mapRenderProfile.quality],
+    () => createPreviewMapStyle(mapRenderProfile.quality, locale),
+    [mapRenderProfile.quality, locale],
   );
   const [viewState, setViewState] = useState<ViewState>(
     INITIAL_VIEW_STATE as ViewState,

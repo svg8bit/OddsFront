@@ -1,4 +1,6 @@
 "use client";
+import { useLocale } from "@/components/locale-provider";
+import { marketLabel } from "@/lib/news/market-labels";
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
@@ -81,6 +83,7 @@ export function MarketStrip({
   fixtureMode,
   refreshEnabled = true,
 }: MarketStripProps) {
+  const { locale } = useLocale();
   const [feed, setFeed] = useState(initialFeed);
   const refreshInFlight = useRef(false);
   const lastRefreshAt = useRef(Date.parse(initialFeed.updatedAt) || 0);
@@ -159,6 +162,7 @@ export function MarketStrip({
   return (
     <nav
       className={styles.strip}
+      dir="ltr"
       aria-label="DropsTab asset prices and 24-hour changes"
       data-market-strip="true"
       data-market-count={feed.assets.length}
@@ -185,7 +189,7 @@ export function MarketStrip({
                 data-icon={asset.id}
                 aria-hidden="true"
               />
-              <strong>{asset.displaySymbol}</strong>
+              <strong>{marketLabel(locale,asset.displaySymbol)}</strong>
               <span className={styles.price}>{formatPrice(asset.price)}</span>
               <span
                 className={styles.change}

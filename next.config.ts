@@ -13,6 +13,7 @@ const REDIRECT_HOSTS = [
 const scriptSources = [
   "'self'",
   "'unsafe-inline'",
+  "'wasm-unsafe-eval'",
   "https://va.vercel-scripts.com",
 ];
 
@@ -72,6 +73,9 @@ const nextConfig: NextConfig = {
   async rewrites() {
     return {
       beforeFiles: [{
+        source: "/maps/fonts/unicode-v1/:range.pbf",
+        destination: "/maps/fonts/unicode-v1/:range.pbf.gz",
+      },{
         source: "/maps/fonts/inter-medium-v1/:range.pbf",
         destination: "/maps/fonts/inter-medium-v1/:range.pbf.gz",
       }],
@@ -117,6 +121,10 @@ const nextConfig: NextConfig = {
           { key: "Content-Type", value: "application/x-protobuf" },
         ],
       },
+      { source: "/maps/fonts/unicode-v1/:range.pbf", headers: [
+        { key: "Content-Encoding", value: "gzip" },
+        { key: "Content-Type", value: "application/x-protobuf" },
+      ] },
       {
         source: "/vendor/:path*",
         headers: [

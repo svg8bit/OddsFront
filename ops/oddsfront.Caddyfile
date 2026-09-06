@@ -1,0 +1,17 @@
+feed.145-63-140-146.sslip.io {
+	bind 145.63.140.146
+	encode zstd gzip
+
+	handle /v1/market-strip {
+		reverse_proxy 127.0.0.1:8091
+	}
+
+	@news path /v1/news /v1/news/articles/*
+	handle @news {
+		reverse_proxy 127.0.0.1:8091
+	}
+
+	handle {
+		respond "Not Found" 404
+	}
+}

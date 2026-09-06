@@ -6,6 +6,8 @@ interface CountryFlagProps {
 }
 
 const HORIZONTAL_BANDS: Readonly<Record<string, readonly string[]>> = {
+  DE: ["#111111", "#dd0000", "#ffce00"],
+  ES: ["#aa151b", "#f1bf00", "#f1bf00", "#aa151b"],
   CO: ["#fcd116", "#fcd116", "#003893", "#ce1126"],
   EE: ["#4891d9", "#111827", "#f8fafc"],
   ET: ["#078930", "#fcd116", "#da121a"],
@@ -21,6 +23,7 @@ const HORIZONTAL_BANDS: Readonly<Record<string, readonly string[]>> = {
 };
 
 const VERTICAL_BANDS: Readonly<Record<string, readonly string[]>> = {
+  FR: ["#002395", "#ffffff", "#ed2939"],
   MX: ["#006847", "#ffffff", "#ce1126"],
 };
 
@@ -61,6 +64,12 @@ function Crescent({ x = 12, y = 8 }: { x?: number; y?: number }) {
 
 function specialFlag(code: string): ReactNode {
   switch (code) {
+    case "GB":
+      return <><rect width="24" height="16" fill="#012169"/><path d="m0 0 24 16M24 0 0 16" stroke="#fff" strokeWidth="3.6"/><path d="m0 0 24 16M24 0 0 16" stroke="#c8102e" strokeWidth="1.4"/><path d="M12 0v16M0 8h24" stroke="#fff" strokeWidth="5"/><path d="M12 0v16M0 8h24" stroke="#c8102e" strokeWidth="3"/></>;
+    case "VN":
+      return <><rect width="24" height="16" fill="#da251d"/><path d="m12 3 1.45 3 3.3.5-2.4 2.3.6 3.3L12 10.5l-2.95 1.6.6-3.3L7.25 6.5l3.3-.5Z" fill="#ff0"/></>;
+    case "BR":
+      return <><rect width="24" height="16" fill="#009b3a"/><path d="m12 1 10 7-10 7L2 8Z" fill="#ffdf00"/><circle cx="12" cy="8" r="4" fill="#002776"/><path d="M8.2 6.8q4-1 7.4 3" fill="none" stroke="#fff" strokeWidth=".8"/></>;
     case "CN":
       return (
         <>

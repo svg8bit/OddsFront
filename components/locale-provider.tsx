@@ -1,0 +1,53 @@
+"use client";
+
+import { createContext, useContext, useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import { countryName, localeDirection, negotiateLocale, normalizeLocale, regionFromLanguages } from "@/lib/news/locale";
+import { message, type MessageKey } from "@/lib/news/messages";
+import type { Locale } from "@/lib/news/types";
+
+const KEY = "oddsfront-preferences-v1";
+let memoryPreferences = "auto";
+const subscribe = (notify: () => void) => {
+  window.addEventListener("popstate", notify); window.addEventListener("storage", notify); window.addEventListener("oddsfront-preferences", notify);
+  return () => { window.removeEventListener("popstate", notify); window.removeEventListener("storage", notify); window.removeEventListener("oddsfront-preferences", notify); };
+};
+const getSnapshot = () => { let saved=memoryPreferences; try { saved=localStorage.getItem(KEY) ?? saved; } catch { /* Private storage. */ } return `${saved}\n${location.search}`; };
+const getServerSnapshot = () => "server";
+interface Preferences { locale: Locale; region: string; automatic: boolean; t: (key: MessageKey) => string; translate: (text: string) => string; country: (code: string) => string; setPreferences: (locale: Locale | "auto", region: string) => void; }
+const LocaleContext = createContext<Preferences>({ locale: "en", region: "ALL", automatic: true, t: key => message("en",key), translate: text => text, country: code => countryName(code,"en"), setPreferences: () => {} });
+
+export function LocaleProvider({ children }: { children: React.ReactNode }) {
+  const stored = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
+  const preferences = useMemo(() => {
+    let saved: { locale?: string; region?: string } = {};
+    try { saved = JSON.parse(stored.split("\n")[0]) ?? {}; } catch { /* First visit uses browser preferences. */ }
+    const browserLanguages = stored === "server" ? [] : navigator.languages;
+    const explicit = stored === "server" ? null : normalizeLocale(new URLSearchParams(location.search).get("lang"));
+    const locale = explicit ?? normalizeLocale(saved.locale) ?? negotiateLocale(browserLanguages);
+    const region = saved.region && /^(ALL|[A-Z]{2})$/.test(saved.region) ? saved.region : regionFromLanguages(browserLanguages);
+    return { locale, region, automatic: !explicit && !normalizeLocale(saved.locale) };
+  }, [stored]);
+  const [dictionary, setDictionary] = useState<{ locale: Locale; messages: Record<string,string> }>({ locale: "en", messages: {} });
+  useEffect(() => {
+    document.documentElement.lang = preferences.locale;
+    document.documentElement.dir = localeDirection(preferences.locale);
+    if (preferences.locale === "en") return;
+    const controller = new AbortController();
+    fetch(`/api/localization?lang=${preferences.locale}`, { signal: controller.signal }).then(response => response.ok ? response.json() : null)
+      .then(data => { if (data && !controller.signal.aborted) setDictionary({ locale: preferences.locale, messages: data.messages ?? {} }); }).catch(() => {});
+    return () => controller.abort();
+  }, [preferences.locale]);
+  const value = useMemo<Preferences>(() => ({ ...preferences,
+    t: key => message(preferences.locale, key),
+    translate: text => dictionary.locale === preferences.locale ? dictionary.messages[text] ?? text : text,
+    country: code => countryName(code, preferences.locale),
+    setPreferences: (locale, region) => {
+      memoryPreferences = JSON.stringify({ locale, region });
+      const url = new URL(location.href); url.searchParams.delete("lang"); history.replaceState(history.state, "", url);
+      try { localStorage.setItem(KEY, memoryPreferences); } catch { /* Private mode may disable persistence. */ }
+      window.dispatchEvent(new Event("oddsfront-preferences"));
+    },
+  }), [preferences, dictionary]);
+  return <LocaleContext.Provider value={value}>{children}</LocaleContext.Provider>;
+}
+export const useLocale = () => useContext(LocaleContext);

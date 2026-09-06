@@ -12,6 +12,7 @@ import {
 } from "@/lib/oddsfront-site";
 
 import "./globals.css";
+import { LocaleProvider } from "@/components/locale-provider";
 
 export const metadata: Metadata = {
   ...buildOddsFrontSocialMetadata("/global-conflict-map"),
@@ -74,10 +75,9 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         <link rel="image_src" href={SOCIAL_PREVIEW_URL} />
         <link rel="mask-icon" href="/brand/oddsfront-pinned-tab-v1.svg" color={BRAND_COLOR} />
         <link rel="preload" href="/fonts/inter-ui-latin-v1.woff2" as="font" type="font/woff2" crossOrigin="anonymous" />
-        <link rel="modulepreload" href="/vendor/maplibre/6.1.0/maplibre-gl.mjs" crossOrigin="anonymous" />
       </head>
       <body>
-        {children}
+        <LocaleProvider>{children}</LocaleProvider>
         {process.env.NODE_ENV === "production" ? (
           <Analytics mode="production" />
         ) : null}

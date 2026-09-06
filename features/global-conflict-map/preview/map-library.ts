@@ -9,6 +9,7 @@ export function loadMapLibrary(): Promise<typeof MapLibre> {
   // the browser share its HTTP cache between the main thread and the worker.
   library ??= import(/* webpackIgnore: true */ MAP_LIBRARY_URL).then((module: typeof MapLibre) => {
     module.setWorkerUrl("/vendor/maplibre/6.1.0/maplibre-gl-worker.mjs");
+    void module.setRTLTextPlugin("/vendor/rtl-text/0.3.0/mapbox-gl-rtl-text.mjs", true).catch(() => {});
     return module;
   });
   return library;

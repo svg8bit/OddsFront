@@ -2,6 +2,8 @@
 
 import dynamic from "next/dynamic";
 import { useSyncExternalStore } from "react";
+import { SiteNavigation } from "@/components/site-navigation";
+import { useLocale } from "@/components/locale-provider";
 
 import { ActivityRail } from "@/features/global-conflict-map/preview/activity-rail";
 import styles from "@/features/global-conflict-map/preview/conflict-map-preview.module.css";
@@ -35,6 +37,7 @@ export function ConflictMapPreviewLoader({
   initialMarketStrip,
   fixtureMode,
 }: ConflictMapPreviewLoaderProps) {
+  const { t } = useLocale();
   const activityFeed = useLiveConflictFeed(initialFeed, fixtureMode);
   const hydrated = useSyncExternalStore(subscribeHydration, clientSnapshot, serverSnapshot);
   const popupOpen = useConflictMapPreviewStore((state) => state.popupOpen);
@@ -44,8 +47,10 @@ export function ConflictMapPreviewLoader({
       className={styles.mapLoaderRoot}
       data-popup-open={popupOpen ? "true" : "false"}
     >
+      <link rel="modulepreload" href="/vendor/maplibre/6.1.0/maplibre-gl.mjs" crossOrigin="anonymous" />
+      <SiteNavigation mode="map" />
       <div className={styles.initialBasemap} aria-hidden="true" data-initial-basemap="true">
-        <span>Loading live map…</span>
+        <span>{t("loadingMap")}</span>
       </div>
       <ConflictMapPreview
         initialFeed={activityFeed}
