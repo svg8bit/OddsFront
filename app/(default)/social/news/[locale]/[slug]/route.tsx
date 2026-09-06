@@ -153,7 +153,8 @@ export async function GET(
       { input: title.data, top: 630 - 58 - title.info.height, left: titleLeft },
     ]).png({ compressionLevel: 8 }).toBuffer();
     return pngResponse(composed);
-  } catch {
+  } catch (error) {
+    console.error("OddsFront social-card render failed", { locale, slug, error });
     try {
       const fallback = await readFile(path.join(process.cwd(), "public", SOCIAL_PREVIEW_PATH.replace(/^\/+/, "")));
       return pngResponse(fallback);
