@@ -21,20 +21,15 @@ export async function GET(
   const text = articleText(article, locale);
   const source = article.sources.find((candidate) => candidate.kind === "media");
   const cover = source ? await fetchPartnerCover(source.url) : null;
-  let coverImage: string | null = null;
+  let coverImage: Buffer | null = null;
   if (cover) {
     try {
-      const jpeg = await sharp(Buffer.from(cover.body)).rotate().resize(1200, 630, { fit: "cover", position: "centre" }).jpeg({ quality: 84, progressive: true }).toBuffer();
-      coverImage = `data:image/jpeg;base64,${jpeg.toString("base64")}`;
+      coverImage = await sharp(Buffer.from(cover.body)).rotate().resize(1200, 630, { fit: "cover", position: "centre" }).png({ compressionLevel: 8 }).toBuffer();
     } catch { /* A malformed partner image falls back to branded artwork. */ }
   }
   const titleSize = text.title.length > 125 ? 43 : text.title.length > 82 ? 51 : 60;
-  const response = new ImageResponse(
-    <div style={{ position: "relative", width: "100%", height: "100%", display: "flex", overflow: "hidden", color: "white", backgroundColor: "#07121f", backgroundImage: "radial-gradient(circle at 75% 25%, #3538aa 0, transparent 36%), linear-gradient(135deg, #101c36 0%, #07111e 70%)" }}>
-      {coverImage ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={coverImage} alt="" width={1200} height={630} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }}/>
-      ) : null}
+  const renderCard = (fallbackBackground: boolean) => new ImageResponse(
+    <div style={{ position: "relative", width: "100%", height: "100%", display: "flex", overflow: "hidden", color: "white", backgroundColor: fallbackBackground ? "#07121f" : "transparent", backgroundImage: fallbackBackground ? "radial-gradient(circle at 75% 25%, #3538aa 0, transparent 36%), linear-gradient(135deg, #101c36 0%, #07111e 70%)" : "linear-gradient(transparent, transparent)" }}>
       <div style={{ position: "relative", width: "100%", height: "100%", boxSizing: "border-box", padding: "48px 58px", display: "flex", flexDirection: "column", backgroundImage: "linear-gradient(90deg, rgba(3,9,18,.95) 0%, rgba(3,9,18,.80) 58%, rgba(3,9,18,.30) 100%), linear-gradient(0deg, rgba(3,9,18,.94) 0%, rgba(3,9,18,.22) 66%)" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 18, fontSize: 29, fontWeight: 700 }}>
           <div style={{ width: 58, height: 48, display: "flex", alignItems: "center", justifyContent: "center", gap: 9 }}>
@@ -50,6 +45,15 @@ export async function GET(
     </div>,
     { width: 1200, height: 630 },
   );
-  response.headers.set("Cache-Control", "public, max-age=3600, s-maxage=86400, stale-while-revalidate=604800");
+  const cacheControl = "public, max-age=3600, s-maxage=86400, stale-while-revalidate=604800";
+  if (coverImage) {
+    try {
+      const overlay = Buffer.from(await renderCard(false).arrayBuffer());
+      const composed = await sharp(coverImage).composite([{ input: overlay }]).png({ compressionLevel: 8 }).toBuffer();
+      return new Response(new Uint8Array(composed), { headers: { "Content-Type": "image/png", "Cache-Control": cacheControl } });
+    } catch { /* Preserve a valid social image if composition fails. */ }
+  }
+  const response = renderCard(true);
+  response.headers.set("Cache-Control", cacheControl);
   return response;
 }
