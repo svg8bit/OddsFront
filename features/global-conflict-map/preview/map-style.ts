@@ -5,14 +5,12 @@ import type {
 } from "maplibre-gl";
 
 import {
-  HOTSPOT_PULSE_LAYER_ID,
   HOTSPOT_SOURCE_ID,
 } from "@/features/global-conflict-map/preview/layers";
 
 const OPEN_FREE_MAP_TILES =
   "https://tiles.openfreemap.org/planet/20260802_080001_pt/{z}/{x}/{y}.pbf";
-const LOCAL_MAP_GLYPHS = "/maps/fonts/{fontstack}/{range}.pbf";
-const DETAIL_TILE_MIN_ZOOM = 3;
+const DETAIL_TILE_MIN_ZOOM = 4;
 
 const placeName: ExpressionSpecification = [
   "coalesce",
@@ -67,100 +65,16 @@ function hotspotOpacity(property: string): ExpressionSpecification {
 
 const hotspotLayers: LayerSpecification[] = [
   {
-    id: "conflict-hotspot-haze-outer",
-    type: "circle",
-    source: HOTSPOT_SOURCE_ID,
-    paint: {
-      "circle-color": hotspotToneColor,
-      "circle-radius": hotspotRadius(34),
-      "circle-opacity": hotspotOpacity("outerOpacity"),
-      "circle-blur": 0,
-      "circle-pitch-alignment": "viewport",
-    },
-  },
-  {
-    id: "conflict-hotspot-haze-inner",
-    type: "circle",
-    source: HOTSPOT_SOURCE_ID,
-    paint: {
-      "circle-color": hotspotToneColor,
-      "circle-radius": hotspotRadius(14),
-      "circle-opacity": hotspotOpacity("innerOpacity"),
-      "circle-blur": 0,
-      "circle-pitch-alignment": "viewport",
-    },
-  },
-  {
-    id: "conflict-hotspot-core-bloom",
-    type: "circle",
-    source: HOTSPOT_SOURCE_ID,
-    paint: {
-      "circle-color": hotspotToneColor,
-      "circle-radius": hotspotRadius(9.2),
-      "circle-opacity": hotspotOpacity("bloomOpacity"),
-      "circle-blur": 0,
-      "circle-pitch-alignment": "viewport",
-    },
-  },
-  {
     id: "conflict-hotspot-core-shell",
     type: "circle",
     source: HOTSPOT_SOURCE_ID,
     paint: {
+      "circle-radius": hotspotRadius(7.2),
       "circle-color": hotspotToneColor,
-      "circle-radius": hotspotRadius(6.2),
-      "circle-opacity": hotspotOpacity("shellOpacity"),
-      "circle-blur": 0,
-      "circle-pitch-alignment": "viewport",
-    },
-  },
-  {
-    id: "conflict-hotspot-orbit-inner",
-    type: "circle",
-    source: HOTSPOT_SOURCE_ID,
-    paint: {
-      "circle-color": "rgba(0,0,0,0)",
-      "circle-opacity": 0,
-      "circle-radius": hotspotRadius(8.8),
+      "circle-opacity": 0.07,
       "circle-stroke-color": hotspotToneColor,
-      "circle-stroke-opacity": hotspotOpacity("orbitInnerOpacity"),
-      "circle-stroke-width": 1.15,
-      "circle-pitch-alignment": "viewport",
-    },
-  },
-  {
-    id: "conflict-hotspot-orbit-outer",
-    type: "circle",
-    source: HOTSPOT_SOURCE_ID,
-    paint: {
-      "circle-color": "rgba(0,0,0,0)",
-      "circle-opacity": 0,
-      "circle-radius": hotspotRadius(13.2),
-      "circle-stroke-color": hotspotToneColor,
-      "circle-stroke-opacity": hotspotOpacity("orbitOuterOpacity"),
-      "circle-stroke-width": 0.9,
-      "circle-pitch-alignment": "viewport",
-    },
-  },
-  {
-    id: HOTSPOT_PULSE_LAYER_ID,
-    type: "circle",
-    source: HOTSPOT_SOURCE_ID,
-    filter: ["==", ["get", "selected"], 1],
-    paint: {
-      "circle-color": "rgba(0,0,0,0)",
-      "circle-opacity": 0,
-      "circle-radius": hotspotRadius(31),
-      "circle-radius-transition": { duration: 620, delay: 0 },
-      "circle-stroke-color": hotspotToneColor,
-      "circle-stroke-opacity": 0,
-      "circle-stroke-opacity-transition": { duration: 620, delay: 0 },
-      "circle-stroke-width": [
-        "+",
-        0.8,
-        ["*", 0.85, ["number", ["get", "markerStrength"], 0]],
-      ],
-      "circle-pitch-alignment": "viewport",
+      "circle-stroke-opacity": 0.35,
+      "circle-stroke-width": 1,
     },
   },
   {
@@ -168,11 +82,21 @@ const hotspotLayers: LayerSpecification[] = [
     type: "circle",
     source: HOTSPOT_SOURCE_ID,
     paint: {
+      "circle-radius": hotspotRadius(3.6),
       "circle-color": hotspotToneColor,
-      "circle-radius": hotspotRadius(3.35),
       "circle-opacity": hotspotOpacity("coreOpacity"),
-      "circle-blur": 0,
-      "circle-pitch-alignment": "viewport",
+      "circle-stroke-color": "#101B2D",
+      "circle-stroke-width": 0.8,
+    },
+  },
+  {
+    id: "conflict-hotspot-pinpoint",
+    type: "circle",
+    source: HOTSPOT_SOURCE_ID,
+    paint: {
+      "circle-radius": hotspotRadius(1.25),
+      "circle-color": "#F1F5FF",
+      "circle-opacity": 0.88,
     },
   },
 ];
@@ -244,7 +168,7 @@ const oceanLabels = {
 export const PREVIEW_MAP_STYLE: StyleSpecification = {
   version: 8,
   name: "DropsBot Midnight Conflict Preview",
-  glyphs: LOCAL_MAP_GLYPHS,
+  glyphs: "/maps/fonts/inter-medium-v1/{range}.pbf",
   sources: {
     openmaptiles: {
       type: "vector",
@@ -300,9 +224,9 @@ export const PREVIEW_MAP_STYLE: StyleSpecification = {
           ["linear"],
           ["zoom"],
           1,
-          "#061322",
+          "#091321",
           2.4,
-          "#061322",
+          "#091321",
           3.2,
           "#0A192C",
         ],
@@ -318,11 +242,11 @@ export const PREVIEW_MAP_STYLE: StyleSpecification = {
           ["linear"],
           ["zoom"],
           1,
-          "#081729",
+          "#111F32",
           3,
-          "#0A1A2E",
+          "#14243A",
           7,
-          "#0C2037",
+          "#182B42",
         ],
         "fill-opacity": 1,
         "fill-antialias": false,
@@ -468,7 +392,7 @@ export const PREVIEW_MAP_STYLE: StyleSpecification = {
       "source-layer": "water",
       minzoom: DETAIL_TILE_MIN_ZOOM,
       filter: ["!=", ["get", "brunnel"], "tunnel"],
-      paint: { "fill-color": "#061322", "fill-opacity": 1 },
+      paint: { "fill-color": "#091321", "fill-opacity": 1 },
     },
     {
       id: "water-edge",
@@ -668,18 +592,18 @@ export const PREVIEW_MAP_STYLE: StyleSpecification = {
       layout: {
         "text-field": [
           "coalesce",
-          ["get", "NAME_LONG"],
           ["get", "NAME"],
+          ["get", "NAME_LONG"],
         ],
-        "text-font": ["Open Sans Semibold"],
+        "text-font": ["Inter Medium"],
         "text-size": [
           "interpolate",
           ["linear"],
           ["zoom"],
           1,
-          9.3,
+          11,
           DETAIL_TILE_MIN_ZOOM,
-          11.4,
+          13,
         ],
         "text-letter-spacing": 0.012,
         "text-max-width": 7,
@@ -687,7 +611,7 @@ export const PREVIEW_MAP_STYLE: StyleSpecification = {
         "text-ignore-placement": false,
       },
       paint: {
-        "text-color": "#92A4BC",
+        "text-color": "#BAC7D9",
         "text-opacity": [
           "interpolate",
           ["linear"],
@@ -698,8 +622,8 @@ export const PREVIEW_MAP_STYLE: StyleSpecification = {
           0.8,
         ],
         "text-halo-color": "rgba(5,13,24,.94)",
-        "text-halo-width": 1.15,
-        "text-halo-blur": 0.35,
+        "text-halo-width": 0.65,
+        "text-halo-blur": 0,
       },
     },
     {
@@ -716,24 +640,24 @@ export const PREVIEW_MAP_STYLE: StyleSpecification = {
       layout: {
         "text-field": [
           "coalesce",
-          ["get", "NAME_LONG"],
           ["get", "NAME"],
+          ["get", "NAME_LONG"],
         ],
-        "text-font": ["Open Sans Semibold"],
+        "text-font": ["Inter Medium"],
         "text-size": [
           "interpolate",
           ["linear"],
           ["zoom"],
           2.1,
-          8.5,
+          10.5,
           DETAIL_TILE_MIN_ZOOM,
-          10,
+          12,
         ],
         "text-max-width": 7,
         "text-allow-overlap": false,
       },
       paint: {
-        "text-color": "#73869F",
+        "text-color": "#9DADC4",
         "text-opacity": [
           "interpolate",
           ["linear"],
@@ -744,7 +668,7 @@ export const PREVIEW_MAP_STYLE: StyleSpecification = {
           0.65,
         ],
         "text-halo-color": "rgba(5,13,24,.92)",
-        "text-halo-width": 1.05,
+        "text-halo-width": 0.6,
       },
     },
     {
@@ -761,7 +685,7 @@ export const PREVIEW_MAP_STYLE: StyleSpecification = {
       ],
       layout: {
         "text-field": placeName,
-        "text-font": ["Open Sans Semibold"],
+        "text-font": ["Inter Medium"],
         "text-size": ["interpolate", ["linear"], ["zoom"], 1, 9.5, 4, 12, 7, 13.5],
         "text-letter-spacing": 0.015,
         "text-max-width": 7,
@@ -769,11 +693,11 @@ export const PREVIEW_MAP_STYLE: StyleSpecification = {
         "text-ignore-placement": false,
       },
       paint: {
-        "text-color": "#9AAAC0",
+        "text-color": "#BAC7D9",
         "text-opacity": ["interpolate", ["linear"], ["zoom"], 1, 0.72, 3, 0.86, 7, 0.94],
         "text-halo-color": "rgba(5,13,24,.94)",
-        "text-halo-width": 1.25,
-        "text-halo-blur": 0.35,
+        "text-halo-width": 0.65,
+        "text-halo-blur": 0,
       },
     },
     {
@@ -791,13 +715,13 @@ export const PREVIEW_MAP_STYLE: StyleSpecification = {
       ],
       layout: {
         "text-field": placeName,
-        "text-font": ["Open Sans Semibold"],
+        "text-font": ["Inter Medium"],
         "text-size": ["interpolate", ["linear"], ["zoom"], 2.2, 9, 5, 11.5, 7, 12.5],
         "text-max-width": 7,
         "text-allow-overlap": false,
       },
       paint: {
-        "text-color": "#7689A2",
+        "text-color": "#9DADC4",
         "text-opacity": ["interpolate", ["linear"], ["zoom"], 2.2, 0.44, 4, 0.72, 7, 0.84],
         "text-halo-color": "rgba(5,13,24,.92)",
         "text-halo-width": 1.1,
@@ -816,7 +740,7 @@ export const PREVIEW_MAP_STYLE: StyleSpecification = {
       ],
       layout: {
         "text-field": placeName,
-        "text-font": ["Open Sans Semibold"],
+        "text-font": ["Inter Medium"],
         "text-size": ["interpolate", ["linear"], ["zoom"], 3, 9.5, 7, 12],
         "text-offset": [0, 0.8],
         "text-anchor": "top",
@@ -843,7 +767,7 @@ export const PREVIEW_MAP_STYLE: StyleSpecification = {
       ],
       layout: {
         "text-field": placeName,
-        "text-font": ["Open Sans Semibold"],
+        "text-font": ["Inter Medium"],
         "text-size": ["interpolate", ["linear"], ["zoom"], 5.25, 9, 7, 11.5],
         "text-offset": [0, 0.7],
         "text-anchor": "top",
@@ -853,7 +777,7 @@ export const PREVIEW_MAP_STYLE: StyleSpecification = {
         "text-color": "#71859F",
         "text-opacity": ["interpolate", ["linear"], ["zoom"], 5.25, 0.34, 7, 0.72],
         "text-halo-color": "rgba(5,13,24,.94)",
-        "text-halo-width": 1.05,
+        "text-halo-width": 0.6,
       },
     },
     {
@@ -863,7 +787,7 @@ export const PREVIEW_MAP_STYLE: StyleSpecification = {
       maxzoom: 3.5,
       layout: {
         "text-field": ["get", "name"],
-        "text-font": ["Open Sans Semibold"],
+        "text-font": ["Inter Medium"],
         "text-size": ["interpolate", ["linear"], ["zoom"], 1, 10, 3, 12],
         "text-line-height": 1.45,
         "text-letter-spacing": 0.08,
@@ -880,6 +804,13 @@ export const PREVIEW_MAP_STYLE: StyleSpecification = {
 };
 
 const EFFICIENT_OMITTED_LAYER_IDS = new Set([
+  "continent-tonal-depth",
+  "natural-landcover-depth",
+  "residential-land-texture",
+  "city-light-points",
+  "waterways",
+  "country-selected-fill",
+  "country-selected-pulse",
   "night-earth-texture",
   "country-selected-glow",
   "conflict-hotspot-haze-outer",
@@ -895,9 +826,7 @@ const CONSTRAINED_OMITTED_LAYER_IDS = new Set([
   "country-selected-fill",
   "country-selected-pulse",
   "conflict-hotspot-orbit-inner",
-  HOTSPOT_PULSE_LAYER_ID,
   "city-light-points",
-  "country-label-secondary-local",
 ]);
 
 export function createPreviewMapStyle(
@@ -912,8 +841,8 @@ export function createPreviewMapStyle(
     ...PREVIEW_MAP_STYLE,
     name:
       quality === "constrained"
-        ? "DropsBot Midnight Conflict Preview · Constrained"
-        : "DropsBot Midnight Conflict Preview · Efficient",
+        ? "OddsFront · Essential"
+        : "OddsFront · Precision",
     sources,
     layers: PREVIEW_MAP_STYLE.layers.filter(
       (layer) =>

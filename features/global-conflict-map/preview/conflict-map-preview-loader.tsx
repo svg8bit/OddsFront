@@ -1,11 +1,12 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useCallback, useState } from "react";
+import { useSyncExternalStore } from "react";
 
 import { ActivityRail } from "@/features/global-conflict-map/preview/activity-rail";
 import styles from "@/features/global-conflict-map/preview/conflict-map-preview.module.css";
 import { useConflictMapPreviewStore } from "@/features/global-conflict-map/preview/store";
+import { useLiveConflictFeed } from "@/features/global-conflict-map/preview/use-live-conflict-feed";
 import type { ConflictPreviewFeed } from "@/features/global-conflict-map/preview/types";
 import type { MarketStripFeed } from "@/features/global-conflict-map/preview/market-strip-types";
 
@@ -41,38 +42,42 @@ interface ConflictMapPreviewLoaderProps {
   fixtureMode: boolean;
 }
 
+const subscribeHydration = () => () => {};
+const clientSnapshot = () => true;
+const serverSnapshot = () => false;
+
 export function ConflictMapPreviewLoader({
   initialFeed,
   initialMarketStrip,
   fixtureMode,
 }: ConflictMapPreviewLoaderProps) {
-  const [activityFeed, setActivityFeed] = useState(initialFeed);
+  const activityFeed = useLiveConflictFeed(initialFeed, fixtureMode);
+  const hydrated = useSyncExternalStore(subscribeHydration, clientSnapshot, serverSnapshot);
   const popupOpen = useConflictMapPreviewStore((state) => state.popupOpen);
-  const handleFeedChange = useCallback((feed: ConflictPreviewFeed) => {
-    setActivityFeed(feed);
-  }, []);
 
   return (
     <div
       className={styles.mapLoaderRoot}
       data-popup-open={popupOpen ? "true" : "false"}
     >
+      <div className={styles.initialBasemap} aria-hidden="true" data-initial-basemap="true">
+        <span>Loading live map…</span>
+      </div>
       <ConflictMapPreview
-        initialFeed={initialFeed}
+        initialFeed={activityFeed}
         initialMarketStrip={initialMarketStrip}
         fixtureMode={fixtureMode}
-        onFeedChange={handleFeedChange}
       />
       <div
         className={styles.externalActivityLayer}
         data-activity-layer="ready"
         data-activity-feed-updated-at={activityFeed.updatedAt}
       >
-        <ActivityRail
+        {hydrated ? <ActivityRail
           feed={activityFeed}
           fixtureMode={fixtureMode}
           liveRefreshEnabled={!fixtureMode}
-        />
+        /> : null}
       </div>
     </div>
   );

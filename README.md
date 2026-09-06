@@ -33,7 +33,7 @@ odds moves in a lightweight activity rail.
 - Volume-weighted markers, event paging, expiry data, and weekly odds changes.
 - Read-only market activity for material odds moves and verified large trades.
 - Compact macro and crypto strip with resilient server-side data fallbacks.
-- Self-hosted map geometry, fonts, night texture, MapLibre worker, and brand
+- Self-hosted map geometry, compact Inter font, MapLibre worker, and brand
   assets for predictable rendering.
 - No wallet connection, custody, signing, or embedded trading.
 
@@ -69,19 +69,20 @@ ignored `output/` directory.
 
 ## Activity rail signals
 
-The right-hand rail is filled from current public Polymarket data and keeps at
-most three distinct events visible. Fresh trades have priority, followed by
-newly observed odds changes, liquid rolling movers, and 24-hour volume leaders.
+The right-hand rail uses current public Polymarket data and keeps at most three
+distinct events visible. Up to two verified large buys have priority; rolling
+odds movers fill the remaining positions.
 
-- Trades: at least `$5K`, observed during the previous 60 minutes.
-- One-hour movers: at least `1.0` percentage point on `$100K` total volume and
-  `$5K` 24-hour volume.
-- 24-hour movers: at least `3.0` percentage points with the same liquidity
-  gates.
-- Volume leaders: at least `$1M` total volume and `$25K` 24-hour volume.
+- Large buys: at least `$200K`, observed in the previous 15 minutes.
+- Daily movers: at least 5 percentage points over 24 hours.
+- Weekly movers: at least 20 percentage points over seven days.
+- Eligible markets require at least `$100K` volume and a future verified deadline.
 
-Rolling signals expire when the market feed is stale, never use seven-day
-changes, and are deduplicated by event before rendering.
+Rolling cards reflect the latest verified snapshot. Fresh observations renew
+their lifetime without replaying their entry animation. Dismissals persist for
+the current visit; expired or unavailable data never becomes an invented alert.
+The browser checks for updates on entry, tab resume, browser restoration and
+reconnection. Failed or older responses preserve the last verified snapshot.
 
 ## How it works
 

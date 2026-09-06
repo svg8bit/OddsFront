@@ -37,6 +37,9 @@ jobs:
       - name: Lint
         run: npm run lint
 
+      - name: Validate map asset budgets
+        run: npm run check:map-assets
+
       - name: Type-check
         run: npm run typecheck
 

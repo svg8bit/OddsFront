@@ -20,7 +20,6 @@ import type {
 } from "@/features/global-conflict-map/preview/types";
 import {
   getInitialActivityClock,
-  releaseAbsentActivityNoticeIds,
 } from "@/lib/activity-notice-lifecycle";
 import { buildRollingActivitySignals } from "@/lib/conflict-activity-signals";
 import { formatMarketTitle } from "@/lib/market-title";
@@ -259,26 +258,14 @@ export function ActivityRail({
   liveRefreshEnabled,
 }: ActivityRailProps) {
   const feedClock = getInitialActivityClock(feed.updatedAt);
-  const [notices, setNotices] = useState<ActivityNotice[]>(() =>
-    fixtureMode ? [] : buildRollingNotices(feed, feedClock),
-  );
+  const [notices, setNotices] = useState<ActivityNotice[]>([]);
   const seenNoticeIds = useRef(new Set(notices.map((notice) => notice.id)));
-  const previousRollingNoticeIds = useRef(
-    new Set(notices.map((notice) => notice.id)),
-  );
   const [dismissedNoticeIds, setDismissedNoticeIds] = useState<Set<string>>(
     () => new Set(),
   );
-  const [clock, setClock] = useState(feedClock);
-  const [eligibilityClock, setEligibilityClock] = useState(feedClock);
-
-  useEffect(() => {
-    const timer = window.setTimeout(() => {
-      setEligibilityClock(Date.now());
-    }, 0);
-    return () => window.clearTimeout(timer);
-  }, [feed.updatedAt]);
-
+  // This rail mounts after hydration: use wall time, never an old ISR timestamp
+  // as "now", which made expired server-rendered cards flash and disappear.
+  const [clock, setClock] = useState(() => Date.now());
   const addNotices = useCallback(
     (
       incoming: ActivityNotice[],
@@ -374,30 +361,13 @@ export function ActivityRail({
     () => new Map(feed.events.map((event) => [event.id, event])),
     [feed.events],
   );
-  const rollingNotices = useMemo(() => {
-    return fixtureMode ? [] : buildRollingNotices(feed, eligibilityClock);
-  }, [eligibilityClock, feed, fixtureMode]);
-  useEffect(() => {
-    const currentRollingNoticeIds = new Set(
-      rollingNotices.map((notice) => notice.id),
-    );
-    releaseAbsentActivityNoticeIds(
-      seenNoticeIds.current,
-      previousRollingNoticeIds.current,
-      currentRollingNoticeIds,
-    );
-    previousRollingNoticeIds.current = currentRollingNoticeIds;
-    addNotices(
-      rollingNotices,
-      currentActivityEventIds,
-      currentActivityMarketConditionIds,
-    );
-  }, [
-    addNotices,
-    currentActivityEventIds,
-    currentActivityMarketConditionIds,
-    rollingNotices,
-  ]);
+  // Rolling movers are a view of the latest verified snapshot, not toast
+  // events. Stable React keys preserve the card while fresh observations renew
+  // its expiry; dismissals still apply to the stable signal identity.
+  const rollingNotices = useMemo(
+    () => fixtureMode ? [] : buildRollingNotices(feed, Math.max(clock, feedClock)),
+    [clock, feed, feedClock, fixtureMode],
+  );
   const marketIdQueries = useMemo(
     () =>
       batchPolymarketActivityMarketIds(
@@ -416,13 +386,16 @@ export function ActivityRail({
       return;
     }
     let cancelled = false;
+    let inFlight = false;
 
     const refresh = async () => {
+      if (cancelled || inFlight) return;
+      inFlight = true;
       const results = await Promise.allSettled(
         marketIdQueries.map(async (marketIdQuery) => {
           const response = await fetch(
             `/api/global-conflict-activity?marketIds=${encodeURIComponent(marketIdQuery)}`,
-            { headers: { Accept: "application/json" } },
+            { headers: { Accept: "application/json" }, cache: "no-store", priority: "low", signal: AbortSignal.timeout(10_000) },
           );
           if (!response.ok) {
             throw new Error(`Activity batch returned ${response.status}`);
@@ -433,6 +406,7 @@ export function ActivityRail({
             : null;
         }),
       );
+      inFlight = false;
       if (cancelled) return;
       const failedBatchCount = results.filter(
         (result) => result.status === "rejected",
@@ -478,10 +452,19 @@ export function ActivityRail({
       }, delay);
     };
 
+    const resume = () => {
+      if (document.visibilityState === "visible") void refresh();
+    };
+    document.addEventListener("visibilitychange", resume);
+    window.addEventListener("pageshow", resume);
+    window.addEventListener("online", resume);
     schedule(
       process.env.NODE_ENV === "production" ? ACTIVITY_INITIAL_DELAY_MS : 0,
     );
     return () => {
+      document.removeEventListener("visibilitychange", resume);
+      window.removeEventListener("pageshow", resume);
+      window.removeEventListener("online", resume);
       cancelled = true;
       if (timer !== null) window.clearTimeout(timer);
     };
@@ -506,11 +489,19 @@ export function ActivityRail({
     };
     pruneExpiredNotices();
     const interval = window.setInterval(pruneExpiredNotices, 5_000);
-    return () => window.clearInterval(interval);
+    window.addEventListener("focus", pruneExpiredNotices);
+    window.addEventListener("pageshow", pruneExpiredNotices);
+    document.addEventListener("visibilitychange", pruneExpiredNotices);
+    return () => {
+      window.clearInterval(interval);
+      window.removeEventListener("focus", pruneExpiredNotices);
+      window.removeEventListener("pageshow", pruneExpiredNotices);
+      document.removeEventListener("visibilitychange", pruneExpiredNotices);
+    };
   }, []);
 
   const visibleNotices = selectVisibleNotices(
-    notices.filter(
+    [...notices, ...rollingNotices].filter(
       (notice) => {
         if (
           notice.expiresAt <= clock ||

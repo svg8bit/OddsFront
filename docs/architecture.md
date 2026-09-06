@@ -25,9 +25,16 @@ validated public destinations.
   map layers, presentation, and deterministic fixture data.
 - `lib/` owns public upstream adapters, server-only market-strip adapters, and
   outbound-link validation.
-- `public/` contains the global geometry, texture, glyphs, worker, icons, and
+- `public/` contains the global geometry, web font, worker, icons, and
   social image required to render without a third-party basemap token. Detailed
-  vector tiles come from the fixed OpenFreeMap origin at regional zoom levels.
+  vector tiles come from the fixed OpenFreeMap origin starting at zoom 4.
+  Country labels use precomputed, compressed Inter glyphs;
+  clients do not rasterize the font on startup. Only a bounded set of compositor pulses animates while
+  idle. Map movement and background tabs pause these effects.
+  A static geographic backdrop appears before JavaScript is available. It has
+  no live-data claims and is replaced when the canvas is ready. Camera gestures
+  temporarily reduce the pixel budget; full text resolution returns after the
+  gesture ends without interrupting MapLibre's input handlers.
 
 ## Event lifecycle
 
@@ -38,17 +45,28 @@ validated public destinations.
    Natural Earth country label anchors derived from event text and tags.
 4. The UI derives flags, odds, expiry, event paging, marker intensity, and
    validated outbound links from the normalized feed.
-5. Cached fixture data keeps the map usable when an upstream is unavailable.
+5. Failed refreshes keep the browser's last verified feed. Production API errors
+   return 503; fallback fixtures never overwrite live client data.
 
 ## Cache model
 
 - static map and font assets use immutable or long-lived browser caching;
-- event discovery is revalidated every ten minutes;
+- event discovery is revalidated every minute, with a blocking refresh if a
+  cached upstream snapshot is more than 90 seconds old;
+- event API responses bypass browser storage; the shared edge cache lasts 15
+  seconds with a 15-second background revalidation window;
 - market-strip data is revalidated every fifteen minutes;
 - activity data is short-lived and clients add jitter to avoid synchronized
   bursts;
 - API routes return explicit stale or unavailable modes instead of inventing
   live data.
+
+The lightweight loader owns one event-feed subscription independently of the
+deferred map bundle. It refreshes immediately on entry, pageshow, focus,
+visibility restoration and reconnect, deduplicates in-flight requests, times
+out blocked requests and ignores older snapshots. Visible tabs poll roughly
+once per minute. The activity rail derives rolling movers from each snapshot
+instead of treating them as disposable toast events.
 
 ## Security boundary
 

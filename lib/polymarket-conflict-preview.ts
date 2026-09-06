@@ -17,7 +17,7 @@ import { buildPolymarketEventUrl } from "@/lib/polymarket-links";
 const GAMMA_EVENTS_URL = "https://gamma-api.polymarket.com/events/keyset";
 const GAMMA_DOCS_URL = "https://docs.polymarket.com/market-data/fetching-markets";
 const GEOPOLITICS_TAG_ID = "100265";
-const REFRESH_SECONDS = 300;
+const REFRESH_SECONDS = 60;
 const PAGE_SIZE = 100;
 const MAX_PAGES = 8;
 const UPSTREAM_REQUEST_TIMEOUT_MS = 4_000;
@@ -503,7 +503,7 @@ async function buildLiveConflictPreviewFeed(): Promise<ConflictPreviewFeed> {
 
 const getCachedLiveConflictPreviewFeed = unstable_cache(
   buildLiveConflictPreviewFeed,
-  ["oddsfront-live-conflict-feed-v4-market-condition-ids"],
+  ["oddsfront-live-conflict-feed-v5-freshness"],
   {
     revalidate: REFRESH_SECONDS,
     tags: ["oddsfront-live-conflict-feed"],
@@ -515,7 +515,14 @@ let liveFeedRefreshInFlight: Promise<ConflictPreviewFeed> | null = null;
 async function getSingleFlightLiveConflictPreviewFeed() {
   if (liveFeedRefreshInFlight) return liveFeedRefreshInFlight;
 
-  const request = getCachedLiveConflictPreviewFeed();
+  const request = (async () => {
+    const cached = await getCachedLiveConflictPreviewFeed();
+    // Next's background revalidation can serve the first visitor an old entry.
+    // Bound that age while the single-flight guard protects the upstream.
+    return Date.now() - Date.parse(cached.updatedAt) > 90_000
+      ? buildLiveConflictPreviewFeed()
+      : cached;
+  })();
   liveFeedRefreshInFlight = request;
   try {
     return await request;

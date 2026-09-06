@@ -21,9 +21,11 @@ export default defineConfig({
     trace: "retain-on-failure",
   },
   webServer: {
-    command: "npm run dev -- --port 3100",
+    // Verify the release bundle produced by `npm run check`. Next's dev-only
+    // anti-FOUC overlay hides the page when JavaScript is disabled.
+    command: "npm run start -- --port 3100",
     url: "http://127.0.0.1:3100/global-conflict-map-preview",
-    reuseExistingServer: true,
+    reuseExistingServer: !process.env.CI,
     timeout: 120_000,
   },
   projects: [{ name: "chromium", use: { browserName: "chromium" } }],

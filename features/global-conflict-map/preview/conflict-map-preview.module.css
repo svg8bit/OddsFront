@@ -17,6 +17,35 @@
   pointer-events: none;
 }
 
+.initialBasemap {
+  position: absolute;
+  inset: 34px 0 0;
+  z-index: 10;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+  background: #091321 url("/maps/world-loading-v1.svg") center / cover no-repeat;
+  transition: opacity 160ms ease-out, visibility 160ms;
+}
+
+.initialBasemap span {
+  padding: 10px 14px;
+  border: 1px solid #294058;
+  border-radius: 8px;
+  color: #bac7d9;
+  background: #091321;
+  font-size: 12px;
+}
+
+.mapLoaderRoot:has([data-map-ready="true"], [data-webgl-fallback="true"]) .initialBasemap {
+  opacity: 0;
+  visibility: hidden;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .initialBasemap { transition: none; }
+}
+
 .shell {
   --header-height: 0px;
   --market-strip-height: 34px;
@@ -281,6 +310,43 @@
 
 .markerAnchor[data-selected="true"] {
   z-index: 9;
+}
+
+.beaconPulse {
+  position: absolute;
+  inset: 0 auto auto 0;
+  width: calc(15px * var(--marker-scale));
+  height: calc(15px * var(--marker-scale));
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
+.markerAnchor[data-pulse-active="true"] .beaconPulse::after {
+  position: absolute;
+  inset: 0;
+  border: 1px solid var(--event-tone);
+  border-radius: 50%;
+  content: "";
+  opacity: 0;
+  animation: beaconRipple 4s cubic-bezier(0.16, 1, 0.3, 1) infinite;
+  animation-delay: var(--pulse-delay);
+  will-change: transform, opacity;
+}
+
+.shell[data-effects-visible="false"] .beaconPulse,
+.shell[data-reduced-motion="true"] .beaconPulse {
+  display: none;
+}
+
+.shell[data-map-moving="true"] .beaconPulse::after,
+.shell[data-page-visible="false"] .beaconPulse::after {
+  animation-play-state: paused;
+}
+
+@keyframes beaconRipple {
+  0% { transform: scale(0.55); opacity: 0; }
+  12% { opacity: 0.55; }
+  65%, 100% { transform: scale(1.9); opacity: 0; }
 }
 
 .hotspotTarget {
