@@ -30,9 +30,10 @@ for the rollback procedure.
 ## Local verification
 
 - `npm run check`: map asset budgets, lint, TypeScript and production build pass.
-- Browser regression suite: 42 passing assertions/tests, including entry and
+- Browser regression suite: 43 passing tests, including entry and
   resume refresh, old/failed responses, renewed alert expiry, static first
-  frame, gesture alignment, zoom and reduced motion.
+  frame, gesture alignment, zoom, reduced motion, the selected-beacon pulse cap
+  and geographic detail on selection.
 - Desktop 1440x900 and touch/mobile 390x844 (device pixel ratio 3): live map,
   focus refresh, zoom controls, no horizontal overflow or runtime errors.
 - Six-second selected-marker idle comparison against `5872689`: main-thread

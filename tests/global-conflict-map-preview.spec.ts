@@ -425,6 +425,39 @@ test("captures the regional country-and-city zoom state", async ({ page }) => {
   });
 });
 
+test("keeps a selected weak beacon within eight pulses and opens geographic detail", async ({ page }) => {
+  const fixture = getConflictPreviewFixtureFeed();
+  const feed = {
+    ...fixture,
+    dataMode: "live",
+    updatedAt: new Date(Date.now() + 1000).toISOString(),
+    events: Array.from({ length: 10 }, (_, index) => ({
+      ...fixture.events[0],
+      id: `pulse-cap-${index}`,
+      locationId: `pulse-cap-${index}`,
+      coordinates: [-55 + index * 15, 20 + (index % 2) * 12],
+      volume: index === 9 ? fixture.minimumVolume : 100_000_000,
+    })),
+  };
+  const detailRequests: string[] = [];
+  await page.route("**/api/global-conflict-events", route => route.fulfill({ json: feed }));
+  await page.route("https://tiles.openfreemap.org/planet/**", route => {
+    detailRequests.push(route.request().url());
+    return route.fulfill({ contentType: "application/x-protobuf", body: Buffer.alloc(0) });
+  });
+  const shell = await openReadyMap(page, "/global-conflict-map-preview");
+  const beacons = page.locator('[data-pulse-active="true"]');
+  await expect(beacons).toHaveCount(8);
+  const weak = page.locator('[data-event-id="pulse-cap-9"]');
+  await expect(weak).toHaveAttribute("data-pulse-active", "false");
+  expect(detailRequests).toHaveLength(0);
+  await weak.locator("button").click();
+  await expect(weak).toHaveAttribute("data-pulse-active", "true");
+  await expect(beacons).toHaveCount(8);
+  await expect.poll(async () => Number(await shell.getAttribute("data-map-zoom"))).toBeGreaterThanOrEqual(4);
+  await expect.poll(() => detailRequests.length).toBeGreaterThan(0);
+});
+
 test("supports zoom, drag, hotspot selection and popup close", async ({ page }) => {
   const shell = await openReadyMap(page);
 

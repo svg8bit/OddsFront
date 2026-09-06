@@ -10,7 +10,7 @@ import {
 
 const OPEN_FREE_MAP_TILES =
   "https://tiles.openfreemap.org/planet/20260802_080001_pt/{z}/{x}/{y}.pbf";
-const DETAIL_TILE_MIN_ZOOM = 4;
+export const DETAIL_TILE_MIN_ZOOM = 4;
 
 const placeName: ExpressionSpecification = [
   "coalesce",

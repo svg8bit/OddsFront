@@ -33,6 +33,7 @@ import {
 } from "@/features/global-conflict-map/preview/marker-visuals";
 import {
   createPreviewMapStyle,
+  DETAIL_TILE_MIN_ZOOM,
 } from "@/features/global-conflict-map/preview/map-style";
 import {
   selectMapRenderProfile,
@@ -344,11 +345,13 @@ export function ConflictMapPreview({
   );
   const pulsingEventIds = useMemo(
     () => new Set(visibleHotspots
-      .filter((hotspot) => hotspot.markerStrength >= 0.6)
-      .toSorted((left, right) => right.markerStrength - left.markerStrength)
+      .filter((hotspot) => hotspot.markerStrength >= 0.6 || hotspot.event.id === selectedEventId)
+      .toSorted((left, right) =>
+        Number(right.event.id === selectedEventId) - Number(left.event.id === selectedEventId) ||
+        right.markerStrength - left.markerStrength)
       .slice(0, 8)
       .map((hotspot) => hotspot.event.id)),
-    [visibleHotspots],
+    [selectedEventId, visibleHotspots],
   );
   const hotspotFeatureCollection = useMemo(
     () =>
@@ -510,7 +513,7 @@ export function ConflictMapPreview({
 
       const map = mapRef.current;
       if (!map) return;
-      const nextZoom = Math.max(viewState.zoom, event.minimumZoom, 3.1);
+      const nextZoom = Math.max(viewState.zoom, event.minimumZoom, DETAIL_TILE_MIN_ZOOM);
       const camera = { center: event.coordinates, zoom: nextZoom };
       if (reduceMotion) map.jumpTo(camera);
       else {
@@ -806,7 +809,7 @@ export function ConflictMapPreview({
                     data-clustered={hotspot.eventCount > 1 ? "true" : "false"}
                     data-marker-offset={`${hotspot.pixelOffset[0].toFixed(1)},${hotspot.pixelOffset[1].toFixed(1)}`}
                     data-render-shape={hotspot.isSpecialSignal ? "special" : "circle"}
-                    data-pulse-active={selected || pulsingEventIds.has(event.id) ? "true" : "false"}
+                    data-pulse-active={pulsingEventIds.has(event.id) ? "true" : "false"}
                   >
                     <span className={styles.beaconPulse} aria-hidden="true" />
                     <button
