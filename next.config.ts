@@ -70,12 +70,6 @@ const nextConfig: NextConfig = {
   reactStrictMode: true,
   devIndicators: false,
   async redirects() {
-    const faviconRedirect = {
-      source: "/favicon.ico",
-      destination: "/brand/dropsbot-app-icon-v4.svg",
-      permanent: true,
-    };
-
     const canonicalHostRedirects = REDIRECT_HOSTS.map((host) => ({
       source: "/:path*",
       has: [
@@ -88,7 +82,7 @@ const nextConfig: NextConfig = {
       permanent: true,
     }));
 
-    return [...canonicalHostRedirects, faviconRedirect];
+    return canonicalHostRedirects;
   },
   async headers() {
     return [

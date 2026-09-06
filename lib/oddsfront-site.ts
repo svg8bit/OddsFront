@@ -1,9 +1,11 @@
 import type { Metadata } from "next";
 
 export const ODDSFRONT_URL = "https://oddsfront.com";
-export const SOCIAL_PREVIEW_PATH = "/brand/oddsfront-social-preview-v1.png";
+export const SOCIAL_PREVIEW_PATH = "/brand/oddsfront-social-preview-v2.png";
 export const SOCIAL_PREVIEW_URL = `${ODDSFRONT_URL}${SOCIAL_PREVIEW_PATH}`;
-export const APP_ICON_PATH = "/brand/dropsbot-app-icon-v4.svg";
+export const APP_ICON_PATH = "/brand/oddsfront-icon-v1.svg";
+export const APPLE_ICON_PATH = "/brand/oddsfront-apple-touch-icon-v1.png";
+export const BRAND_COLOR = "#6366F1";
 
 const TITLE = "OddsFront · Global Conflict Prediction Map";
 const DESCRIPTION =
@@ -19,15 +21,15 @@ export function buildOddsFrontSocialMetadata(path: string): Metadata {
       type: "website",
       locale: "en_US",
       url: path,
-      siteName: "OddsFront by DropsBot",
+      siteName: "OddsFront",
       title: TITLE,
       description: SOCIAL_DESCRIPTION,
       images: [
         {
           url: SOCIAL_PREVIEW_PATH,
-          width: 1920,
-          height: 1079,
-          alt: "OddsFront interactive conflict and geopolitics prediction market map",
+          width: 1200,
+          height: 630,
+          alt: "OddsFront — live conflict and geopolitics prediction market map",
           type: "image/png",
         },
       ],

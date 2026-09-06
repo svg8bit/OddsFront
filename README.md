@@ -1,6 +1,6 @@
 <p align="center">
   <a href="https://oddsfront.com">
-    <img src="public/brand/oddsfront-social-preview-v1.png" alt="OddsFront live global conflict prediction map" width="960" />
+    <img src="public/brand/oddsfront-social-preview-v2.png" alt="OddsFront live global conflict prediction map" width="960" />
   </a>
 </p>
 
@@ -109,6 +109,14 @@ public/                           self-hosted map, font, icon, and brand assets
 scripts/                          deterministic asset-generation utilities
 tests/                            Playwright interaction and rendering checks
 ```
+
+## Brand identity
+
+The [OddsFront brandbook](assets/brand/oddsfront/oddsfront-brandbook-v1.pdf),
+[SVG masters](assets/brand/oddsfront/svg), and
+[brand guide](assets/brand/oddsfront/README.md) define the external identity.
+Browser icons and link previews use OddsFront. Existing in-page DropsBot
+controls and branding are intentionally independent of this identity package.
 
 ## Security and privacy
 
