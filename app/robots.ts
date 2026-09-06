@@ -7,5 +7,6 @@ export default function robots(): MetadataRoute.Robots {
       allow: "/",
     },
     host: "https://oddsfront.com",
+    sitemap: "https://oddsfront.com/sitemap.xml",
   };
 }

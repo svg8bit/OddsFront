@@ -1,0 +1,38 @@
+[
+  {
+    "tag": "h1",
+    "text": "OddsFront Newsdesk"
+  },
+  {
+    "tag": "p",
+    "text": "OddsFront explains geopolitical developments alongside related prediction markets. Reports lead with verified news; market probabilities are a separate, continuously refreshed layer."
+  },
+  {
+    "tag": "h2",
+    "text": "Sources and verification"
+  },
+  {
+    "tag": "p",
+    "text": "The desk follows Reuters World, Axios World, Al Jazeera Middle East, The Kyiv Independent and BBC World. Original reporting draws on at least two independent publishers, including primary institutional evidence. Each article links to its sources and preserves their publication dates."
+  },
+  {
+    "tag": "p",
+    "text": "Automated research and editorial checks reject unsupported claims, duplicate stories and copied wording. The desk never fills a missing fact with invented news, quotations or market odds. Publication runs every five hours; an edition may contain fewer stories when evidence is insufficient."
+  },
+  {
+    "tag": "h2",
+    "text": "Languages"
+  },
+  {
+    "tag": "p",
+    "text": "English is the original editorial language. Local machine translation provides Chinese, Korean, Vietnamese, German, Spanish, Brazilian Portuguese, French, Russian, Ukrainian, Persian and Hebrew editions without paid translation APIs. Translated articles link to the original; source names and citations stay intact."
+  },
+  {
+    "tag": "h2",
+    "text": "Markets and images"
+  },
+  {
+    "tag": "p",
+    "text": "Related event cards use the same public market feed as the OddsFront map. Track opens DropsBot; View market opens the official market. An empty panel means no suitable active market is available. Article artwork is an OddsFront geographic illustration, not a photograph of a reported event."
+  }
+]

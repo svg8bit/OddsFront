@@ -88,3 +88,9 @@ credentials use server-only environment variables without a `NEXT_PUBLIC_`
 prefix. React escapes upstream text, links pass strict validators, and response
 headers restrict framing, browser capabilities, resource origins, and MIME
 sniffing.
+
+## News and localization
+
+See `news-operations.md` for the isolated runtime publisher, editorial gates,
+read-only delivery, offline translations and recovery. News pages do not preload
+the map engine; only related live event data is shared with the map.

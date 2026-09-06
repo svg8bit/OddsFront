@@ -1,4 +1,6 @@
 "use client";
+import { marketLabel } from "@/lib/news/market-labels";
+import { useLocale } from "@/components/locale-provider";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -257,6 +259,7 @@ export function ActivityRail({
   fixtureMode,
   liveRefreshEnabled,
 }: ActivityRailProps) {
+  const { locale, t, translate } = useLocale();
   const feedClock = getInitialActivityClock(feed.updatedAt);
   const [notices, setNotices] = useState<ActivityNotice[]>([]);
   const seenNoticeIds = useRef(new Set(notices.map((notice) => notice.id)));
@@ -526,7 +529,7 @@ export function ActivityRail({
   return (
     <aside
       className={styles.activityRail}
-      aria-label="Live market activity"
+      aria-label={t("marketActivity")}
       aria-live="polite"
       data-activity-count={visibleNotices.length}
       data-feed-updated-at={feed.updatedAt}
@@ -568,15 +571,15 @@ export function ActivityRail({
                     <ArrowDownRight size={15} />
                   )}
                 </span>
-                <strong>{noticeLabel(notice)}</strong>
+                <strong>{locale === "en" ? noticeLabel(notice) : noticeLabel(notice).replace("Large BUY",marketLabel(locale,"Large BUY")).replace("Odds",marketLabel(locale,"Odds"))}</strong>
                 {notice.windowLabel ? <span>{notice.windowLabel}</span> : null}
                 <time dateTime={new Date(notice.occurredAt).toISOString()}>
-                  {relativeTime(notice.occurredAt, clock)}
+                  {locale === "en" ? relativeTime(notice.occurredAt, clock) : new Intl.RelativeTimeFormat(locale,{numeric:"auto",style:"narrow"}).format(-Math.max(0,Math.floor((clock-notice.occurredAt)/60_000)),"minute")}
                 </time>
                 <button
                   type="button"
                   className={styles.activityDismiss}
-                  aria-label="Dismiss activity notification"
+                  aria-label={t("dismiss")}
                   onClick={() => {
                     setDismissedNoticeIds((current) => {
                       const next = new Set(current);
@@ -591,7 +594,7 @@ export function ActivityRail({
                   <X size={13} aria-hidden="true" />
                 </button>
               </div>
-              <p>{formatMarketTitle(notice.title)}</p>
+              <p>{locale === "en" ? formatMarketTitle(notice.title) : translate(notice.title)}</p>
               <div className={styles.activityFooter} data-activity-footer>
                 {event && event.countryCodes.length > 0 ? (
                   <div
@@ -612,7 +615,7 @@ export function ActivityRail({
                 ) : null}
                 {metricLabel ? (
                   <b data-activity-metric aria-label={metricAriaLabel}>
-                    {metricLabel}
+                    {metricLabel.replace(/^YES/,t("yes")).replace(/^NO/,t("no"))}
                   </b>
                 ) : null}
                 <div className={styles.activityActions} data-activity-actions>
@@ -625,7 +628,7 @@ export function ActivityRail({
                       aria-label="Track this market in DropsBot"
                     >
                       <DropsBotTrackIcon className={styles.trackIcon} />
-                      Track
+                      {locale === "en" ? "Track" : t("track")}
                     </a>
                   ) : null}
                   {referralMarketUrl ? (
@@ -637,7 +640,7 @@ export function ActivityRail({
                       data-referral-code={POLYMARKET_REFERRAL_CODE}
                       title="Polymarket · DropsBot referral"
                     >
-                      Market <ExternalLink size={12} aria-hidden="true" />
+                      {locale === "en" ? "Market" : t("market")} <ExternalLink size={12} aria-hidden="true" />
                     </a>
                   ) : null}
                 </div>

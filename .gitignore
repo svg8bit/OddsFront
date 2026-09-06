@@ -17,3 +17,6 @@ coverage/
 *.tsbuildinfo
 !features/global-conflict-map/data/
 !features/global-conflict-map/data/*.ts
+
+__pycache__/
+*.pyc

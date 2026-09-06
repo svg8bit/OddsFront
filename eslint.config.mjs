@@ -6,6 +6,7 @@ export default defineConfig([
   ...nextVitals,
   ...nextTypeScript,
   globalIgnores([
+    ".local/**",
     ".next/**",
     "output/**",
     "playwright-report/**",

@@ -1,0 +1,35 @@
+{
+  "repository": "svg8bit/ColdMath",
+  "commit": "629bfabe7ca464bc6dd4c1268e5e9dfcbaf69351",
+  "scope": "User-authorized read-only news migration; no credentials, content database, or deployment state copied",
+  "files": [
+    {
+      "path": "lib/news/writer.ts",
+      "sha256": "5afbf8007b5cb240b8b50b0d2b4557eec9dc58bdfce40388a6eb472894585cbc"
+    },
+    {
+      "path": "lib/news/syndication.ts",
+      "sha256": "e24f32d957f8f0e22badc66f34add2d1850bf420f9356e5695d9d7dd49ec7de7"
+    },
+    {
+      "path": "components/news/NewsOverview.tsx",
+      "sha256": "3d8ab29e3cd8c661a7a33fa7dd11be1987e5d4d085e165df3b15347419195a43"
+    },
+    {
+      "path": "components/news/NewsArticleView.tsx",
+      "sha256": "b9cd69d2b22cce8cf060c7121d405639acc6c04942a61109537b474394fd3927"
+    },
+    {
+      "path": "docs/COLDMATH_NEWSDESK_STYLE.md",
+      "sha256": "a53730a82e810039ac7bd71372cbe595dd10e14af4d05307c6a50acd1b3b3921"
+    },
+    {
+      "path": "docs/COLDMATH_NEWS_AUTOMATION.md",
+      "sha256": "722b62d482b7f4f2c8164ba7a81f280a45180f8dee537b6838a95f95f6eb049b"
+    },
+    {
+      "path": "docs/news/VPS_PUBLISHING.md",
+      "sha256": "2ad674195bbc5deedae306714d44109faf89b6c7179a758155c87c3a868a733c"
+    }
+  ]
+}

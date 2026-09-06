@@ -26,7 +26,11 @@
     "check": "npm run check:map-assets && npm run lint && npm run typecheck && npm run build",
     "test:e2e": "playwright test",
     "benchmark:map": "node scripts/benchmark-map-performance.mjs",
-    "test:visual:reference": "node scripts/compare-map-reference.mjs"
+    "test:visual:reference": "node scripts/compare-map-reference.mjs",
+    "news:publish": "node scripts/news/publish.ts",
+    "news:translate": "/root/OddsFront/.local/translation-venv/bin/python scripts/news/translate.py",
+    "test:news": "playwright test tests/news-publication.spec.ts tests/news-interface.spec.ts",
+    "generate:localized-map-assets": "node scripts/generate-localized-map-assets.mjs"
   },
   "dependencies": {
     "@vercel/analytics": "2.0.1",

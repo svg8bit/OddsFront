@@ -7,6 +7,11 @@
   background: #050d18;
 }
 
+.mapLoaderRoot[data-popup-open="true"] > nav {
+  visibility: hidden;
+  pointer-events: none;
+}
+
 .externalActivityLayer {
   position: absolute;
   z-index: 14;

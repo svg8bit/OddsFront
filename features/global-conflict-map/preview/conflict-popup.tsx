@@ -16,6 +16,7 @@ import { DropsBotTrackIcon } from "@/features/global-conflict-map/preview/dropsb
 import styles from "@/features/global-conflict-map/preview/conflict-map-preview.module.css";
 import type { ConflictPreviewEvent } from "@/features/global-conflict-map/preview/types";
 import { formatMarketTitle } from "@/lib/market-title";
+import { useLocale } from "@/components/locale-provider";
 import {
   buildDropsBotTrackUrl,
   toPolymarketReferralUrl,
@@ -57,6 +58,7 @@ export function ConflictPopup({
   onClose,
   onSelectGroupedEvent,
 }: ConflictPopupProps) {
+  const { t, translate, country, locale } = useLocale();
   const marketUrl = toPolymarketReferralUrl(event.marketUrl);
   const trackUrl = buildDropsBotTrackUrl(event.marketUrl);
   const participantCodes = [...new Set(event.countryCodes)];
@@ -83,7 +85,7 @@ export function ConflictPopup({
     >
       <div className={styles.popupKicker}>
         <span className={styles.toneDot} aria-hidden="true" />
-        <span className={styles.popupLocation}>{event.locationLabel}</span>
+        <span className={styles.popupLocation}>{event.geographyKind === "country" && event.countryCodes[0] ? country(event.countryCodes[0]) : translate(event.locationLabel)}</span>
         {visibleParticipantCodes.length > 0 ? (
           <span
             className={styles.participantFlags}
@@ -104,14 +106,14 @@ export function ConflictPopup({
           type="button"
           className={styles.popupClose}
           onClick={onClose}
-          aria-label={`Close ${event.region} market popup`}
+          aria-label={locale === "en" ? `Close ${event.region} market popup` : t("close")}
         >
           <X size={16} aria-hidden="true" />
         </button>
       </div>
 
       <h2 id={`preview-market-${event.id}`} className={styles.popupTitle}>
-        {formatMarketTitle(event.title)}
+        {locale === "en" ? formatMarketTitle(event.title) : translate(event.title)}
       </h2>
 
       {event.priceChange7d !== null && Math.abs(event.priceChange7d) >= 0.005 ? (
@@ -126,14 +128,14 @@ export function ConflictPopup({
             <TrendingDown size={13} aria-hidden="true" />
           )}
           <strong>{formatWeeklyChange(event.priceChange7d)}</strong>
-          <span>Odds change · 7D</span>
+          <span>{t("change")}</span>
         </div>
       ) : null}
 
       {groupedEventCount > 1 ? (
         <div className={styles.marketPager} aria-label="Markets at this location">
           <span>
-            Market {groupedEventIndex + 1} of {groupedEventCount}
+            {t("marketNumber")} {groupedEventIndex + 1} {t("of")} {groupedEventCount}
           </span>
           <div>
             <button
@@ -144,7 +146,7 @@ export function ConflictPopup({
                 const previousId = groupedEventIds[previousIndex];
                 if (previousId) onSelectGroupedEvent(previousId);
               }}
-              aria-label="Previous market at this location"
+              aria-label={t("previousMarket")}
             >
               <ChevronLeft size={14} aria-hidden="true" />
             </button>
@@ -155,7 +157,7 @@ export function ConflictPopup({
                 const nextId = groupedEventIds[nextIndex];
                 if (nextId) onSelectGroupedEvent(nextId);
               }}
-              aria-label="Next market at this location"
+              aria-label={t("nextMarket")}
             >
               <ChevronRight size={14} aria-hidden="true" />
             </button>
@@ -168,23 +170,23 @@ export function ConflictPopup({
         aria-label={`${event.dataOrigin === "polymarket" ? "Current Polymarket" : "Illustrative"} odds: yes ${event.yesOdds} percent, no ${event.noOdds} percent`}
       >
         <div>
-          <span>YES</span>
+          <span>{t("yes")}</span>
           <strong>{event.yesOdds}%</strong>
         </div>
         <div>
-          <span>NO</span>
+          <span>{t("no")}</span>
           <strong>{event.noOdds}%</strong>
         </div>
       </div>
 
       <div className={styles.volumeRow}>
-        <span>{formatVolume(event.marketVolume ?? event.volume)} Vol</span>
+        <span>{formatVolume(event.marketVolume ?? event.volume)} {locale === "en" ? "Vol" : t("volume")}</span>
         {marketUrl ? (
           <a
             href={marketUrl}
             target="_blank"
             rel="noreferrer"
-            aria-label="View this event on Polymarket"
+            aria-label={locale === "en" ? "View this event on Polymarket" : t("market")}
           >
             Polymarket
             <ExternalLink size={10} aria-hidden="true" />
@@ -201,10 +203,10 @@ export function ConflictPopup({
             href={trackUrl}
             target="_blank"
             rel="noreferrer"
-            aria-label="Track this market in DropsBot"
+            aria-label={locale === "en" ? "Track this market in DropsBot" : t("track")}
           >
             <DropsBotTrackIcon className={styles.trackIcon} />
-            Track in DropsBot
+            {t("track")}
           </a>
         </div>
       ) : null}
