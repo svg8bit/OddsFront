@@ -50,6 +50,7 @@ export interface ConflictPreviewEvent {
   priceChange7d: number | null;
   endDate: string | null;
   marketConditionId: string | null;
+  yesTokenId?: string | null;
 }
 
 export type ConflictActivityKind =

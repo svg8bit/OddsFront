@@ -1,7 +1,9 @@
 "use client";
 
 import { createContext, useContext, useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import { useRouter } from "next/navigation";
 import { countryName, localeDirection, negotiateLocale, normalizeLocale, regionFromLanguages } from "@/lib/news/locale";
+import { switchNewsLocalePath } from "@/lib/news/routing";
 import { message, type MessageKey } from "@/lib/news/messages";
 import type { Locale } from "@/lib/news/types";
 
@@ -16,17 +18,20 @@ const getServerSnapshot = () => "server";
 interface Preferences { locale: Locale; region: string; automatic: boolean; t: (key: MessageKey) => string; translate: (text: string) => string; country: (code: string) => string; setPreferences: (locale: Locale | "auto", region: string) => void; }
 const LocaleContext = createContext<Preferences>({ locale: "en", region: "ALL", automatic: true, t: key => message("en",key), translate: text => text, country: code => countryName(code,"en"), setPreferences: () => {} });
 
-export function LocaleProvider({ children }: { children: React.ReactNode }) {
+export function LocaleProvider({ children, fixedLocale }: { children: React.ReactNode; fixedLocale?: Locale }) {
+  const router = useRouter();
   const stored = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
   const preferences = useMemo(() => {
     let saved: { locale?: string; region?: string } = {};
     try { saved = JSON.parse(stored.split("\n")[0]) ?? {}; } catch { /* First visit uses browser preferences. */ }
     const browserLanguages = stored === "server" ? [] : navigator.languages;
     const explicit = stored === "server" ? null : normalizeLocale(new URLSearchParams(location.search).get("lang"));
-    const locale = explicit ?? normalizeLocale(saved.locale) ?? negotiateLocale(browserLanguages);
+    const pathParts = stored === "server" ? [] : location.pathname.split("/").filter(Boolean);
+    const pathLocale = pathParts[1] === "news" ? normalizeLocale(pathParts[0]) : null;
+    const locale = fixedLocale ?? pathLocale ?? explicit ?? normalizeLocale(saved.locale) ?? negotiateLocale(browserLanguages);
     const region = saved.region && /^(ALL|[A-Z]{2})$/.test(saved.region) ? saved.region : regionFromLanguages(browserLanguages);
     return { locale, region, automatic: !explicit && !normalizeLocale(saved.locale) };
-  }, [stored]);
+  }, [stored, fixedLocale]);
   const [dictionary, setDictionary] = useState<{ locale: Locale; messages: Record<string,string> }>({ locale: "en", messages: {} });
   useEffect(() => {
     document.documentElement.lang = preferences.locale;
@@ -42,12 +47,20 @@ export function LocaleProvider({ children }: { children: React.ReactNode }) {
     translate: text => dictionary.locale === preferences.locale ? dictionary.messages[text] ?? text : text,
     country: code => countryName(code, preferences.locale),
     setPreferences: (locale, region) => {
+      const resolvedLocale = locale === "auto" ? negotiateLocale(navigator.languages) : locale;
       memoryPreferences = JSON.stringify({ locale, region });
-      const url = new URL(location.href); url.searchParams.delete("lang"); history.replaceState(history.state, "", url);
+      const url = new URL(location.href); url.searchParams.delete("lang");
       try { localStorage.setItem(KEY, memoryPreferences); } catch { /* Private mode may disable persistence. */ }
+      const localizedPath = switchNewsLocalePath(url.pathname, resolvedLocale);
+      if (localizedPath !== url.pathname) {
+        url.pathname = localizedPath;
+        router.replace(`${url.pathname}${url.search}${url.hash}`, { scroll: false });
+      } else {
+        history.replaceState(history.state, "", url);
+      }
       window.dispatchEvent(new Event("oddsfront-preferences"));
     },
-  }), [preferences, dictionary]);
+  }), [preferences, dictionary, router]);
   return <LocaleContext.Provider value={value}>{children}</LocaleContext.Provider>;
 }
 export const useLocale = () => useContext(LocaleContext);

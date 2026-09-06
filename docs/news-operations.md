@@ -48,9 +48,10 @@ Polymarket question with the same action and participants, the correct strike
 direction, and at least $1 million in that market. Forecasts, proposals,
 negotiations and loosely related markets fail closed. Both validated DropsBot
 and market actions are required; News alerts show no odds.
-Partner cover images are fetched from the source page's Open Graph metadata,
-proxied through a fixed host and MIME allowlist, credited in the UI, and replaced
-by the existing OddsFront art when unavailable.
+Partner cover images are fetched from the source page's Open Graph metadata and
+proxied through a fixed host and MIME allowlist. Source provenance stays in the
+private receipt and structured data; cover UI contains no technical source label.
+The existing OddsFront art is used when an image is unavailable.
 
 ## Writer and translation costs
 
@@ -114,7 +115,7 @@ fixtures use a temporary directory and never enter the production export.
 Run `npm run check` and `npm run test:e2e`. Tests cover publisher failure and
 duplicate recovery, source restrictions, language negotiation, mobile and RTL
 article layouts, persisted preferences, and stale news refreshes. Verify the
-production map gestures, non-English glyphs, article source/market links, RSS,
+production map gestures, non-English glyphs, article market links, RSS,
 favicon and the exact READY deployment commit. News must request no MapLibre
 modules, workers, or vector tiles. Local machine translations need editorial
 review for nuance; the English original remains available.

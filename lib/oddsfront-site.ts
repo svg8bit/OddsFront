@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
 export const ODDSFRONT_URL = "https://oddsfront.com";
-export const SOCIAL_PREVIEW_PATH = "/brand/oddsfront-social-preview-v2.png";
+export const SOCIAL_PREVIEW_PATH = "/brand/oddsfront-social-preview-v3.png";
 export const SOCIAL_PREVIEW_URL = `${ODDSFRONT_URL}${SOCIAL_PREVIEW_PATH}`;
 export const APP_ICON_PATH = "/brand/oddsfront-icon-v1.svg";
 export const APPLE_ICON_PATH = "/brand/oddsfront-apple-touch-icon-v1.png";

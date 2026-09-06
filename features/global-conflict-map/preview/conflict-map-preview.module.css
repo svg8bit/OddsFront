@@ -558,6 +558,8 @@
   display: grid;
   width: 42px;
   height: 42px;
+  flex: 0 0 42px;
+  aspect-ratio: 1;
   overflow: hidden;
   place-items: center;
   border: 1px solid rgba(143, 168, 205, 0.2);
