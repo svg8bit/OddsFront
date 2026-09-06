@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 
-import GlobalConflictMapPage from "@/app/global-conflict-map/page";
+import GlobalConflictMapPage from "@/app/(default)/global-conflict-map/page";
 import { buildOddsFrontSocialMetadata } from "@/lib/oddsfront-site";
 
 export const metadata: Metadata = {

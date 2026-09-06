@@ -12,7 +12,7 @@ import { useLiveConflictFeed } from "@/features/global-conflict-map/preview/use-
 import { relatedMarkets } from "@/lib/news/related-markets";
 import { buildDropsBotTrackUrl, toPolymarketReferralUrl } from "@/lib/polymarket-links";
 import { CountryFlag } from "@/features/global-conflict-map/preview/country-flag";
-import { newsArticlePath, newsCountryPath, newsPath } from "@/lib/news/routing";
+import { availableNewsArticlePath, newsArticlePath, newsCountryPath, newsPath } from "@/lib/news/routing";
 import styles from "./news.module.css";
 
 export function articlePath(article: NewsArticle) { return newsArticlePath(article, "en"); }
@@ -47,7 +47,7 @@ function StoryArt({ article, featured = false, headingLevel = "h2" }: { article:
 
 function StoryCard({ article, featured = false }: { article: NewsArticle; featured?: boolean }) {
   const { locale, t, country } = useLocale(); const text = articleText(article,locale);
-  return <Link className={`${styles.card} ${featured ? styles.featuredCard : ""}`} href={newsArticlePath(article, locale)} prefetch={false}>
+  return <Link className={`${styles.card} ${featured ? styles.featuredCard : ""}`} href={availableNewsArticlePath(article, locale)} prefetch={false}>
     <StoryArt key={article.slug} article={article} featured={featured}/>
     <div className={styles.cardBody}><span className={styles.eyebrow}>{article.countries.slice(0,2).map(country).join(" / ") || t("news")}</span>
       <p>{text.description}</p><div className={styles.cardMeta}><time dateTime={article.publishedAt}>{new Intl.DateTimeFormat(locale,{month:"short",day:"numeric",hour:"2-digit",minute:"2-digit"}).format(new Date(article.publishedAt))}</time><span>{article.readingMinutes ?? Math.max(1,Math.ceil(article.body.map(block=>block.text).join(" ").split(/\s+/).length/220))} {t("minute")}</span><ArrowRight size={17}/></div>
@@ -74,7 +74,7 @@ export function NewsOverview({ initialArticles, initialUpdatedAt, activeCountry,
     <section className={styles.intro}><div><span className={styles.eyebrow}>ODDSFRONT / {t("news")}</span><h1>{archive?t("archive"):selected==="ALL"?t("latest"):country(selected)}</h1><p>{t("description")}</p></div><label className={styles.search}><Search size={16}/><input type="search" aria-label={t("search")} placeholder={t("search")} value={query} onChange={event=>setQuery(event.target.value)}/></label></section>
     <nav className={styles.filters} aria-label={t("countryNews")}><Link href={newsCountryPath("world",locale)} aria-current={selected==="ALL"?"page":undefined} prefetch={false}>{t("all")}</Link>{countries.map(code=><Link key={code} href={newsCountryPath(code,locale)} aria-current={selected===code?"page":undefined} prefetch={false}><CountryFlag code={code}/>{country(code)}</Link>)}</nav>
     <div className={styles.overviewGrid}><section aria-label={t("latest")}>{featured?<StoryCard article={featured} featured/>:<div className={styles.empty}>{query?t("noResults"):t("empty")}</div>}<div className={styles.cardGrid}>{filtered.slice(1,limit).map(article=><StoryCard key={article.id} article={article}/>)}</div>{filtered.length>limit?<button className={styles.loadMore} onClick={()=>setLimit(limit+12)}>{t("loadMore")}</button>:null}</section>
-      <aside className={styles.latestRail}><span className={styles.eyebrow}>{t("latest")}</span>{articles.slice(0,5).map((article,index)=><Link key={article.id} href={newsArticlePath(article,locale)} prefetch={false}><span>{String(index+1).padStart(2,"0")}</span><div><h3>{articleText(article,locale).title}</h3><time dateTime={article.publishedAt}>{new Intl.DateTimeFormat(locale,{month:"short",day:"numeric"}).format(new Date(article.publishedAt))}</time></div></Link>)}</aside>
+      <aside className={styles.latestRail}><span className={styles.eyebrow}>{t("latest")}</span>{articles.slice(0,5).map((article,index)=><Link key={article.id} href={availableNewsArticlePath(article,locale)} prefetch={false}><span>{String(index+1).padStart(2,"0")}</span><div><h3>{articleText(article,locale).title}</h3><time dateTime={article.publishedAt}>{new Intl.DateTimeFormat(locale,{month:"short",day:"numeric"}).format(new Date(article.publishedAt))}</time></div></Link>)}</aside>
     </div>
   </NewsChrome>;
 }

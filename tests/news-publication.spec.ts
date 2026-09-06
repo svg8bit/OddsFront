@@ -11,6 +11,7 @@ import { newsIndex } from "../lib/news/publication";
 import type { NewsArticle, NewsDraft, NewsCatalog } from "../lib/news/types";
 import seed from "../lib/news/catalog.seed.json";
 import { getConflictPreviewFixtureFeed } from "../features/global-conflict-map/preview/fixture";
+import { availableNewsArticlePath, switchNewsLocalePath } from "../lib/news/routing";
 
 function draft():NewsDraft {
   return {publishable:true,rejectionReason:"",alert:{eligible:false,kind:"none",actorCountries:[],targetCountries:[]},title:"Test fixture: regional diplomatic review",description:"Development-only publication validation fixture.",countries:["UA"],topics:["diplomacy"],
@@ -91,6 +92,9 @@ test("language negotiation covers browser regions, aliases, fallback and RTL",()
   expect(negotiateLocale(["ja-JP","ru-RU"])).toBe("ru");expect(negotiateLocale(["ja-JP"])).toBe("en");
   expect(normalizeLocale("pt-PT")).toBe("pt-BR");expect(normalizeLocale("zh-Hant-TW")).toBe("zh");expect(normalizeLocale("iw-IL")).toBe("he");
   expect(regionFromLanguages(["zh-Hant-TW"])).toBe("TW");expect(localeDirection("fa")).toBe("rtl");expect(localeDirection("he")).toBe("rtl");
+  expect(switchNewsLocalePath("/ru/news","de")).toBe("/de/news");
+  expect(switchNewsLocalePath("/news/archive","ru")).toBe("/news/archive");
+  expect(availableNewsArticlePath({...seed.articles[0],translations:{}} as NewsArticle,"ru")).toBe(`/news/${seed.articles[0].countries[0].toLowerCase()}/${seed.articles[0].slug}`);
 });
 
 test("news index excludes article bodies and the full market dictionary",()=>{

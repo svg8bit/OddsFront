@@ -20,12 +20,16 @@ function normalizeHistory(value: unknown): HistoryPoint[] {
 }
 
 async function fetchHistory(token: string): Promise<HistoryPoint[]> {
-  const url = new URL(CLOB_HISTORY_URL);
-  url.searchParams.set("market", token);
-  url.searchParams.set("interval", "max");
-  url.searchParams.set("fidelity", "1440");
-  const response = await fetch(url, { next: { revalidate: 900 }, headers: { Accept: "application/json" }, signal: AbortSignal.timeout(4_000) });
-  return response.ok ? normalizeHistory(await response.json()) : [];
+  try {
+    const url = new URL(CLOB_HISTORY_URL);
+    url.searchParams.set("market", token);
+    url.searchParams.set("interval", "max");
+    url.searchParams.set("fidelity", "1440");
+    const response = await fetch(url, { next: { revalidate: 900 }, headers: { Accept: "application/json" }, signal: AbortSignal.timeout(4_000) });
+    return response.ok ? normalizeHistory(await response.json()) : [];
+  } catch {
+    return [];
+  }
 }
 
 export async function GET(request: Request) {

@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useContext, useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import { useRouter } from "next/navigation";
 import { countryName, localeDirection, negotiateLocale, normalizeLocale, regionFromLanguages } from "@/lib/news/locale";
 import { switchNewsLocalePath } from "@/lib/news/routing";
 import { message, type MessageKey } from "@/lib/news/messages";
@@ -18,6 +19,7 @@ interface Preferences { locale: Locale; region: string; automatic: boolean; t: (
 const LocaleContext = createContext<Preferences>({ locale: "en", region: "ALL", automatic: true, t: key => message("en",key), translate: text => text, country: code => countryName(code,"en"), setPreferences: () => {} });
 
 export function LocaleProvider({ children, fixedLocale }: { children: React.ReactNode; fixedLocale?: Locale }) {
+  const router = useRouter();
   const stored = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
   const preferences = useMemo(() => {
     let saved: { locale?: string; region?: string } = {};
@@ -52,11 +54,13 @@ export function LocaleProvider({ children, fixedLocale }: { children: React.Reac
       const localizedPath = switchNewsLocalePath(url.pathname, resolvedLocale);
       if (localizedPath !== url.pathname) {
         url.pathname = localizedPath;
+        router.replace(`${url.pathname}${url.search}${url.hash}`, { scroll: false });
+      } else {
+        history.replaceState(history.state, "", url);
       }
-      history.replaceState(history.state, "", url);
       window.dispatchEvent(new Event("oddsfront-preferences"));
     },
-  }), [preferences, dictionary]);
+  }), [preferences, dictionary, router]);
   return <LocaleContext.Provider value={value}>{children}</LocaleContext.Provider>;
 }
 export const useLocale = () => useContext(LocaleContext);

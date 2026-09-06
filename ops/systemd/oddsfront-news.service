@@ -9,6 +9,7 @@ Type=oneshot
 WorkingDirectory=/root/OddsFront
 ExecStart=/usr/local/bin/node scripts/news/publish.ts
 ExecStartPost=/root/OddsFront/.local/translation-venv/bin/python scripts/news/translate.py
+ExecStartPost=/usr/local/bin/node scripts/news/indexnow.mjs
 Environment=NODE_ENV=production
 Environment=PATH=/usr/local/bin:/usr/bin:/bin
 Environment=ODDSFRONT_NEWS_BATCH_SIZE=9

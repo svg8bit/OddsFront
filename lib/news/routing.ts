@@ -24,6 +24,13 @@ export function newsArticlePath(
   return newsCountryPath(article.countries[0] || "world", locale) + `/${article.slug}`;
 }
 
+export function availableNewsArticlePath(article: NewsArticle, locale: Locale): string {
+  return newsArticlePath(
+    article,
+    locale === "en" || article.translations[locale] ? locale : "en",
+  );
+}
+
 export function switchNewsLocalePath(pathname: string, locale: Locale): string {
   const segments = pathname.split("/").filter(Boolean);
   const firstLocale = segments[0]
@@ -31,6 +38,9 @@ export function switchNewsLocalePath(pathname: string, locale: Locale): string {
     : undefined;
   const baseSegments = firstLocale ? segments.slice(1) : segments;
   if (baseSegments[0] !== "news") return pathname;
+  if (baseSegments.length === 2 && ["about", "archive"].includes(baseSegments[1])) {
+    return `/${baseSegments.join("/")}`;
+  }
   const base = `/${baseSegments.join("/")}`;
   return locale === "en" ? base : `/${localeSegment(locale)}${base}`;
 }
