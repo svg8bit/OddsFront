@@ -27,6 +27,15 @@ if (shouldWrite === shouldCheck) {
   throw new Error("Pass exactly one of --write or --check");
 }
 
+const mapPackage = JSON.parse(await readFile(path.join(appRoot, "node_modules/maplibre-gl/package.json"), "utf8"));
+for (const file of ["maplibre-gl.mjs", "maplibre-gl-shared.mjs", "maplibre-gl-worker.mjs", "LICENSE.txt"]) {
+  const [installed, served] = await Promise.all([
+    readFile(path.join(appRoot, "node_modules/maplibre-gl", file === "LICENSE.txt" ? file : `dist/${file}`)),
+    readFile(path.join(appRoot, "public/vendor/maplibre", mapPackage.version, file)),
+  ]);
+  if (!installed.equals(served)) throw new Error(`Vendored MapLibre ${file} differs from installed ${mapPackage.version}`);
+}
+
 function assertFeatureCollection(value, label) {
   if (value?.type !== "FeatureCollection" || !Array.isArray(value.features)) {
     throw new Error(`${label} is not a GeoJSON FeatureCollection`);

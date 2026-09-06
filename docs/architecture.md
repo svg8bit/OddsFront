@@ -40,6 +40,14 @@ validated public destinations.
   Marker hit targets are portaled into MapLibre's canvas container so wheel,
   drag and two-finger gestures starting on markers reach the same input handler.
   Popups remain outside that container to keep their controls independent.
+  Selecting a marker opens one persistent card without changing the camera or
+  rebuilding the marker GeoJSON source. Desktop cards move with a short transform
+  transition between selections and follow drag frames directly; mobile cards
+  keep their position. Markers and cards remain visible during camera movement.
+  MapLibre is served as its original versioned ES modules, allowing the browser
+  and worker to share the same downloaded module instead of bundling a second
+  copy into Next.js. HTML module preloads start these requests immediately. The
+  map creates one WebGL context, using the browser's synchronized presentation.
 
 ## Event lifecycle
 

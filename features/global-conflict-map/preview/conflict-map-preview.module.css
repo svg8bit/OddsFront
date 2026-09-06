@@ -267,9 +267,7 @@
   font-family: Inter, ui-sans-serif, sans-serif;
 }
 
-.shell[data-map-moving="true"] .markerOverlay,
-.shell[data-map-moving="true"] .popupAnchor {
-  visibility: hidden;
+.shell[data-map-moving="true"] .hotspotTarget {
   pointer-events: none;
 }
 
@@ -322,6 +320,12 @@
   width: 0;
   height: 0;
   pointer-events: none;
+  transition: transform 180ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.shell[data-map-moving="true"] .popupAnchor,
+.shell[data-reduced-motion="true"] .popupAnchor {
+  transition: none;
 }
 
 .markerAnchor[data-selected="true"] {

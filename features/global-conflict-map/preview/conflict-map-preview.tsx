@@ -4,13 +4,14 @@ import {
   type MouseEvent as ReactMouseEvent,
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
 } from "react";
 import { createPortal } from "react-dom";
 import { Minus, Plus } from "lucide-react";
-import * as maplibregl from "maplibre-gl";
+import type { GeoJSONSource } from "maplibre-gl";
 import MapLibreMap, {
   type MapRef,
   type ViewState,
@@ -34,11 +35,11 @@ import {
 } from "@/features/global-conflict-map/preview/marker-visuals";
 import {
   createPreviewMapStyle,
-  DETAIL_TILE_MIN_ZOOM,
 } from "@/features/global-conflict-map/preview/map-style";
 import {
   selectMapRenderProfile,
 } from "@/features/global-conflict-map/preview/map-render-profile";
+import { loadMapLibrary } from "@/features/global-conflict-map/preview/map-library";
 import { useConflictMapPreviewStore } from "@/features/global-conflict-map/preview/store";
 import styles from "@/features/global-conflict-map/preview/conflict-map-preview.module.css";
 import type {
@@ -46,12 +47,6 @@ import type {
   ConflictPreviewEvent,
   PreviewViewState,
 } from "@/features/global-conflict-map/preview/types";
-
-// Next.js/Turbopack does not preserve MapLibre's sibling worker URL when the
-// library is bundled into a route chunk. Pin the worker to a same-origin copy
-// from the installed MapLibre release so vector tiles and GeoJSON sources are
-// parsed off the main thread in both development and production builds.
-maplibregl.setWorkerUrl("/vendor/maplibre/maplibre-gl-worker.mjs");
 
 const INITIAL_VIEW_STATE: PreviewViewState = {
   longitude: 29,
@@ -68,43 +63,11 @@ const WORLD_BOUNDS: [number, number, number, number] = [
   -179.9, -75, 179.9, 82,
 ];
 
-type ProjectedPoint = { x: number; y: number };
-
 interface VisibleLocationGroup {
   id: string;
   events: ConflictPreviewEvent[];
   primary: ConflictPreviewEvent;
   hotspot: PreviewHotspot;
-}
-
-function clampPopupOffset(
-  point: ProjectedPoint,
-  preferred: [number, number],
-): [number, number] {
-  if (typeof window === "undefined") return preferred;
-  const margin = 12;
-  const popupWidth = 244;
-  const popupHeight = 256;
-  const x = Math.min(
-    window.innerWidth - popupWidth - margin - point.x,
-    Math.max(margin - point.x, preferred[0]),
-  );
-  const y = Math.min(
-    window.innerHeight - popupHeight - margin - point.y,
-    Math.max(margin - point.y, preferred[1]),
-  );
-  return [x, y];
-}
-
-function supportsWebGl2(): boolean {
-  try {
-    const canvas = document.createElement("canvas");
-    const context = canvas.getContext("webgl2");
-    context?.getExtension("WEBGL_lose_context")?.loseContext();
-    return Boolean(context);
-  } catch {
-    return false;
-  }
 }
 
 function usePrefersReducedMotion(): boolean {
@@ -165,7 +128,7 @@ function WebGlFallback({
       <MarketStrip initialFeed={initialMarketStrip} fixtureMode={fixtureMode} />
       <section className={styles.fallback} aria-labelledby="map-fallback-title">
         <span>Interactive map unavailable</span>
-        <h1 id="map-fallback-title">WebGL 2 is required for this map preview.</h1>
+        <h1 id="map-fallback-title">The interactive map could not start.</h1>
         <p>The latest verified event list remains available as a text summary.</p>
         <ul>
           {events.map((event) => (
@@ -187,6 +150,8 @@ export function ConflictMapPreview({
   fixtureMode,
 }: ConflictMapPreviewProps) {
   const mapRef = useRef<MapRef>(null);
+  const popupAnchorRef = useRef<HTMLDivElement>(null);
+  const popupSize = useRef({ width: 244, height: 256 });
   const buttonZoomTarget = useRef<number | null>(null);
   const selectedCountryIds = useRef<Set<string>>(new Set());
   const eventCountryIds = useRef<Set<string>>(new Set());
@@ -196,7 +161,8 @@ export function ConflictMapPreview({
   const shellRef = useRef<HTMLElement>(null);
   const readyScheduled = useRef(false);
   const reduceMotion = usePrefersReducedMotion();
-  const [webGlSupported] = useState(supportsWebGl2);
+  const [mapLibrary] = useState(loadMapLibrary);
+  const [mapUnavailable, setMapUnavailable] = useState(false);
   const [mapRenderProfile] = useState(() => {
     const compactOrTouch = window.matchMedia(
       "(max-width: 860px), (pointer: coarse)",
@@ -226,10 +192,6 @@ export function ConflictMapPreview({
   const [mapError, setMapError] = useState("");
   const [engineCamera, setEngineCamera] = useState("");
   const [compactViewport, setCompactViewport] = useState<boolean | null>(null);
-  const [popupAnchorPoint, setPopupAnchorPoint] = useState<ProjectedPoint>({
-    x: 0,
-    y: 0,
-  });
   const [tileHealth, setTileHealth] = useState<"loading" | "ready" | "degraded">(
     "loading",
   );
@@ -275,9 +237,8 @@ export function ConflictMapPreview({
       const sortedEvents = groupEvents.toSorted(
         (left, right) => right.volume - left.volume,
       );
-      const primary =
-        sortedEvents.find((event) => event.id === selectedEventId) ??
-        sortedEvents[0]!;
+      // Selection must not rebuild the marker source or remount its hit target.
+      const primary = sortedEvents[0]!;
       const markerVolume = sortedEvents.reduce(
         (maximum, event) => Math.max(maximum, event.volume),
         markerVolumeDomain.minimum,
@@ -303,36 +264,35 @@ export function ConflictMapPreview({
           left.hotspot.markerVolume - right.hotspot.markerVolume ||
           left.id.localeCompare(right.id),
       ) satisfies VisibleLocationGroup[];
-  }, [eligibleEvents, markerVolumeDomain, selectedEventId]);
+  }, [eligibleEvents, markerVolumeDomain]);
   const visibleHotspots = useMemo(
     () => visibleGroups.map((group) => group.hotspot),
     [visibleGroups],
   );
+  const selectedVisibleGroup = useMemo(
+    () => visibleGroups.find((group) =>
+      group.events.some((event) => event.id === selectedEventId)) ?? null,
+    [selectedEventId, visibleGroups],
+  );
+  const selectedMarkerId = selectedVisibleGroup?.primary.id;
   const pulsingEventIds = useMemo(
     () => new Set(visibleHotspots
-      .filter((hotspot) => hotspot.markerStrength >= 0.6 || hotspot.event.id === selectedEventId)
+      .filter((hotspot) => hotspot.markerStrength >= 0.6 || hotspot.event.id === selectedMarkerId)
       .toSorted((left, right) =>
-        Number(right.event.id === selectedEventId) - Number(left.event.id === selectedEventId) ||
+        Number(right.event.id === selectedMarkerId) - Number(left.event.id === selectedMarkerId) ||
         right.markerStrength - left.markerStrength)
       .slice(0, 8)
       .map((hotspot) => hotspot.event.id)),
-    [selectedEventId, visibleHotspots],
+    [selectedMarkerId, visibleHotspots],
   );
   const hotspotFeatureCollection = useMemo(
     () =>
       createHotspotFeatureCollection(
         visibleHotspots,
-        selectedEventId,
+        null,
         effectsVisible,
       ),
-    [effectsVisible, selectedEventId, visibleHotspots],
-  );
-  const selectedVisibleGroup = useMemo(
-    () =>
-      visibleGroups.find((group) =>
-        group.events.some((event) => event.id === selectedEventId),
-      ) ?? null,
-    [selectedEventId, visibleGroups],
+    [effectsVisible, visibleHotspots],
   );
   const highlightedCountryIds = useMemo(
     () =>
@@ -385,30 +345,45 @@ export function ConflictMapPreview({
 
   const updatePopupAnchorPoint = useCallback(() => {
     const map = mapRef.current?.getMap();
-    if (!map || !selectedEvent) return;
+    const anchor = popupAnchorRef.current;
+    const popup = anchor?.firstElementChild as HTMLElement | null;
+    if (!map || !selectedEvent || !anchor || !popup || compactViewport) return;
     const point = map.project(selectedEvent.coordinates);
-    setPopupAnchorPoint((current) =>
-      current.x === point.x && current.y === point.y
-        ? current
-        : { x: point.x, y: point.y },
-    );
-  }, [selectedEvent]);
+    const canvas = map.getCanvas();
+    const x = Math.max(12, Math.min(canvas.clientWidth - popupSize.current.width - 12,
+      point.x + selectedEvent.popupOffset[0]));
+    const y = Math.max(12, Math.min(canvas.clientHeight - popupSize.current.height - 12,
+      point.y + selectedEvent.popupOffset[1]));
+    const firstPosition = !anchor.dataset.positioned;
+    if (firstPosition) anchor.style.transition = "none";
+    anchor.style.transform = `translate3d(${x}px, ${y}px, 0)`;
+    if (firstPosition) {
+      anchor.dataset.positioned = "true";
+      window.requestAnimationFrame(() => anchor.style.removeProperty("transition"));
+    }
+  }, [compactViewport, selectedEvent]);
+
+  const measurePopup = useCallback(() => {
+    const popup = popupAnchorRef.current?.firstElementChild as HTMLElement | null;
+    if (popup) popupSize.current = { width: popup.offsetWidth, height: popup.offsetHeight };
+  }, []);
 
   const updateHotspotSource = useCallback(() => {
     const map = mapRef.current?.getMap();
     const source = map?.getSource(HOTSPOT_SOURCE_ID) as
-      | maplibregl.GeoJSONSource
+      | GeoJSONSource
       | undefined;
     source?.setData(hotspotFeatureCollection);
   }, [hotspotFeatureCollection]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!mapReady) return;
     const map = mapRef.current?.getMap();
     if (!map) return;
+    measurePopup();
     updateMarkerPositions();
     updatePopupAnchorPoint();
-  }, [mapReady, updateMarkerPositions, updatePopupAnchorPoint]);
+  }, [mapReady, measurePopup, updateMarkerPositions, updatePopupAnchorPoint]);
 
   useEffect(() => {
     if (mapReady) updateHotspotSource();
@@ -472,23 +447,16 @@ export function ConflictMapPreview({
   }, [applyEventCountryState, mapReady]);
 
   const selectEvent = useCallback(
-    (event: ConflictPreviewEvent, moveCamera = true) => {
+    (event: ConflictPreviewEvent, moveCamera = false) => {
       selectEventInStore(event.id);
       if (!moveCamera) return;
 
       const map = mapRef.current;
       if (!map) return;
       buttonZoomTarget.current = null;
-      const nextZoom = Math.max(map.getZoom(), event.minimumZoom, DETAIL_TILE_MIN_ZOOM);
-      const camera = { center: event.coordinates, zoom: nextZoom };
+      const camera = { center: event.coordinates };
       if (reduceMotion) map.jumpTo(camera);
-      else {
-        window.requestAnimationFrame(() => {
-          window.requestAnimationFrame(() => {
-            map.easeTo({ ...camera, duration: 360, essential: false });
-          });
-        });
-      }
+      else map.easeTo({ ...camera, duration: 260, essential: false });
     },
     [
       reduceMotion,
@@ -513,7 +481,7 @@ export function ConflictMapPreview({
     (clickEvent: ReactMouseEvent<HTMLButtonElement>) => {
       const eventId = clickEvent.currentTarget.dataset.marketEventId;
       const event = events.find((candidate) => candidate.id === eventId);
-      if (event) selectEvent(event, true);
+      if (event) selectEvent(event);
     },
     [events, selectEvent],
   );
@@ -568,12 +536,8 @@ export function ConflictMapPreview({
   const selectedPopup =
     selectedEvent && selectedVisibleGroup && popupOpen ? (
       <ConflictPopup
-        key={`popup-${selectedEvent.id}`}
         event={selectedEvent}
-        popupOffset={clampPopupOffset(
-          popupAnchorPoint,
-          selectedEvent.popupOffset,
-        )}
+        popupOffset={[0, 0]}
         onClose={closePopup}
         groupedEventCount={selectedVisibleGroup.events.length}
         groupedEventIndex={Math.max(
@@ -589,7 +553,7 @@ export function ConflictMapPreview({
       />
     ) : null;
 
-  if (!webGlSupported) {
+  if (mapUnavailable) {
     return (
       <WebGlFallback
         events={events}
@@ -678,11 +642,11 @@ export function ConflictMapPreview({
 
         <MapLibreMap
           ref={mapRef}
-          mapLib={maplibregl}
+          mapLib={mapLibrary}
           mapStyle={previewMapStyle}
           pixelRatio={mapRenderProfile.pixelRatio}
           refreshExpiredTiles={false}
-          canvasContextAttributes={{ antialias: false, alpha: false, desynchronized: true }}
+          canvasContextAttributes={{ antialias: false, alpha: false }}
           validateStyle={false}
           initialViewState={INITIAL_VIEW_STATE}
           minZoom={MIN_ZOOM}
@@ -716,9 +680,14 @@ export function ConflictMapPreview({
             if (shellRef.current) shellRef.current.dataset.mapMoving = "true";
             setHoveredEvent(null);
           }}
+          onMove={() => {
+            updateMarkerPositions();
+            updatePopupAnchorPoint();
+          }}
           onMoveEnd={(event) => {
             buttonZoomTarget.current = null;
             setViewState(event.viewState);
+            setEngineCamera(`${event.viewState.longitude.toFixed(4)},${event.viewState.latitude.toFixed(4)},${event.viewState.zoom.toFixed(3)}`);
             setZoom(event.viewState.zoom);
             window.requestAnimationFrame(() => {
               updateMarkerPositions();
@@ -727,11 +696,13 @@ export function ConflictMapPreview({
             });
           }}
           onResize={() => {
+            measurePopup();
             updateMarkerPositions();
             updatePopupAnchorPoint();
           }}
           onClick={() => setHoveredEvent(null)}
           onError={(event) => {
+            if (!event.target) setMapUnavailable(true);
             setTileHealth("degraded");
             setMapError(event.error?.message ?? "Unknown map error");
           }}
@@ -742,12 +713,12 @@ export function ConflictMapPreview({
             ? visibleGroups.map((group, index) => {
                 const event = group.primary;
                 const hotspot = group.hotspot;
-                const selected = event.id === selectedEventId;
+                const selected = group.id === selectedVisibleGroup?.id;
                 const hovered = event.id === hoveredEventId;
 
                 return (
                   <div
-                    key={event.id}
+                    key={group.id}
                     ref={(element) => {
                       if (element) markerElements.current.set(event.id, element);
                       else markerElements.current.delete(event.id);
@@ -806,9 +777,7 @@ export function ConflictMapPreview({
         </div>, markerContainer) : null}
 
         {compactViewport === false && selectedPopup ? (
-          <div className={styles.popupAnchor} style={{
-            transform: `translate3d(${popupAnchorPoint.x}px, ${popupAnchorPoint.y}px, 0)`,
-          }}>{selectedPopup}</div>
+          <div ref={popupAnchorRef} className={styles.popupAnchor}>{selectedPopup}</div>
         ) : null}
 
         {compactViewport === true ? selectedPopup : null}
