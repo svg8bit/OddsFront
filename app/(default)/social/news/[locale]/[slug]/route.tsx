@@ -75,35 +75,6 @@ async function fittedTitle(text: string, locale: Locale) {
   throw new Error("Unable to fit social title");
 }
 
-function brandOverlay(fallbackBackground: boolean) {
-  return Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
-    <defs>
-      <linearGradient id="fallback" x1="0" y1="1" x2="1" y2="0">
-        <stop offset="0" stop-color="#07111e"/><stop offset="0.62" stop-color="#101c36"/><stop offset="1" stop-color="#3538aa"/>
-      </linearGradient>
-      <linearGradient id="side" x1="0" y1="0" x2="1" y2="0">
-        <stop offset="0" stop-color="#030912" stop-opacity="0.96"/><stop offset="0.58" stop-color="#030912" stop-opacity="0.80"/><stop offset="1" stop-color="#030912" stop-opacity="0.30"/>
-      </linearGradient>
-      <linearGradient id="bottom" x1="0" y1="1" x2="0" y2="0">
-        <stop offset="0" stop-color="#030912" stop-opacity="0.95"/><stop offset="0.66" stop-color="#030912" stop-opacity="0.22"/><stop offset="1" stop-color="#030912" stop-opacity="0"/>
-      </linearGradient>
-      <linearGradient id="purple" x1="0" y1="0" x2="1" y2="1">
-        <stop offset="0" stop-color="#7778ff"/><stop offset="1" stop-color="#5548ff"/>
-      </linearGradient>
-      <filter id="glow" x="-80%" y="-80%" width="260%" height="260%"><feGaussianBlur stdDeviation="8"/></filter>
-    </defs>
-    ${fallbackBackground ? '<rect width="1200" height="630" fill="url(#fallback)"/>' : ""}
-    <rect width="1200" height="630" fill="url(#side)"/>
-    <rect width="1200" height="630" fill="url(#bottom)"/>
-    <g transform="translate(66 52) skewX(-25)">
-      <rect x="0" y="0" width="13" height="43" rx="2" fill="#665cff" opacity="0.48" filter="url(#glow)"/>
-      <rect x="26" y="0" width="13" height="43" rx="2" fill="#665cff" opacity="0.48" filter="url(#glow)"/>
-      <rect x="0" y="0" width="13" height="43" rx="2" fill="url(#purple)"/>
-      <rect x="26" y="0" width="13" height="43" rx="2" fill="url(#purple)"/>
-    </g>
-  </svg>`);
-}
-
 export async function GET(
   _request: Request,
   { params }: { params: Promise<{ locale: string; slug: string }> },
@@ -138,9 +109,15 @@ export async function GET(
 
   let renderStage = "text layers";
   try {
-    const [wordmark, title] = await Promise.all([
+    const [wordmark, title, brandOverlay] = await Promise.all([
       textLayer("OddsFront", "en", 30, 250),
       fittedTitle(text.title, locale),
+      readFile(path.join(
+        process.cwd(),
+        "public",
+        "brand",
+        coverImage ? "oddsfront-social-overlay-v1.png" : "oddsfront-social-background-v1.png",
+      )),
     ]);
     renderStage = "background";
     const base = coverImage
@@ -151,7 +128,7 @@ export async function GET(
       : 58;
     renderStage = "composition";
     const composed = await base.composite([
-      { input: brandOverlay(!coverImage), top: 0, left: 0 },
+      { input: brandOverlay, top: 0, left: 0 },
       { input: wordmark.data, top: 56, left: 126 },
       { input: title.data, top: 630 - 58 - title.info.height, left: titleLeft },
     ]).png({ compressionLevel: 8 }).toBuffer();

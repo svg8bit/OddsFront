@@ -74,6 +74,8 @@ const nextConfig: NextConfig = {
     "/social/news/[locale]/[slug]": [
       "./public/fonts/*.ttf",
       "./public/brand/oddsfront-social-preview-v3.png",
+      "./public/brand/oddsfront-social-overlay-v1.png",
+      "./public/brand/oddsfront-social-background-v1.png",
     ],
   },
   async rewrites() {
