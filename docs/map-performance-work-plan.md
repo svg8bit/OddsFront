@@ -30,9 +30,11 @@ for the rollback procedure.
 ## Local verification
 
 - `npm run check`: map asset budgets, lint, TypeScript and production build pass.
-- Browser regression suite: 42 passing assertions/tests, including entry and
+- Browser regression suite covers entry and
   resume refresh, old/failed responses, renewed alert expiry, static first
-  frame, gesture alignment, zoom and reduced motion.
+  frame, gesture alignment, repeated zoom taps, reversed wheel input, two-finger
+  mobile pinch, stable canvas density, reduced motion, the selected-beacon pulse
+  cap and geographic detail on selection.
 - Desktop 1440x900 and touch/mobile 390x844 (device pixel ratio 3): live map,
   focus refresh, zoom controls, no horizontal overflow or runtime errors.
 - Six-second selected-marker idle comparison against `5872689`: main-thread
@@ -40,6 +42,18 @@ for the rollback procedure.
 - Cold CPU/network throttling remains substantially slower than normal browser
   QA. The static geographic backdrop and interactive readiness are separate
   measurements; the backdrop does not imply that events or input are ready.
+
+## Gesture regression correction
+
+- Removed per-gesture canvas resizing that blurred labels and interrupted zoom.
+- Moved marker hit targets into the map's input container so a gesture starting
+  on a marker receives wheel input and both fingers of a pinch.
+- Restored MapLibre's standard wheel/trackpad sensitivity and accumulated rapid
+  zoom-button taps from the pending camera target rather than stale React state.
+- Removed the white pinpoint from event markers.
+- Reduced mobile canvas density from 2 to a fixed 1.5, drawing 44% fewer pixels.
+- Enabled server-emitted map chunk preloads without attempting WebGL on the server.
+- Added `--device=mobile` to the performance benchmark for cold mobile comparisons.
 
 ## Working agreement
 

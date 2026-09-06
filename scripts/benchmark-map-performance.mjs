@@ -5,6 +5,7 @@ import { chromium } from "@playwright/test";
 
 const DEFAULT_URL = "http://127.0.0.1:3100/";
 const DEFAULT_VIEWPORT = { width: 1917, height: 779 };
+const MOBILE_VIEWPORT = { width: 390, height: 844 };
 
 const profiles = {
   native: {
@@ -184,7 +185,7 @@ async function runDragBenchmark(page, cdp, interactionSteps) {
   for (let step = 1; step <= interactionSteps; step += 1) {
     const progress = step / interactionSteps;
     await page.mouse.move(
-      startX + 340 * progress,
+      startX + Math.min(340, box.width * 0.4) * progress,
       startY - 74 * Math.sin(progress * Math.PI),
     );
     await new Promise((resolve) => setTimeout(resolve, 16));
@@ -240,11 +241,14 @@ async function runOnce(
   interactionSteps,
   experiment,
   deviceHints,
+  mobile,
 ) {
   const profile = profiles[profileName];
   const context = await browser.newContext({
-    viewport: DEFAULT_VIEWPORT,
-    deviceScaleFactor: 1,
+    viewport: mobile ? MOBILE_VIEWPORT : DEFAULT_VIEWPORT,
+    deviceScaleFactor: mobile ? 3 : 1,
+    isMobile: mobile,
+    hasTouch: mobile,
     colorScheme: "dark",
     locale: "en-US",
     timezoneId: "UTC",
@@ -513,6 +517,7 @@ function aggregate(runs) {
 }
 
 async function main() {
+  const mobile = readOption("device", "desktop") === "mobile";
   const targetUrl = readOption("url", process.env.MAP_BENCHMARK_URL ?? DEFAULT_URL);
   const profileName = readOption(
     "profile",
@@ -567,6 +572,7 @@ async function main() {
           interactionSteps,
           experiment,
           deviceHints,
+          mobile,
         ),
       );
     }
@@ -580,7 +586,8 @@ async function main() {
     experiment,
     interactionSteps,
     deviceHints,
-    viewport: DEFAULT_VIEWPORT,
+    viewport: mobile ? MOBILE_VIEWPORT : DEFAULT_VIEWPORT,
+    device: mobile ? "mobile" : "desktop",
     runs,
     median: aggregate(runs),
   };

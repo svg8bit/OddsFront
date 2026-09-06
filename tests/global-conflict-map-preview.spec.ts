@@ -117,8 +117,8 @@ test("keeps the full map on a wide desktop with constrained hardware", async ({
   await page.mouse.move(250, 500);
   await page.mouse.down();
   await page.mouse.move(350, 550, { steps: 8 });
-  await expect.poll(() => canvas.evaluate((element: HTMLCanvasElement) => element.width / element.clientWidth))
-    .toBeLessThan(0.8);
+  expect(await canvas.evaluate((element: HTMLCanvasElement) => element.width / element.clientWidth))
+    .toBe(1);
   await expect(canvas).toHaveCSS("width", "1917px");
   await page.mouse.up();
   await expect.poll(() => canvas.evaluate((element: HTMLCanvasElement) => element.width / element.clientWidth))
@@ -173,7 +173,7 @@ test("selects a bounded WebGL canvas resolution without shrinking the map", () =
       hardwareConcurrency: 8,
       deviceMemory: 8,
     }).pixelRatio,
-  ).toBe(2);
+  ).toBe(1.5);
 });
 
 test("drops expensive texture and glow passes only on constrained hardware", () => {
@@ -188,6 +188,8 @@ test("drops expensive texture and glow passes only on constrained hardware", () 
   expect(constrained.sources).not.toHaveProperty("night-earth");
   expect(balancedLayerIds).not.toContain("night-earth-texture");
   expect(balancedLayerIds).not.toContain("country-selected-glow");
+  expect(balancedLayerIds).not.toContain("conflict-hotspot-pinpoint");
+  expect(constrainedLayerIds).not.toContain("conflict-hotspot-pinpoint");
   expect(constrainedLayerIds).not.toContain("night-earth-texture");
   expect(constrainedLayerIds).not.toContain("country-selected-glow");
   expect(constrainedLayerIds).not.toContain("continent-tonal-depth");
@@ -425,6 +427,39 @@ test("captures the regional country-and-city zoom state", async ({ page }) => {
   });
 });
 
+test("keeps a selected weak beacon within eight pulses and opens geographic detail", async ({ page }) => {
+  const fixture = getConflictPreviewFixtureFeed();
+  const feed = {
+    ...fixture,
+    dataMode: "live",
+    updatedAt: new Date(Date.now() + 1000).toISOString(),
+    events: Array.from({ length: 10 }, (_, index) => ({
+      ...fixture.events[0],
+      id: `pulse-cap-${index}`,
+      locationId: `pulse-cap-${index}`,
+      coordinates: [-55 + index * 15, 20 + (index % 2) * 12],
+      volume: index === 9 ? fixture.minimumVolume : 100_000_000,
+    })),
+  };
+  const detailRequests: string[] = [];
+  await page.route("**/api/global-conflict-events", route => route.fulfill({ json: feed }));
+  await page.route("https://tiles.openfreemap.org/planet/**", route => {
+    detailRequests.push(route.request().url());
+    return route.fulfill({ contentType: "application/x-protobuf", body: Buffer.alloc(0) });
+  });
+  const shell = await openReadyMap(page, "/global-conflict-map-preview");
+  const beacons = page.locator('[data-pulse-active="true"]');
+  await expect(beacons).toHaveCount(8);
+  const weak = page.locator('[data-event-id="pulse-cap-9"]');
+  await expect(weak).toHaveAttribute("data-pulse-active", "false");
+  expect(detailRequests).toHaveLength(0);
+  await weak.locator("button").click();
+  await expect(weak).toHaveAttribute("data-pulse-active", "true");
+  await expect(beacons).toHaveCount(8);
+  await expect.poll(async () => Number(await shell.getAttribute("data-map-zoom"))).toBeGreaterThanOrEqual(4);
+  await expect.poll(() => detailRequests.length).toBeGreaterThan(0);
+});
+
 test("supports zoom, drag, hotspot selection and popup close", async ({ page }) => {
   const shell = await openReadyMap(page);
 
@@ -537,6 +572,69 @@ test("keeps event dates together and shows weekly odds only for the selected eve
     .locator("#preview-market-south-america-venezuela")
     .textContent();
   expect(title).toContain("by\u00a0December\u00a031,\u00a02026");
+});
+
+test("accumulates rapid zoom taps and reverses wheel zoom without resizing text", async ({ page }) => {
+  await page.route("https://tiles.openfreemap.org/planet/**", route =>
+    route.fulfill({ contentType: "application/x-protobuf", body: Buffer.alloc(0) }));
+  await page.emulateMedia({ reducedMotion: "no-preference" });
+  await page.goto("/global-conflict-map-preview?fixture=1", { waitUntil: "domcontentloaded" });
+  const shell = page.locator("main[data-map-ready]");
+  await expect(shell).toHaveAttribute("data-map-ready", "true");
+  const zoom = async () => Number(await shell.getAttribute("data-map-zoom"));
+  const initialZoom = await zoom();
+  const canvas = page.locator("canvas.maplibregl-canvas");
+  const resolution = await canvas.evaluate((element: HTMLCanvasElement) => [element.width, element.height]);
+  await page.locator('[data-market-event-id="middle-east-escalation"]').hover();
+  await page.mouse.wheel(0, -450);
+  await expect.poll(zoom).toBeGreaterThan(initialZoom + 0.1);
+  const beforeTaps = await zoom();
+  await page.getByRole("button", { name: "Zoom in", exact: true }).click({ clickCount: 3, delay: 35 });
+  await expect.poll(zoom).toBeGreaterThan(beforeTaps + 2.1);
+  await page.mouse.move(800, 500);
+  const beforeWheel = await zoom();
+  await page.mouse.wheel(0, 450);
+  await expect.poll(zoom).toBeLessThan(beforeWheel - 0.1);
+  const zoomedOut = await zoom();
+  await page.mouse.wheel(0, -450);
+  await expect.poll(zoom).toBeGreaterThan(zoomedOut + 0.1);
+  expect(await canvas.evaluate((element: HTMLCanvasElement) => [element.width, element.height])).toEqual(resolution);
+});
+
+test("responds to mobile pinch in both directions with stable canvas density", async ({ browser }) => {
+  const context = await browser.newContext({
+    viewport: { width: 390, height: 844 }, deviceScaleFactor: 3, hasTouch: true, isMobile: true,
+  });
+  try {
+    const page = await context.newPage();
+    const shell = await openReadyMap(page);
+    const zoom = async () => Number(await shell.getAttribute("data-map-zoom"));
+    const initialZoom = await zoom();
+    const canvas = page.locator("canvas.maplibregl-canvas");
+    const resolution = await canvas.evaluate((element: HTMLCanvasElement) => [element.width, element.height]);
+    const cdp = await context.newCDPSession(page);
+    // This point starts the second finger on the Addis Ababa marker's hit area.
+    // The map must still receive both touches and recognize a pinch.
+    expect(await page.evaluate(() => document.elementFromPoint(230, 460)?.closest("button")?.dataset.marketEventId))
+      .toBe("horn-africa-peace");
+    const pinch = async (from: number, to: number) => {
+      const points = (distance: number) => [
+        { x: 195 - distance, y: 460, id: 1 },
+        { x: 195 + distance, y: 460, id: 2 },
+      ];
+      await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: points(from) });
+      for (let step = 1; step <= 8; step += 1) {
+        await cdp.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: points(from + (to - from) * step / 8) });
+        expect(await canvas.evaluate((element: HTMLCanvasElement) => [element.width, element.height])).toEqual(resolution);
+      }
+      await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+    };
+    await pinch(35, 95);
+    await expect.poll(zoom).toBeGreaterThan(initialZoom + 0.5);
+    const zoomedIn = await zoom();
+    await pinch(95, 35);
+    await expect.poll(zoom).toBeLessThan(zoomedIn - 0.5);
+  } finally { await context.close(); }
 });
 
 test("reaches the maximum map zoom with the mouse wheel", async ({ page }) => {

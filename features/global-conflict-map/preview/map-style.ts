@@ -10,7 +10,7 @@ import {
 
 const OPEN_FREE_MAP_TILES =
   "https://tiles.openfreemap.org/planet/20260802_080001_pt/{z}/{x}/{y}.pbf";
-const DETAIL_TILE_MIN_ZOOM = 4;
+export const DETAIL_TILE_MIN_ZOOM = 4;
 
 const placeName: ExpressionSpecification = [
   "coalesce",
@@ -87,16 +87,6 @@ const hotspotLayers: LayerSpecification[] = [
       "circle-opacity": hotspotOpacity("coreOpacity"),
       "circle-stroke-color": "#101B2D",
       "circle-stroke-width": 0.8,
-    },
-  },
-  {
-    id: "conflict-hotspot-pinpoint",
-    type: "circle",
-    source: HOTSPOT_SOURCE_ID,
-    paint: {
-      "circle-radius": hotspotRadius(1.25),
-      "circle-color": "#F1F5FF",
-      "circle-opacity": 0.88,
     },
   },
 ];

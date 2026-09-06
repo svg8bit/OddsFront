@@ -267,7 +267,8 @@
   font-family: Inter, ui-sans-serif, sans-serif;
 }
 
-.shell[data-map-moving="true"] .markerOverlay {
+.shell[data-map-moving="true"] .markerOverlay,
+.shell[data-map-moving="true"] .popupAnchor {
   visibility: hidden;
   pointer-events: none;
 }
@@ -275,6 +276,11 @@
 .stage :global(.maplibregl-canvas) {
   outline: 0;
   background: var(--map-ocean);
+}
+
+.stage :global(.maplibregl-canvas-container) {
+  width: 100%;
+  height: 100%;
 }
 
 .stage :global(.maplibregl-ctrl-bottom-left) {
@@ -306,6 +312,16 @@
   height: 0;
   pointer-events: none;
   will-change: transform;
+}
+
+.popupAnchor {
+  position: absolute;
+  z-index: 6;
+  top: 0;
+  left: 0;
+  width: 0;
+  height: 0;
+  pointer-events: none;
 }
 
 .markerAnchor[data-selected="true"] {

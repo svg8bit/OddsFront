@@ -32,9 +32,14 @@ validated public destinations.
   clients do not rasterize the font on startup. Only a bounded set of compositor pulses animates while
   idle. Map movement and background tabs pause these effects.
   A static geographic backdrop appears before JavaScript is available. It has
-  no live-data claims and is replaced when the canvas is ready. Camera gestures
-  temporarily reduce the pixel budget; full text resolution returns after the
-  gesture ends without interrupting MapLibre's input handlers.
+  no live-data claims and is replaced when the canvas is ready. Canvas resolution
+  stays constant throughout camera gestures, preserving text clarity and avoiding
+  framebuffer reallocations or interrupted input. Mobile density is capped at
+  1.5 rather than 2. The server emits map bundle preloads while a hydration gate
+  keeps WebGL initialization in the browser.
+  Marker hit targets are portaled into MapLibre's canvas container so wheel,
+  drag and two-finger gestures starting on markers reach the same input handler.
+  Popups remain outside that container to keep their controls independent.
 
 ## Event lifecycle
 
