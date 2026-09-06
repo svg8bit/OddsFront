@@ -1,4 +1,6 @@
 import { Buffer } from "node:buffer";
+import { readFile } from "node:fs/promises";
+import path from "node:path";
 import { ImageResponse } from "next/og";
 import sharp from "sharp";
 import { getNewsArticle } from "@/lib/news/catalog";
@@ -10,35 +12,38 @@ import type { Locale } from "@/lib/news/types";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const SOCIAL_FONT_PATHS: Record<Locale, string> = {
-  en: "/fonts/inter-social-v1.ttf",
-  zh: "/fonts/noto-sans-sc-social-v1.ttf",
-  ko: "/fonts/noto-sans-kr-social-v1.ttf",
-  vi: "/fonts/inter-social-v1.ttf",
-  de: "/fonts/inter-social-v1.ttf",
-  es: "/fonts/inter-social-v1.ttf",
-  "pt-BR": "/fonts/inter-social-v1.ttf",
-  fr: "/fonts/inter-social-v1.ttf",
-  ru: "/fonts/inter-social-v1.ttf",
-  uk: "/fonts/inter-social-v1.ttf",
-  fa: "/fonts/almarai-social-v1.ttf",
-  he: "/fonts/noto-sans-hebrew-social-v1.ttf",
+const SOCIAL_FONT_FILES: Record<Locale, string> = {
+  en: "inter-social-v1.ttf",
+  zh: "noto-sans-sc-social-v1.ttf",
+  ko: "noto-sans-kr-social-v1.ttf",
+  vi: "inter-social-v1.ttf",
+  de: "inter-social-v1.ttf",
+  es: "inter-social-v1.ttf",
+  "pt-BR": "inter-social-v1.ttf",
+  fr: "inter-social-v1.ttf",
+  ru: "inter-social-v1.ttf",
+  uk: "inter-social-v1.ttf",
+  fa: "almarai-social-v1.ttf",
+  he: "noto-sans-hebrew-social-v1.ttf",
 };
 const fontCache = new Map<string, Promise<ArrayBuffer | null>>();
 
-function loadSocialFont(requestUrl: string, locale: Locale) {
-  const url = new URL(SOCIAL_FONT_PATHS[locale], requestUrl).toString();
-  let pending = fontCache.get(url);
+function toArrayBuffer(value: Buffer): ArrayBuffer {
+  return value.buffer.slice(value.byteOffset, value.byteOffset + value.byteLength) as ArrayBuffer;
+}
+
+function loadSocialFont(locale: Locale) {
+  const filename = SOCIAL_FONT_FILES[locale];
+  let pending = fontCache.get(filename);
   if (!pending) {
-    pending = fetch(url, { cache: "no-store", signal: AbortSignal.timeout(8_000) })
-      .then(async (response) => {
-        if (!response.ok) return null;
-        const data = await response.arrayBuffer();
+    pending = readFile(path.join(process.cwd(), "public", "fonts", filename))
+      .then((value) => {
+        const data = toArrayBuffer(value);
         return data.byteLength > 1_000 && new DataView(data).getUint32(0) === 0x00010000 ? data : null;
       })
       .catch(() => null);
-    fontCache.set(url, pending);
-    void pending.then((data) => { if (!data) fontCache.delete(url); });
+    fontCache.set(filename, pending);
+    void pending.then((data) => { if (!data) fontCache.delete(filename); });
   }
   return pending;
 }
@@ -55,7 +60,7 @@ export async function GET(
   }
   const text = articleText(article, locale);
   const direction = localeDirection(locale);
-  const font = await loadSocialFont(_request.url, locale);
+  const font = await loadSocialFont(locale);
   const source = article.sources.find((candidate) => candidate.kind === "media");
   const cover = source ? await fetchPartnerCover(source.url) : null;
   let coverImage: Buffer | null = null;
@@ -92,9 +97,11 @@ export async function GET(
     }
     return pngResponse(overlay.buffer.slice(overlay.byteOffset, overlay.byteOffset + overlay.byteLength) as ArrayBuffer);
   } catch {
-    const fallback = await fetch(new URL(SOCIAL_PREVIEW_PATH, _request.url), { cache: "force-cache" });
-    return fallback.ok
-      ? pngResponse(await fallback.arrayBuffer())
-      : new Response(null, { status: 500, headers: { "Cache-Control": "no-store" } });
+    try {
+      const fallback = await readFile(path.join(process.cwd(), "public", SOCIAL_PREVIEW_PATH.replace(/^\/+/, "")));
+      return pngResponse(toArrayBuffer(fallback));
+    } catch {
+      return new Response(null, { status: 500, headers: { "Cache-Control": "no-store" } });
+    }
   }
 }

@@ -70,6 +70,12 @@ const nextConfig: NextConfig = {
   poweredByHeader: false,
   reactStrictMode: true,
   devIndicators: false,
+  outputFileTracingIncludes: {
+    "/social/news/[locale]/[slug]": [
+      "./public/fonts/*.ttf",
+      "./public/brand/oddsfront-social-preview-v3.png",
+    ],
+  },
   async rewrites() {
     return {
       beforeFiles: [{
