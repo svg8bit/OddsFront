@@ -777,15 +777,15 @@ test("serves the approved map on the canonical public route", async ({ page }) =
   await expect(page.locator('[data-market-strip="true"]')).toBeVisible();
   await expect(page.locator('meta[property="og:image"]')).toHaveAttribute(
     "content",
-    "https://oddsfront.com/brand/oddsfront-social-preview-v2.png",
+    "https://oddsfront.com/brand/oddsfront-social-preview-v3.png",
   );
   await expect(page.locator('meta[name="twitter:image"]')).toHaveAttribute(
     "content",
-    "https://oddsfront.com/brand/oddsfront-social-preview-v2.png",
+    "https://oddsfront.com/brand/oddsfront-social-preview-v3.png",
   );
   await expect(page.locator('link[rel="icon"][type="image/svg+xml"]')).toHaveAttribute(
     "href",
-    "/brand/oddsfront-icon-v1.svg",
+    "/brand/oddsfront-icon-v1.svg?v=2",
   );
 
   const favicon = await page.request.get("/favicon.ico");
@@ -806,7 +806,7 @@ test("serves the approved map on the canonical public route", async ({ page }) =
   await expect(page.locator('body img[src*="/brand/oddsfront-"]')).toHaveCount(0);
 
   const socialPreview = await page.request.get(
-    "/brand/oddsfront-social-preview-v2.png",
+    "/brand/oddsfront-social-preview-v3.png",
   );
   expect(socialPreview.ok()).toBeTruthy();
   expect(socialPreview.headers()["content-type"]).toContain("image/png");
@@ -867,16 +867,11 @@ test("serves the live map and fresh social metadata at the root URL", async ({
     "content",
     "https://oddsfront.com",
   );
-  await expect(
-    page.locator('meta[property="og:image:secure_url"]'),
-  ).toHaveAttribute(
+  await expect(page.locator('meta[property="og:image"]')).toHaveAttribute(
     "content",
-    "https://oddsfront.com/brand/oddsfront-social-preview-v2.png",
+    "https://oddsfront.com/brand/oddsfront-social-preview-v3.png",
   );
-  await expect(page.locator('link[rel="image_src"]')).toHaveAttribute(
-    "href",
-    "https://oddsfront.com/brand/oddsfront-social-preview-v2.png",
-  );
+  await expect(page.locator('link[rel="image_src"]')).toHaveCount(0);
   await expect(page.locator('link[rel="manifest"]')).toHaveAttribute("href", "/site.webmanifest");
   const manifest = await page.request.get("/site.webmanifest");
   expect(manifest.ok()).toBeTruthy();

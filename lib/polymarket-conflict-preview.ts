@@ -29,6 +29,7 @@ interface GammaMarket {
   question?: string;
   outcomes?: unknown;
   outcomePrices?: unknown;
+  clobTokenIds?: unknown;
   volume?: string | number | null;
   volume24hr?: string | number | null;
   liquidity?: string | number | null;
@@ -164,6 +165,15 @@ function normalizeBinaryPrices(
   const yesProbability = yesValue / total;
   const yes = Math.round(yesProbability * 100);
   return { yes, no: 100 - yes, yesProbability };
+}
+
+function yesTokenId(market: GammaMarket): string | null {
+  const outcomes = parseStringArray(market.outcomes);
+  const tokens = parseStringArray(market.clobTokenIds);
+  if (!outcomes || !tokens || outcomes.length !== tokens.length) return null;
+  const index = outcomes.findIndex((outcome) => outcome.toLowerCase() === "yes");
+  const token = index >= 0 ? tokens[index]?.trim() : "";
+  return token && /^\d{8,}$/.test(token) ? token : null;
 }
 
 function cleanText(value: string): string {
@@ -457,6 +467,7 @@ export function normalizeConflictPreviewEvent(
     priceChange7d: toOptionalFiniteNumber(selected.market.oneWeekPriceChange),
     endDate: selected.market.endDate ?? null,
     marketConditionId: normalizeConditionId(selected.market.conditionId),
+    yesTokenId: yesTokenId(selected.market),
   };
 }
 

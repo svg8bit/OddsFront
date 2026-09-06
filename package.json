@@ -29,6 +29,7 @@
     "test:visual:reference": "node scripts/compare-map-reference.mjs",
     "news:publish": "node scripts/news/publish.ts",
     "news:translate": "/root/OddsFront/.local/translation-venv/bin/python scripts/news/translate.py",
+    "news:indexnow": "node scripts/news/indexnow.mjs",
     "test:news": "playwright test tests/news-publication.spec.ts tests/news-interface.spec.ts",
     "generate:localized-map-assets": "node scripts/generate-localized-map-assets.mjs"
   },
@@ -40,6 +41,7 @@
     "react": "19.2.8",
     "react-dom": "19.2.8",
     "react-map-gl": "8.1.2",
+    "sharp": "0.35.3",
     "zustand": "^5.0.14"
   },
   "devDependencies": {
