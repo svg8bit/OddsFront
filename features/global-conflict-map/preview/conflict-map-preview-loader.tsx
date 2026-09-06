@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useSyncExternalStore } from "react";
+import { useCallback, useState, useSyncExternalStore } from "react";
 import { SiteNavigation } from "@/components/site-navigation";
 import { useLocale } from "@/components/locale-provider";
 
@@ -41,6 +41,8 @@ export function ConflictMapPreviewLoader({
   const activityFeed = useLiveConflictFeed(initialFeed, fixtureMode);
   const hydrated = useSyncExternalStore(subscribeHydration, clientSnapshot, serverSnapshot);
   const popupOpen = useConflictMapPreviewStore((state) => state.popupOpen);
+  const [mapReady, setMapReady] = useState(false);
+  const handleMapReady = useCallback(() => setMapReady(true), []);
 
   return (
     <div
@@ -48,7 +50,7 @@ export function ConflictMapPreviewLoader({
       data-popup-open={popupOpen ? "true" : "false"}
     >
       <link rel="modulepreload" href="/vendor/maplibre/6.1.0/maplibre-gl.mjs" crossOrigin="anonymous" />
-      <SiteNavigation mode="map" />
+      {popupOpen ? null : <SiteNavigation mode="map" />}
       <div className={styles.initialBasemap} aria-hidden="true" data-initial-basemap="true">
         <span>{t("loadingMap")}</span>
       </div>
@@ -56,6 +58,7 @@ export function ConflictMapPreviewLoader({
         initialFeed={activityFeed}
         initialMarketStrip={initialMarketStrip}
         fixtureMode={fixtureMode}
+        onReady={handleMapReady}
       />
       <div
         className={styles.externalActivityLayer}
@@ -66,6 +69,7 @@ export function ConflictMapPreviewLoader({
           feed={activityFeed}
           fixtureMode={fixtureMode}
           liveRefreshEnabled={!fixtureMode}
+          newsRefreshEnabled={mapReady && !fixtureMode}
         /> : null}
       </div>
     </div>

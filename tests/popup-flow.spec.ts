@@ -23,6 +23,7 @@ for (const mobile of [false, true]) {
       if (mobile) await first.tap(); else await first.click();
       const popup = page.getByTestId("conflict-popup");
       await expect(popup).toBeVisible();
+      await expect(popup).toHaveCSS("opacity", "1");
       await popup.evaluate(element => { element.dataset.continuity = "same-card"; });
       const framesPromise = page.evaluate(() => new Promise<Array<{ visible: boolean; inBounds: boolean }>>(resolve => {
         const frames: Array<{ visible: boolean; inBounds: boolean }> = [];

@@ -40,6 +40,7 @@ export interface ConflictPreviewEvent {
   evidenceStatus: PreviewEvidenceStatus;
   geographyKind: PreviewGeographyKind;
   marketUrl: string | null;
+  imageUrl?: string | null;
   updatedAt: string;
   sourceLabel: string;
   volume24h: number;

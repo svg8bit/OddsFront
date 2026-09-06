@@ -2,11 +2,11 @@
 // Overview, country navigation, article/source layout and latest rail adapted
 // from ColdMath News; the visual system and market actions belong to OddsFront.
 import Link from "next/link";
-import { ArrowLeft, ArrowUpRight, ArrowRight, Search } from "lucide-react";
+import Image from "next/image";
+import { ArrowLeft, ArrowUpRight, ArrowRight, Search, Send } from "lucide-react";
 import { useEffect, useState, useRef } from "react";
 import { useLocale } from "@/components/locale-provider";
 import { SiteNavigation } from "@/components/site-navigation";
-import { NEWS_SOURCES } from "@/lib/news/sources";
 import { articleText, localeDirection } from "@/lib/news/locale";
 import type { NewsArticle } from "@/lib/news/types";
 import type { ConflictPreviewEvent, ConflictPreviewFeed } from "@/features/global-conflict-map/preview/types";
@@ -23,26 +23,29 @@ export function NewsChrome({ children }: { children: React.ReactNode }) {
   return <div className={styles.page} dir={localeDirection(locale)}>
     <header className={styles.header}><Link className={styles.wordmark} href="/news" prefetch={false}>OddsFront<span> / {t("news")}</span></Link><SiteNavigation mode="news"/></header>
     <main className={styles.content}>{children}</main>
-    <footer className={styles.footer}><span>© {new Date().getUTCFullYear()} OddsFront</span><Link href="/news/archive" prefetch={false}>{t("archive")}</Link><Link href="/news/about" prefetch={false}>{t("about")}</Link><a href="/news/rss.xml">{t("feed")}</a><Link href="/" prefetch={false}>{t("browseMap")}<ArrowUpRight size={13}/></Link></footer>
+    <footer className={styles.footer}><span>© {new Date().getUTCFullYear()} OddsFront</span><a href="https://t.me/oddsfront" target="_blank" rel="noreferrer"><Send size={13}/>Telegram</a></footer>
   </div>;
 }
 
 function StoryArt({ article, featured = false }: { article: NewsArticle; featured?: boolean }) {
   const { country, translate, t } = useLocale();
   const primary = article.countries[0] || "WORLD";
-  return <div className={`${styles.art} ${featured ? styles.featuredArt : ""}`} data-country={primary} aria-hidden="true">
+  const mediaSource = article.sources.find(source => source.kind === "media");
+  const [coverState, setCoverState] = useState<"loading" | "loaded" | "failed">(
+    mediaSource ? "loading" : "failed",
+  );
+  return <div className={`${styles.art} ${featured ? styles.featuredArt : ""}`} data-country={primary} data-cover-state={coverState} aria-hidden="true">
     <div className={styles.artGrid}/><div className={styles.artMap}/>
-    <span className={styles.artTop}>ODDSFRONT / {translate("World desk")}</span>
-    <span className={styles.artLocation}>{primary.length === 2 ? <CountryFlag code={primary}/> : null}{primary.length === 2 ? country(primary) : t("news")}</span>
-    <span className={styles.artCode}>{primary}</span>
-    <span className={styles.artBottom}>{article.topics.slice(0,2).map(translate).join(" · ")}</span>
+    {mediaSource && coverState !== "failed" ? <Image className={styles.partnerCover} src={`/api/news-image/${encodeURIComponent(article.slug)}`} alt="" fill sizes={featured?"(max-width: 760px) 100vw, 50vw":"(max-width: 760px) 100vw, 33vw"} loading={featured?"eager":"lazy"} fetchPriority={featured?"high":"auto"} onLoad={()=>setCoverState("loaded")} onError={()=>setCoverState("failed")}/> : null}
+    <div className={styles.artShade}/>
+    {coverState === "loaded" ? <span className={styles.coverCredit}>Image · {mediaSource?.publisher}</span> : <><span className={styles.artTop}>ODDSFRONT / {translate("World desk")}</span><span className={styles.artLocation}>{primary.length === 2 ? <CountryFlag code={primary}/> : null}{primary.length === 2 ? country(primary) : t("news")}</span><span className={styles.artCode}>{primary}</span><span className={styles.artBottom}>{article.topics.slice(0,2).map(translate).join(" · ")}</span></>}
   </div>;
 }
 
 function StoryCard({ article, featured = false }: { article: NewsArticle; featured?: boolean }) {
   const { locale, t, country } = useLocale(); const text = articleText(article,locale);
   return <Link className={`${styles.card} ${featured ? styles.featuredCard : ""}`} href={`${articlePath(article)}?lang=${locale}`} prefetch={false}>
-    <StoryArt article={article} featured={featured}/>
+    <StoryArt key={article.slug} article={article} featured={featured}/>
     <div className={styles.cardBody}><span className={styles.eyebrow}>{article.countries.slice(0,2).map(country).join(" / ") || t("news")}</span>
       <h2>{text.title}</h2><p>{text.description}</p><div className={styles.cardMeta}><time dateTime={article.publishedAt}>{new Intl.DateTimeFormat(locale,{month:"short",day:"numeric",hour:"2-digit",minute:"2-digit"}).format(new Date(article.publishedAt))}</time><span>{article.readingMinutes ?? Math.max(1,Math.ceil(article.body.map(block=>block.text).join(" ").split(/\s+/).length/220))} {t("minute")}</span><ArrowRight size={17}/></div>
     </div>
@@ -68,14 +71,14 @@ export function NewsOverview({ initialArticles, initialUpdatedAt, activeCountry,
     <section className={styles.intro}><div><span className={styles.eyebrow}>ODDSFRONT / {t("news")}</span><h1>{archive?t("archive"):selected==="ALL"?t("latest"):country(selected)}</h1><p>{t("description")}</p></div><label className={styles.search}><Search size={16}/><input type="search" aria-label={t("search")} placeholder={t("search")} value={query} onChange={event=>setQuery(event.target.value)}/></label></section>
     <nav className={styles.filters} aria-label={t("countryNews")}><Link href={`/news/world?lang=${locale}`} aria-current={selected==="ALL"?"page":undefined} prefetch={false}>{t("all")}</Link>{countries.map(code=><Link key={code} href={`/news/${code.toLowerCase()}?lang=${locale}`} aria-current={selected===code?"page":undefined} prefetch={false}><CountryFlag code={code}/>{country(code)}</Link>)}</nav>
     <div className={styles.overviewGrid}><section aria-label={t("latest")}>{featured?<StoryCard article={featured} featured/>:<div className={styles.empty}>{query?t("noResults"):t("empty")}</div>}<div className={styles.cardGrid}>{filtered.slice(1,limit).map(article=><StoryCard key={article.id} article={article}/>)}</div>{filtered.length>limit?<button className={styles.loadMore} onClick={()=>setLimit(limit+12)}>{t("loadMore")}</button>:null}</section>
-      <aside className={styles.latestRail}><span className={styles.eyebrow}>{t("latest")}</span>{articles.slice(0,5).map((article,index)=><Link key={article.id} href={`${articlePath(article)}?lang=${locale}`} prefetch={false}><span>{String(index+1).padStart(2,"0")}</span><div><h3>{articleText(article,locale).title}</h3><time dateTime={article.publishedAt}>{new Intl.DateTimeFormat(locale,{month:"short",day:"numeric"}).format(new Date(article.publishedAt))}</time></div></Link>)}<div className={styles.sourceBox}><span className={styles.eyebrow}>{t("sources")}</span>{NEWS_SOURCES.map(source=><a key={source.id} href={source.url} target="_blank" rel="noreferrer">{source.name}<ArrowUpRight size={12}/></a>)}</div></aside>
+      <aside className={styles.latestRail}><span className={styles.eyebrow}>{t("latest")}</span>{articles.slice(0,5).map((article,index)=><Link key={article.id} href={`${articlePath(article)}?lang=${locale}`} prefetch={false}><span>{String(index+1).padStart(2,"0")}</span><div><h3>{articleText(article,locale).title}</h3><time dateTime={article.publishedAt}>{new Intl.DateTimeFormat(locale,{month:"short",day:"numeric"}).format(new Date(article.publishedAt))}</time></div></Link>)}</aside>
     </div>
   </NewsChrome>;
 }
 
 function LiveMarketCard({ event, fresh }: { event: ConflictPreviewEvent; fresh: boolean }) {
   const { t,translate,locale }=useLocale(); const market=toPolymarketReferralUrl(event.marketUrl); const track=buildDropsBotTrackUrl(event.marketUrl);
-  return <article className={styles.marketCard} data-testid="news-related-market"><div className={styles.marketKicker}><span className={fresh?styles.liveDot:undefined}/>{t(fresh?"live":"updated")}<span>{event.countryCodes.slice(0,3).map(code=><CountryFlag key={code} code={code}/>)}</span></div><h3>{translate(event.title)}</h3><div className={styles.marketOdds} dir="ltr"><div><span>{t("yes")}</span><strong>{event.yesOdds}%</strong></div><div><span>{t("no")}</span><strong>{event.noOdds}%</strong></div></div><div className={styles.marketVolume}>{t("volume")} <b dir="ltr">{new Intl.NumberFormat(locale,{style:"currency",currency:"USD",notation:"compact",maximumFractionDigits:1}).format(event.marketVolume??event.volume)}</b></div><div className={styles.marketActions}>{track?<a href={track} target="_blank" rel="noreferrer">{t("track")}</a>:null}{market?<a href={market} target="_blank" rel="noreferrer">{t("market")}<ArrowUpRight size={14}/></a>:null}</div></article>;
+  return <article className={styles.marketCard} data-testid="news-related-market"><div className={styles.marketKicker}><span className={fresh?styles.liveDot:undefined}/>{t(fresh?"live":"updated")}<span>{event.countryCodes.slice(0,3).map(code=><CountryFlag key={code} code={code}/>)}</span></div><div className={styles.marketHeadline}>{event.imageUrl?<span className={styles.marketImage} aria-hidden="true"><Image src={`/api/market-image/${encodeURIComponent(event.id)}`} alt="" width={42} height={42} loading="lazy" onError={image=>{image.currentTarget.parentElement?.setAttribute("hidden","");}} data-market-image/></span>:null}<h3>{translate(event.title)}</h3></div><div className={styles.marketOdds} dir="ltr"><div><span>{t("yes")}</span><strong>{event.yesOdds}%</strong></div><div><span>{t("no")}</span><strong>{event.noOdds}%</strong></div></div><div className={styles.marketVolume}>{t("volume")} <b dir="ltr">{new Intl.NumberFormat(locale,{style:"currency",currency:"USD",notation:"compact",maximumFractionDigits:1}).format(event.marketVolume??event.volume)}</b></div><div className={styles.marketActions}>{track?<a href={track} target="_blank" rel="noreferrer">{t("track")}</a>:null}{market?<a href={market} target="_blank" rel="noreferrer">{t("market")}<ArrowUpRight size={14}/></a>:null}</div></article>;
 }
 
 export function NewsArticleView({ article, initialFeed }: { article: NewsArticle; initialFeed: ConflictPreviewFeed }) {
@@ -85,7 +88,7 @@ export function NewsArticleView({ article, initialFeed }: { article: NewsArticle
   const fresh=(clock||Date.parse(feed.updatedAt))-Date.parse(feed.updatedAt)<90_000 && feed.dataMode==="live";
   return <NewsChrome><Link className={styles.back} href={`/news?lang=${locale}`} prefetch={false}><ArrowLeft size={15}/>{t("back")}</Link><div className={styles.articleGrid}><article className={styles.article} lang={translated?locale:"en"} dir={localeDirection(translated?locale:"en")}>
     <header className={styles.articleHeader}><div className={styles.eyebrow}>{article.countries.map(code=><Link href={`/news/${code.toLowerCase()}?lang=${locale}`} key={code} prefetch={false}>{country(code)}</Link>)}</div><h1>{text.title}</h1><p>{text.description}</p><div className={styles.byline}><strong>{article.author}</strong><time dateTime={article.publishedAt}>{new Intl.DateTimeFormat(locale,{dateStyle:"medium",timeStyle:"short"}).format(new Date(article.publishedAt))}</time></div>{translated?<p className={styles.translationNote}>{t("translated")} · <a href={`${articlePath(article)}?lang=en`}>{t("original")}</a></p>:null}</header>
-    <StoryArt article={article} featured/>
+    <StoryArt key={article.slug} article={article} featured/>
     <div className={styles.prose}>{text.body.map((block,index)=>block.type==="heading"?<h2 key={index}>{block.text}</h2>:<p key={index}>{block.text}</p>)}</div>
     <section className={styles.articleSources}><h2>{t("sources")}</h2>{article.sources.map(source=><a key={source.id} href={source.url} target="_blank" rel="noreferrer"><span>{source.publisher}</span><strong>{source.title}<ArrowUpRight size={13}/></strong><time dateTime={source.publishedAt}>{t("sourceDate")}: {new Intl.DateTimeFormat(locale,{dateStyle:"medium"}).format(new Date(source.publishedAt))}</time></a>)}</section>
     </article><aside className={styles.marketRail} aria-label={t("related")}><span className={styles.eyebrow}>{t("related")}</span>{events.length?events.map(event=><LiveMarketCard key={event.id} event={event} fresh={fresh}/>):<div className={styles.empty}>{t("unavailable")}<Link href="/" prefetch={false}>{t("browseMap")}<ArrowUpRight size={14}/></Link></div>}</aside></div></NewsChrome>;

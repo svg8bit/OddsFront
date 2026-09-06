@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import type { CSSProperties } from "react";
 import {
   ChevronLeft,
@@ -112,9 +113,26 @@ export function ConflictPopup({
         </button>
       </div>
 
-      <h2 id={`preview-market-${event.id}`} className={styles.popupTitle}>
-        {locale === "en" ? formatMarketTitle(event.title) : translate(event.title)}
-      </h2>
+      <div className={styles.popupHeadline} data-has-market-image={event.imageUrl ? "true" : "false"}>
+        {event.imageUrl ? (
+          <span className={styles.popupMarketImage} aria-hidden="true">
+            <Image
+              src={`/api/market-image/${encodeURIComponent(event.id)}`}
+              alt=""
+              width={42}
+              height={42}
+              loading="lazy"
+              onError={(event) => {
+                event.currentTarget.parentElement?.setAttribute("hidden", "");
+              }}
+              data-market-image
+            />
+          </span>
+        ) : null}
+        <h2 id={`preview-market-${event.id}`} className={styles.popupTitle}>
+          {locale === "en" ? formatMarketTitle(event.title) : translate(event.title)}
+        </h2>
+      </div>
 
       {event.priceChange7d !== null && Math.abs(event.priceChange7d) >= 0.005 ? (
         <div
@@ -128,7 +146,7 @@ export function ConflictPopup({
             <TrendingDown size={13} aria-hidden="true" />
           )}
           <strong>{formatWeeklyChange(event.priceChange7d)}</strong>
-          <span>{t("change")}</span>
+          <span>7D</span>
         </div>
       ) : null}
 

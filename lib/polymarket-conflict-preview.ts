@@ -42,6 +42,8 @@ interface GammaMarket {
   oneHourPriceChange?: string | number | null;
   oneDayPriceChange?: string | number | null;
   oneWeekPriceChange?: string | number | null;
+  image?: string | null;
+  icon?: string | null;
 }
 
 interface GammaTag {
@@ -61,6 +63,8 @@ export interface GammaEvent {
   volume24hr?: string | number | null;
   liquidity?: string | number | null;
   updatedAt?: string | null;
+  image?: string | null;
+  icon?: string | null;
   markets?: GammaMarket[] | null;
   tags?: GammaTag[] | null;
 }
@@ -170,6 +174,23 @@ function normalizeConditionId(value: string | null | undefined): string | null {
   return typeof value === "string" && /^0x[a-f0-9]{64}$/i.test(value)
     ? value.toLowerCase()
     : null;
+}
+
+export function normalizePolymarketImageUrl(
+  value: string | null | undefined,
+): string | null {
+  if (!value) return null;
+  try {
+    const url = new URL(value);
+    return url.protocol === "https:" &&
+      !url.username &&
+      !url.password &&
+      url.hostname === "polymarket-upload.s3.us-east-2.amazonaws.com"
+      ? url.toString()
+      : null;
+  } catch {
+    return null;
+  }
 }
 
 function eventTagText(event: GammaEvent): string {
@@ -421,6 +442,12 @@ export function normalizeConflictPreviewEvent(
     evidenceStatus: location.evidenceStatus,
     geographyKind: participants.geographyKind,
     marketUrl: buildPolymarketEventUrl(event.slug),
+    imageUrl: [
+      selected.market.image,
+      selected.market.icon,
+      event.image,
+      event.icon,
+    ].map(normalizePolymarketImageUrl).find((value): value is string => value !== null) ?? null,
     updatedAt,
     sourceLabel: "Polymarket Gamma API",
     volume24h: toFiniteNumber(selected.market.volume24hr ?? event.volume24hr),

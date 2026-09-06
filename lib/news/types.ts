@@ -2,6 +2,18 @@ export const LOCALES = ["en", "zh", "ko", "vi", "de", "es", "pt-BR", "fr", "ru",
 export type Locale = typeof LOCALES[number];
 export type ArticleBlock = { type: "paragraph" | "heading"; text: string };
 export type ArticleText = { title: string; description: string; body: ArticleBlock[] };
+export type NewsAlertKind = "strike" | "ceasefire";
+export interface NewsAlertDraft {
+  eligible: boolean;
+  kind: NewsAlertKind | "none";
+  actorCountries: string[];
+  targetCountries: string[];
+}
+export interface NewsAlert {
+  kind: NewsAlertKind;
+  actorCountries: string[];
+  targetCountries: string[];
+}
 export interface NewsSource {
   id: string;
   title: string;
@@ -14,6 +26,7 @@ export interface NewsSource {
 export interface NewsDraft extends ArticleText {
   publishable: boolean;
   rejectionReason: string;
+  alert: NewsAlertDraft;
   countries: string[];
   topics: string[];
   sources: NewsSource[];
@@ -28,6 +41,7 @@ export interface NewsArticle extends ArticleText {
   readingMinutes?: number;
   countries: string[];
   topics: string[];
+  alert?: NewsAlert | null;
   sources: Omit<NewsSource, "evidence">[];
   translations: Partial<Record<Locale, ArticleText>>;
 }

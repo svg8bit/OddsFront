@@ -35,11 +35,22 @@ full-text licensing, so ColdMath's licensed syndication mode is not enabled.
 The overlap gate checks evidence notes, not every word of a paywalled source.
 Research and publication gates reduce errors; they do not replace human review.
 
-The five-hour cycle requests up to nine stories across the configured sources.
+The two-hour cycle requests up to nine stories across the configured sources.
 Fewer stories, including zero, is a successful checked edition when evidence is
 insufficient. An invalid research response fails the job and retains published
 content. Each edition writes a private receipt. The first article was manually
 checked against The Kyiv Independent and the Ukrainian presidency before release.
+
+Fresh articles may also become blue map alerts for 15 minutes. The publisher
+marks only a newly confirmed strike or a formally agreed/effective ceasefire in
+a major global hotspot. The application then independently requires an active
+Polymarket question with the same action and participants, the correct strike
+direction, and at least $1 million in that market. Forecasts, proposals,
+negotiations and loosely related markets fail closed. Both validated DropsBot
+and market actions are required; News alerts show no odds.
+Partner cover images are fetched from the source page's Open Graph metadata,
+proxied through a fixed host and MIME allowlist, credited in the UI, and replaced
+by the existing OddsFront art when unavailable.
 
 ## Writer and translation costs
 
@@ -71,7 +82,7 @@ RTL map shaping. Country glyphs are precomputed and requested by Unicode range.
 ## Service operation
 
 Tracked units: `ops/systemd/oddsfront-news.service` and `.timer`. The oneshot
-publisher runs every five hours with Nice 10, one CPU quota and a 3 GB memory
+publisher runs every two hours with Nice 10, one CPU quota and a 3 GB memory
 limit. Translation follows research. `edition.lock` uses OS flock for both
 processes, preventing lost updates and releasing automatically after termination.
 No lock-file deletion is required after a crash. The Codex CLI also needs its

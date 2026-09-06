@@ -17,7 +17,7 @@
   },
   {
     "tag": "p",
-    "text": "Automated research and editorial checks reject unsupported claims, duplicate stories and copied wording. The desk never fills a missing fact with invented news, quotations or market odds. Publication runs every five hours; an edition may contain fewer stories when evidence is insufficient."
+    "text": "Automated research and editorial checks reject unsupported claims, duplicate stories and copied wording. The desk never fills a missing fact with invented news, quotations or market odds. Publication runs every two hours and may contain fewer than nine stories when evidence is insufficient."
   },
   {
     "tag": "h2",
@@ -33,6 +33,6 @@
   },
   {
     "tag": "p",
-    "text": "Related event cards use the same public market feed as the OddsFront map. Track opens DropsBot; View market opens the official market. An empty panel means no suitable active market is available. Article artwork is an OddsFront geographic illustration, not a photograph of a reported event."
+    "text": "Related event cards use the same public market feed as the OddsFront map. Track opens DropsBot; View market opens the official market. An empty panel means no suitable active market is available. A credited partner cover is shown when its source page supplies one; OddsFront geographic artwork remains the fallback."
   }
 ]
