@@ -54,3 +54,11 @@ future messages of the same type after detection, while the native Drops setting
 question remains with official support. Clarifications and normal odds/news
 messages are not classified as disputes. No native profile setting change is
 claimed.
+
+Sky cover recovery checks the publisher's World, UK, Politics and Business RSS
+feeds by exact canonical article URL. This fixes a verified Portsmouth article
+whose photograph was present in UK but absent from World. The staged edition
+was preserved under a bounded maintenance pause and restored with the exact
+publisher photograph; the nine-story gate then confirmed six photographs and
+three fallbacks before its scheduled release. No article evidence or cover
+quota was relaxed.

@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { extractPartnerFeedImage, extractPartnerOpenGraphImage, normalizePartnerImageUrl } from "../lib/news/partner-covers";
+import { extractPartnerFeedImage, extractPartnerOpenGraphImage, normalizePartnerImageUrl, fetchPartnerCover } from "../lib/news/partner-covers";
 import { prepareEditionCovers } from "../lib/news/edition-covers";
 import type { NewsArticle } from "../lib/news/types";
 import seed from "../lib/news/catalog.seed.json";
@@ -17,6 +17,26 @@ test("RSS cover discovery requires the exact article and an approved image host"
   const rss = '<rss><item><link>https://news.sky.com/story/unrelated</link><enclosure url="https://e3.365dm.com/wrong.jpg"/></item><item><link>' + article + '</link><media:content url="https://e3.365dm.com/correct.jpg?a=1&amp;b=2"/></item></rss>';
   expect(extractPartnerFeedImage(rss, article)).toBe("https://e3.365dm.com/correct.jpg?a=1&b=2");
   expect(extractPartnerFeedImage(rss, article + "-different")).toBeNull();
+});
+
+test("Sky domestic stories retain their own photograph when absent from the World feed", async () => {
+  const article = "https://news.sky.com/story/domestic-development-fixture";
+  const photo = "https://e3.365dm.com/domestic-fixture.jpg";
+  const requests: string[] = [];
+  const original = globalThis.fetch;
+  globalThis.fetch = async input => {
+    const url = String(input); requests.push(url);
+    const response = url.endsWith("/world.xml") ? new Response("unavailable", { status: 503 })
+      : url.endsWith("/uk.xml") ? new Response(`<rss><item><link>${article}</link><enclosure url="${photo}"/></item></rss>`)
+        : url === photo ? new Response(new Uint8Array([255, 216, 255, 217]), { headers: { "Content-Type": "image/jpeg" } })
+          : new Response("not found", { status: 404 });
+    Object.defineProperty(response, "url", { value: url });
+    return response;
+  };
+  try {
+    expect((await fetchPartnerCover(article))?.imageUrl).toBe(photo);
+    expect(requests).toEqual(["https://feeds.skynews.com/feeds/rss/world.xml", "https://feeds.skynews.com/feeds/rss/uk.xml", photo]);
+  } finally { globalThis.fetch = original; }
 });
 
 test("editions retain at most three fallback covers and replace the remainder", async () => {

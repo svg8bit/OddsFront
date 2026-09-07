@@ -90,16 +90,20 @@ export function extractPartnerFeedImage(xml: string, sourceUrl: string): string 
 
 async function sourceImage(sourceUrl: string, signal: AbortSignal) {
   if (new URL(sourceUrl).hostname === "news.sky.com") {
-    try {
-      const rss = await fetch("https://feeds.skynews.com/feeds/rss/world.xml", {
-        next: { revalidate: 300 }, signal,
-      });
-      if (rss.ok) {
-        const body = await boundedBody(rss, MAX_HTML_BYTES);
-        const image = body && extractPartnerFeedImage(new TextDecoder().decode(body), sourceUrl);
-        if (image) return image;
-      }
-    } catch { /* Continue with the publisher's canonical article. */ }
+    // Domestic, political and economic stories are not necessarily syndicated
+    // to World. Match the exact canonical article in each publisher-owned feed.
+    for (const section of ["world", "uk", "politics", "business"]) {
+      try {
+        const rss = await fetch(`https://feeds.skynews.com/feeds/rss/${section}.xml`, {
+          next: { revalidate: 300 }, signal,
+        });
+        if (rss.ok) {
+          const body = await boundedBody(rss, MAX_HTML_BYTES);
+          const image = body && extractPartnerFeedImage(new TextDecoder().decode(body), sourceUrl);
+          if (image) return image;
+        }
+      } catch { /* Try the next feed, then the publisher's canonical article. */ }
+    }
   }
   const response = await fetch(sourceUrl, {
     headers: { Accept: "text/html,application/xhtml+xml", "User-Agent": "OddsFront/1.0 (+https://oddsfront.com/news)" },
