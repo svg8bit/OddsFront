@@ -20,26 +20,51 @@ test("assigned Vercel aliases redirect to the canonical host", async ({ request 
   }
 });
 
-test("news remains lightweight and preserves language and region selection",async({page})=>{
+test("news remains lightweight and preserves language without hiding countries",async({page})=>{
   const requests:string[]=[];page.on("request",request=>requests.push(request.url()));
   await page.goto("/news");await expect(page.getByRole("heading",{level:1})).toBeVisible();
-  await page.getByRole("button",{name:"Language and region",exact:true}).click();
+  await page.getByRole("button",{name:"Language",exact:true}).click();
   await page.getByRole("combobox",{name:"Language",exact:true}).selectOption("ru");
   await expect(page.locator("html")).toHaveAttribute("lang","ru");
   await expect(page).toHaveURL(/\/ru\/news$/);
-  await page.getByRole("button",{name:"Язык и регион",exact:true}).click();
-  await page.getByRole("combobox",{name:"Регион",exact:true}).selectOption("UA");
+  await page.getByRole("button",{name:"Язык",exact:true}).click();
+  await expect(page.getByRole("combobox")).toHaveCount(1);
+  await expect(page.getByRole("combobox",{name:"Регион",exact:true})).toHaveCount(0);
   await page.keyboard.press("Escape");await page.reload();
-  await expect(page.locator("html")).toHaveAttribute("lang","ru");await expect(page.getByRole("heading",{name:"Украина",exact:true})).toBeVisible();
+  await expect(page.locator("html")).toHaveAttribute("lang","ru");await expect(page.getByRole("heading",{name:"Последние новости",exact:true})).toBeVisible();
   expect(requests.filter(url=>/maplibre|\.pbf|\.mjs/.test(url))).toEqual([]);
 });
 
 test("switching a directly loaded localized page updates its server route",async({page})=>{
   await page.goto("/ru/news");
-  await page.getByRole("button",{name:"Язык и регион",exact:true}).click();
+  await page.getByRole("button",{name:"Язык",exact:true}).click();
   await page.getByRole("combobox",{name:"Язык",exact:true}).selectOption("de");
   await expect(page).toHaveURL(/\/de\/news$/);
   await expect(page.locator("html")).toHaveAttribute("lang","de");
+});
+
+test("long translated listing headlines remain inside unbranded covers", async ({ page }) => {
+  const article = structuredClone(seed.articles[0]);
+  article.id = "development-long-headline";
+  article.title = "Development fixture: a deliberately long international headline checks that complete translated text stays readable inside every news cover";
+  article.translations.ru.title = "Проверочный материал: очень длинный международный заголовок полностью помещается в обложку новостной карточки на экранах компьютеров и мобильных устройств";
+  const articles = Array.from({ length: 4 }, (_, index) => ({ ...article, id: `${article.id}-${index}` }));
+  await page.route("**/api/news", route => route.fulfill({ json: { updatedAt: new Date().toISOString(), articles } }));
+  for (const viewport of [{ width: 1510, height: 941 }, { width: 390, height: 844 }]) {
+    await page.setViewportSize(viewport);
+    await page.goto("/ru/news/world");
+    await expect(page.getByRole("heading", { level: 2, name: article.translations.ru.title }).first()).toBeVisible();
+    await expect(page.locator("main [data-cover-brand]")).toHaveCount(0);
+    const bounds = await page.locator("[data-cover-state] h2").evaluateAll(nodes => nodes.every(node => {
+      const title = node.getBoundingClientRect();
+      const cover = node.closest("[data-cover-state]")!.getBoundingClientRect();
+      return title.bottom <= cover.bottom && title.top >= cover.top && title.left >= cover.left && title.right <= cover.right;
+    }));
+    expect(bounds).toBe(true);
+    const filters = page.getByRole("navigation").filter({ has: page.getByRole("link", { name: "Все страны", exact: true }) });
+    await expect(filters).toHaveCount(1);
+    expect(await filters.evaluate(node => getComputedStyle(node).scrollbarWidth)).toBe("none");
+  }
 });
 
 test("all localized article paths, branded covers, mobile and RTL layouts remain readable",async({browser})=>{
@@ -134,7 +159,7 @@ test("a strict fresh news match renders a blue 15-minute alert and popup-safe co
   const expiresAt=Date.parse(await alert.getAttribute("data-expires-at")??"");
   expect(expiresAt-Date.parse(article.publishedAt)).toBe(15*60_000);
 
-  const navigation=page.getByRole("navigation",{name:"Language and region"});
+  const navigation=page.getByRole("navigation",{name:"Language"});
   await expect(navigation).toBeVisible();
   await page.locator(`[data-market-event-id="${event.id}"]`).click();
   const popup=page.getByTestId("conflict-popup");
@@ -146,7 +171,7 @@ test("a strict fresh news match renders a blue 15-minute alert and popup-safe co
 
   await popup.getByRole("button",{name:"Close"}).click();
   await expect(navigation).toBeVisible();
-  await navigation.getByRole("button",{name:"Language and region",exact:true}).click();
+  await navigation.getByRole("button",{name:"Language",exact:true}).click();
   await page.getByRole("combobox",{name:"Language",exact:true}).selectOption("ru");
   await expect(page.locator("html")).toHaveAttribute("lang","ru");
   await page.keyboard.press("Escape");

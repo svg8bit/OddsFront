@@ -20,7 +20,9 @@ export function isNewsPublisher(url: string) {
 }
 
 // Official institutions are supporting evidence, never a replacement media feed.
+export const OFFICIAL_SOURCE_DOMAINS = ["un.org", "fao.org", "unhcr.org", "ohchr.org", "iaea.org", "icrc.org", "nato.int", "europa.eu", "consilium.europa.eu", "president.gov.ua", "mfa.gov.ua", "whitehouse.gov", "state.gov", "defense.gov", "gov.uk", "gov.il", "mfa.gov.ir", "elysee.fr", "kmu.gov.ua", "mcges.gov.jm", "diplomatie.gouv.fr", "nabu.gov.ua"] as const;
+
 export function isOfficialSource(url: string) {
   const host = sourceHost(url);
-  return ["un.org", "fao.org", "unhcr.org", "ohchr.org", "iaea.org", "icrc.org", "nato.int", "europa.eu", "consilium.europa.eu", "president.gov.ua", "mfa.gov.ua", "whitehouse.gov", "state.gov", "defense.gov", "gov.uk", "gov.il", "mfa.gov.ir"].some(domain => host === domain || host.endsWith(`.${domain}`));
+  return OFFICIAL_SOURCE_DOMAINS.some(domain => host === domain || host.endsWith(`.${domain}`));
 }

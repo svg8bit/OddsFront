@@ -1,0 +1,11 @@
+[Unit]
+Description=Check for the next two-hour OddsFront Telegram publication
+
+[Timer]
+OnCalendar=*-*-* *:0/5:00
+AccuracySec=30s
+Persistent=true
+Unit=oddsfront-telegram.service
+
+[Install]
+WantedBy=timers.target

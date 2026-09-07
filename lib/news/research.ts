@@ -1,4 +1,4 @@
-import { NEWS_SOURCES, sourceHost } from "./sources.ts";
+import { NEWS_SOURCES, OFFICIAL_SOURCE_DOMAINS, sourceHost } from "./sources.ts";
 import type { NewsArticle } from "./types.ts";
 
 export interface NewsResearchReport {
@@ -48,6 +48,7 @@ ColdMath newsdesk principles adapted to geopolitics:
 - Prefer material from the last 48 hours; never older than 72 hours for the main news source. Preserve actual source publication dates, never replace them with today's date. Find recent individual articles, not homepages or category indexes.
 - Each story needs at least two independent publishers including a configured news outlet and at least one primary institutional source: UN, FAO, UNHCR, OHCHR, IAEA, ICRC, NATO, EU, an official government or foreign ministry page. Do not treat two copies of one wire story as independent. A primary source may verify clearly identified relevant background; it need not repeat a breaking headline. Attribute new claims to the source that actually supports them, and do not use background material to claim independent confirmation of a new attack.
 - The media source allowlist is exact: reuters.com, axios.com, aljazeera.com, kyivindependent.com, bbc.com, bbc.co.uk. Do not add ABC, AP, CNN or any other media publisher, even as a supporting citation. An allowlisted media source plus an official primary source satisfies the two-publisher requirement.
+- Supporting primary sources must use these verified official domains or their subdomains: ${OFFICIAL_SOURCE_DOMAINS.join(", ")}. Other domains will fail publication validation; find relevant evidence within this list instead.
 - No invented news, numbers, quotes, dates, resolutions or market odds. Distinguish verified facts from analysis. Do not write a story when its facts cannot be established. Return fewer articles if necessary; quality outranks the batch quota.
 - Write 350-500 words per article, at least five substantial paragraphs and useful heading blocks. A headline must name the actual development. The deck adds context without repeating it.
 - Synthesize independently. Do not mirror a source's structure or paraphrase its paragraphs one by one. Follow source quotation and attribution limits. No direct quotations. Do not republish licensed full text: no republication agreement is configured for these outlets.
