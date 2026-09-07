@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
-import { approvedTelegramCandidate, freshEditionArticles, telegramCandidates, telegramPayload, TELEGRAM_CHANNEL_ID } from "../lib/news/telegram";
+import { approvedTelegramCandidate, freshEditionArticles, russianTelegramArticle, telegramCandidates, telegramPayload, TELEGRAM_CHANNEL_ID, TELEGRAM_CHANNELS } from "../lib/news/telegram";
+import { validateRussianEditorialTranslation } from "../lib/news/russian-editorial";
 import { getConflictPreviewFixtureFeed } from "../features/global-conflict-map/preview/fixture";
 import type { NewsArticle } from "../lib/news/types";
 import seed from "../lib/news/catalog.seed.json";
@@ -65,4 +66,42 @@ test("social publication prioritizes attacks in the latest nine and supports new
   expect(payload.text).not.toContain("Yes");
   expect(payload.reply_markup).toBeUndefined();
   expect(payload.link_preview_options.show_above_text).toBe(false);
+});
+
+test("Russian channel uses Russian copy, localized preview and the same live condition links", () => {
+  const { article, event } = fixture();
+  const russian = { ...article, translations: { ru: { title: "Украина и Россия обсуждают прекращение огня", description: "Продолжаются переговоры о прекращении огня.", body: [], editorReviewed: true } } };
+  const payload = telegramPayload({ article: russian, event }, "ru", { [event.title]: "Прекратят ли Россия и Украина огонь к 31 декабря?" });
+  expect(payload.chat_id).toBe(-1004118165561);
+  expect(payload.text).toContain(russian.translations.ru.title);
+  expect(payload.text).toContain("Да</a> 25%");
+  expect(payload.text).not.toContain(event.title);
+  expect(payload.text).toContain(`${event.marketUrl}?via=drops1`);
+  expect(payload.link_preview_options.url).toContain("https://oddsfront.com/ru/news/ua/");
+  expect(payload.link_preview_options.show_above_text).toBe(false);
+  expect(payload.reply_markup?.inline_keyboard[0]?.[0]?.text).toBe("Отслеживать в DropsBot");
+  expect(payload.reply_markup?.inline_keyboard[0]?.[0]?.url).toBe(telegramPayload({ article, event }).reply_markup?.inline_keyboard[0]?.[0]?.url);
+  expect(TELEGRAM_CHANNELS.ru.directory).not.toBe(TELEGRAM_CHANNELS.en.directory);
+  expect(() => telegramPayload({ article, event }, "ru")).toThrow("not ready");
+  expect(() => telegramPayload({ article: russian, event }, "ru", { [event.title]: event.title })).toThrow("not ready");
+});
+
+test("Russian channel waits for the English choice and reviewed translation, skipping prior editions and duplicates", () => {
+  const { article, now } = fixture();
+  const russian = { ...article, translations: { ru: { title: "Украина и Россия обсуждают прекращение огня", description: "Продолжаются переговоры.", body: [], editorReviewed: true } } };
+  const edition = Array.from({ length: 9 }, (_, index) => ({ ...russian, id: `ru-edition-${index}` }));
+  const choice = edition[2]!;
+  expect(russianTelegramArticle(edition, undefined, [], undefined, now)).toBeNull();
+  expect(russianTelegramArticle([article], article.id, [], undefined, now)).toBeNull();
+  expect(russianTelegramArticle(edition, choice.id, [], choice.publishedAt, now)).toBeNull();
+  expect(russianTelegramArticle(edition, choice.id, [], new Date(now - 3_600_000).toISOString(), now)?.id).toBe(choice.id);
+  expect(russianTelegramArticle(edition, choice.id, [choice.id], undefined, now)).toBeNull();
+  expect(russianTelegramArticle(edition, edition[3]!.id, [choice.id], undefined, now)).toBeNull();
+});
+
+test("Russian editorial checks reject untranslated text and changed dates or counts", () => {
+  expect(validateRussianEditorialTranslation("Will Israel strike 4 countries in 2026?", "Нанесёт ли Израиль удары по 4 странам в 2026 году?")).toContain("4");
+  expect(() => validateRussianEditorialTranslation("12 deaths", "13 погибших")).toThrow("numbers");
+  expect(() => validateRussianEditorialTranslation("12 deaths", "12 deaths")).toThrow("invalid");
+  expect(() => validateRussianEditorialTranslation("ceasefire", "Прекращение огня в 2027 году")).toThrow("numbers");
 });

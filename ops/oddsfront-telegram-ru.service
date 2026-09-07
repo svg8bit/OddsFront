@@ -1,0 +1,27 @@
+[Unit]
+Description=Publish the selected OddsFront news in Russian to @oddsfront_ru
+After=network-online.target oddsfront-telegram.service
+Wants=network-online.target
+ConditionPathExists=/root/OddsFront/.local/telegram.env
+ConditionPathExists=/root/OddsFront/.local/news/telegram-ru/state.json
+
+[Service]
+Type=oneshot
+WorkingDirectory=/root/OddsFront
+ExecStartPre=/usr/local/bin/node scripts/news/prepare-russian.ts
+ExecStart=/usr/local/bin/node scripts/news/telegram.ts --locale=ru --send
+Environment=NODE_ENV=production
+Environment=PATH=/usr/local/bin:/usr/bin:/bin
+EnvironmentFile=/root/OddsFront/.local/telegram.env
+Nice=10
+CPUQuota=100%
+MemoryMax=3G
+TasksMax=256
+PrivateTmp=true
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/root/OddsFront/.local/news /opt/oddsfront-market-feed/news /root/.codex
+InaccessiblePaths=-/opt/arctrenches -/opt/arctrenches-legacy-6c13c07 -/root/DropsAnalytics-worktrees -/opt/sunder -/root/.ssh
+UMask=0077
+TimeoutStartSec=12min

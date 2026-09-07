@@ -77,9 +77,14 @@ read-only research process. It consumes subscription usage. Paid API variables
 are removed and there is no paid fallback. Publication occurs only in the local
 validated runner; the research process has no publication credentials.
 
-Translation is offline on this VPS using MIT-licensed `facebook/m2m100_418M`,
+Russian social headlines, descriptions and candidate market questions receive
+an automated translation review using the same isolated subscription editor.
+Only missing texts are processed and cached, with source-number checks. Russian
+exports first so the two-language Telegram edition can proceed; publication
+waits for its reviewed text and localized social cover. Article body translation
+is offline on this VPS using MIT-licensed `facebook/m2m100_418M`,
 revision `55c2e61bbf05dfb8d7abccdc3fae6fc8512fd636`, converted to CPU int8.
-There is no paid translation API, per-request translation call, or browser model.
+There is no paid translation API, per-page translation call, or browser model.
 The Google translation endpoint used by ColdMath rejects automated requests
 from this host; it is not bypassed. Model and private caches are excluded from Git.
 The separate Python environment is `/root/OddsFront/.local/translation-venv`;

@@ -28,21 +28,29 @@ export function buildRollingActivitySignals(feed: ConflictPreviewFeed, now = Dat
         expiresAt: cycle + ACTIVITY_DISPLAY_TTL_MS }];
     });
   }).toSorted((a, b) => b.value - a.value || a.eventId.localeCompare(b.eventId));
+  // Reserve different markets for the next display cycle. Previously all
+  // three eligible markets were immediately emitted again with new IDs, so
+  // the visible cards appeared stuck despite their expiry timestamps changing.
+  // Stable market ordering prevents a small price refresh reshuffling a page.
+  const markets = [...new Set(candidates.map(item => item.eventId))].sort();
+  const pageSize = Math.min(3, Math.max(1, Math.ceil(markets.length / 2)));
+  const pageCount = Math.max(2, Math.ceil(markets.length / pageSize));
+  const page = Math.floor((cycle - cycleStartedAt) / ACTIVITY_DISPLAY_TTL_MS) % pageCount;
+  const pageMarkets = new Set(markets.slice(page * pageSize, (page + 1) * pageSize));
+  const currentCandidates = candidates.filter(item => pageMarkets.has(item.eventId));
   const selected: RollingActivitySignal[] = [];
   const used = new Set<string>();
   const add = (candidate: RollingActivitySignal | undefined) => {
     if (candidate && !used.has(candidate.eventId)) { selected.push(candidate); used.add(candidate.eventId); }
   };
-  // Rotate current leaders each display cycle, keeping both periods and
-  // directions whenever enough distinct eligible markets are available.
-  const rotation = Math.floor(cycle / ACTIVITY_DISPLAY_TTL_MS);
+  // Keep both periods and directions when the current page supports them.
   for (const window of ["24H", "7D"] as const) {
-    const group = candidates.filter(item => item.windowLabel === window && !used.has(item.eventId));
+    const group = currentCandidates.filter(item => item.windowLabel === window && !used.has(item.eventId));
     const opposite = group.filter(item => !selected.length || item.kind !== selected[0]!.kind);
     const pool = opposite.length ? opposite : group;
-    if (pool.length) add(pool[rotation % Math.min(3, pool.length)]);
+    if (pool.length) add(pool[0]);
   }
-  for (const candidate of candidates) {
+  for (const candidate of currentCandidates) {
     if (selected.length === 3) break;
     add(candidate);
   }

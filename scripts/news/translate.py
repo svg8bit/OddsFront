@@ -8,6 +8,7 @@ import json
 import os
 import re
 from pathlib import Path
+from datetime import datetime, timezone
 from urllib.request import Request, urlopen
 
 import ctranslate2
@@ -15,7 +16,7 @@ import sentencepiece
 
 DIRECTORY = Path(os.environ.get("ODDSFRONT_NEWS_DIRECTORY", "/root/OddsFront/.local/news"))
 MODEL = Path("/root/OddsFront/.local/translation-model")
-LANGUAGES = ["zh", "ko", "vi", "de", "es", "pt-BR", "fr", "ru", "uk", "fa", "he"]
+LANGUAGES = ["ru", "zh", "ko", "vi", "de", "es", "pt-BR", "fr", "uk", "fa", "he"]
 
 
 def atomic_json(path, data, public=False):
@@ -45,7 +46,7 @@ def export_catalog(catalog):
 def main():
     DIRECTORY.mkdir(parents=True, exist_ok=True)
     if not os.environ.get("ODDSFRONT_EDITION_LOCKED"):
-        result = subprocess.run(["flock", "-n", str(DIRECTORY / "edition.lock"), sys.executable, __file__], env={**os.environ, "ODDSFRONT_EDITION_LOCKED": "1"})
+        result = subprocess.run(["flock", "-n", "-E", "75", str(DIRECTORY / "edition.lock"), sys.executable, __file__], env={**os.environ, "ODDSFRONT_EDITION_LOCKED": "1"})
         raise SystemExit(result.returncode)
     if True:
         catalog_path = DIRECTORY / "catalog.json"
@@ -74,7 +75,18 @@ def main():
             texts.update(json.loads(extra_path.read_text()))
         def key(language, text):
             return hashlib.sha256(f"m2m100-v1:{language}:{text}".encode()).hexdigest()
-        for language in LANGUAGES:
+        languages = os.environ.get("ODDSFRONT_TRANSLATION_LANGUAGES", ",".join(LANGUAGES)).split(",")
+        if not languages or any(language not in LANGUAGES for language in languages):
+            raise ValueError("Unsupported translation language")
+        for language in languages:
+            reviewed = {}
+            if language == "ru":
+                # Headlines, descriptions and candidate market questions receive
+                # a source-faithful editorial translation before RU publication.
+                # Other article paragraphs retain the labelled offline model.
+                subprocess.run(["node", str(Path(__file__).with_name("review-russian.ts"))], check=True, timeout=210)
+                reviewed = json.loads((DIRECTORY / "russian-editor-cache.json").read_text())
+                cache.update(reviewed)
             target = "pt" if language == "pt-BR" else language
             pending = [text for text in sorted(texts) if key(language, text) not in cache]
             # Split at sentence boundaries before tokenization; never truncate a paragraph.
@@ -112,11 +124,18 @@ def main():
                     return Counter(re.findall(r"\d+", normalized))
                 return text if numbers(text) - numbers(value) else value
             for article in catalog["articles"]:
+                previous = article["translations"].get(language)
                 article["translations"][language] = {
                     "title": translated_text(article["title"]),
                     "description": translated_text(article["description"]),
                     "body": [{**block, "text": translated_text(block["text"])} for block in article["body"]],
+                    **({"editorReviewed": True} if key(language, article["title"]) in reviewed and key(language, article["description"]) in reviewed else {}),
                 }
+                if article["translations"][language].get("editorReviewed") and article["translations"][language] != previous:
+                    # Version the social image URL when reviewed Russian copy
+                    # replaces an earlier machine headline in a cached preview.
+                    article["updatedAt"] = datetime.now(timezone.utc).isoformat(timespec="milliseconds").replace("+00:00", "Z")
+                    catalog["updatedAt"] = article["updatedAt"]
             dictionary = {} if market_feed_available else catalog.get("marketTranslations", {}).get(language, {}).copy()
             dictionary.update({text: translated_text(text) for text in market_texts | {topic for article in catalog["articles"] for topic in article["topics"]} | (set(json.loads(extra_path.read_text())) if extra_path.exists() else set())})
             catalog.setdefault("marketTranslations", {})[language] = dictionary
