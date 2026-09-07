@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { mkdtemp, readFile, readdir, rm, stat, writeFile } from "node:fs/promises";
+import { mkdtemp, open, readFile, readdir, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { xCredentials, xRequest } from "../lib/news/x-client";
@@ -84,4 +84,29 @@ test("X does not consume a refresh token when its replacement cannot be stored",
     expect(calls).toEqual([]);
     expect(await readFile(file, "utf8")).toBe(before);
   } finally { globalThis.fetch = originalFetch; await rm(directory, { recursive: true, force: true }); }
+});
+
+test("X preserves the connection when file creation succeeds but the data quota is exhausted", async () => {
+  const directory = await mkdtemp(path.join(tmpdir(), "oddsfront-development-x-"));
+  const file = path.join(directory, "x.env");
+  const before = fixture(Date.now() - 1_000);
+  await writeFile(file, before, { mode: 0o600 });
+  const probe = await open(file, "r");
+  const prototype = Object.getPrototypeOf(probe);
+  const originalWrite = prototype.write;
+  const originalFetch = globalThis.fetch;
+  try {
+    const calls: string[] = [];
+    prototype.write = async () => { throw Object.assign(new Error("Development disk quota exhausted"), { code: "EDQUOT" }); };
+    globalThis.fetch = async input => { calls.push(String(input)); return Response.json({}); };
+    await expect(xRequest(await xCredentials(file), "GET", "/2/users/me")).rejects.toThrow("quota exhausted");
+    expect(calls).toEqual([]);
+    expect(await readFile(file, "utf8")).toBe(before);
+    expect(await readdir(directory)).toEqual(["x.env"]);
+  } finally {
+    prototype.write = originalWrite;
+    globalThis.fetch = originalFetch;
+    await probe.close();
+    await rm(directory, { recursive: true, force: true });
+  }
 });

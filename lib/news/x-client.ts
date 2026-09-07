@@ -37,6 +37,12 @@ async function refreshOAuth2(credentials: XOAuth2Credentials) {
   // A read-only service mount must fail before the provider invalidates it.
   const storage = await open(temporary, "wx", 0o600);
   try {
+    // Allocate and flush data blocks too: creating an empty file alone can
+    // succeed when the filesystem cannot store the replacement credentials.
+    const reservation = Buffer.alloc(64 * 1024);
+    const reserved = await storage.write(reservation, 0, reservation.length, 0);
+    if (reserved.bytesWritten !== reservation.length) throw new Error("X credential storage reservation is incomplete");
+    await storage.sync();
     let response: Response;
     try {
       response = await fetch("https://api.x.com/2/oauth2/token", {
@@ -52,7 +58,9 @@ async function refreshOAuth2(credentials: XOAuth2Credentials) {
     if (!validToken(tokens.access_token) || !validToken(tokens.refresh_token) || !Number.isFinite(tokens.expires_in) || tokens.expires_in <= 0) throw new Error("Invalid X OAuth2 refresh response");
     const next = { ...credentials, accessToken: tokens.access_token, refreshToken: tokens.refresh_token, expiresAt: Date.now() + tokens.expires_in * 1_000 };
     const content = Object.entries({ X_OAUTH2_CLIENT_ID: next.clientId, X_OAUTH2_CLIENT_SECRET: next.clientSecret, X_OAUTH2_ACCESS_TOKEN: next.accessToken, X_OAUTH2_REFRESH_TOKEN: next.refreshToken, X_OAUTH2_EXPIRES_AT: String(next.expiresAt) }).map(([key, value]) => `${key}=${value}\n`).join("");
+    // The positional reservation left this handle's write cursor at byte zero.
     await storage.writeFile(content);
+    await storage.truncate(Buffer.byteLength(content));
     await storage.sync();
     await rename(temporary, credentials.file);
     // The publisher holds its process lock across refresh, send and receipt writes.

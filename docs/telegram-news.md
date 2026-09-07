@@ -82,7 +82,9 @@ cover blocks the post. No odds or Telegram buttons are copied into the X text.
 
 The private `/root/OddsFront/.local/x-auth/credentials.env` must contain the four
 account-specific OAuth 1.0a keys: `X_API_KEY`, `X_API_SECRET`, `X_ACCESS_TOKEN`,
-and `X_ACCESS_TOKEN_SECRET`, with mode `0600`. Verify the account with
+and `X_ACCESS_TOKEN_SECRET`, with mode `0600`.
+Create the containing `x-auth` directory with mode `0700` and install the X
+service's scoped write permission before enabling its timer. Verify the account with
 `GET /2/users/me` before enabling `ops/oddsfront-x.timer`. Credentials for any
 other account must never be substituted. The user authorized copying only the
 `@alotofbit` connection from the second VPS into this isolated file.
