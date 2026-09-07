@@ -1042,7 +1042,7 @@ test("groups co-located alliance events behind popup pager arrows", async ({
   await expect(popup).toContainText("Market 2 of 2");
 });
 
-test("prioritizes current daily moves before weekly fallbacks in both directions", async ({
+test("shows only confirmed recent movements in both directions", async ({
   page,
 }) => {
   const fixture = getConflictPreviewFixtureFeed();
@@ -1065,6 +1065,7 @@ test("prioritizes current daily moves before weekly fallbacks in both directions
       volume24h: [1, 2, 0, 20_000, 0][index]!,
       priceChange1h: [0.75, -0.81, 0.66, 0.9, -0.72][index]!,
       priceChange24h: [0.05, -0.049, 0.06, 0.8, 0.04996][index]!,
+      recentPriceMove: { changePoints: [5,-20,6,80,4.9][index]!, occurredAt: updatedAt, fromProbability: .5, toProbability: .55 },
       priceChange7d: [0.199, -0.2, 0.25, -0.9, -0.19996][index]!,
     })),
   };
@@ -1101,8 +1102,8 @@ test("prioritizes current daily moves before weekly fallbacks in both directions
   await expect(rail).toContainText("-20.0%");
   await expect(rail).toContainText("+5.0%");
   await expect(rail).not.toContainText("Odds");
-  await expect(rail.locator('time[data-time-kind="updated"]')).toHaveCount(3);
-  await expect(rail.locator("article").first()).toHaveAttribute("data-activity-window", "24h");
+  await expect(rail.locator('time[data-time-kind="occurred"]')).toHaveCount(3);
+  await expect(rail.locator("article").first()).toHaveAttribute("data-activity-window", "15m");
   await expect(rail).not.toContainText(" pp");
   await expect(rail).not.toContainText("Volume");
   await expect(rail).not.toContainText("1h");
@@ -1164,8 +1165,8 @@ test("prioritizes current daily moves before weekly fallbacks in both directions
   }
   await expect(rail).not.toContainText(liveFeed.events[3]!.title);
   await expect(rail).not.toContainText(liveFeed.events[4]!.title);
-  await expect(rail.locator('[data-activity-window="7d"]')).toHaveCount(1);
-  await expect(rail.locator('[data-activity-window="24h"]')).toHaveCount(2);
+  await expect(rail.locator('[data-activity-window="7d"]')).toHaveCount(0);
+  await expect(rail.locator('[data-activity-window="15m"]')).toHaveCount(3);
 });
 
 test("batches trade-watch coverage across every eligible $100K market", async ({
@@ -1248,6 +1249,7 @@ test("does not reanimate the same rolling signal after a feed refresh", async ({
     volume24h: 50_000,
     priceChange1h: 0.9,
     priceChange24h: 0.22,
+    recentPriceMove: { changePoints: 22, occurredAt: firstUpdatedAt, fromProbability: .3, toProbability: .52 },
     updatedAt: firstUpdatedAt,
     endDate: new Date(Date.now() + 7 * 24 * 60 * 60_000).toISOString(),
     marketConditionId: mockConditionId(777_001),
@@ -1305,11 +1307,11 @@ test("does not reanimate the same rolling signal after a feed refresh", async ({
   await page.evaluate(() => window.dispatchEvent(new Event("online")));
   await expect.poll(() => feedRequestCount).toBeGreaterThanOrEqual(2);
   await expect(rail).toHaveAttribute("data-feed-updated-at", refreshedAt);
-  await expect(rollingCard).toHaveAttribute("data-expires-at", new Date(Date.parse(refreshedAt) + 10 * 60_000).toISOString());
-  expect(await rollingCard.getAttribute("data-expires-at")).not.toBe(initialExpiry);
+  await expect(rollingCard).toHaveAttribute("data-expires-at", initialExpiry!);
+  expect(await rollingCard.getAttribute("data-expires-at")).toBe(initialExpiry);
 });
 
-test("shows 5% daily and 20% weekly moves with referral-safe buys from $200K", async ({
+test("shows confirmed price moves with referral-safe buys from $200K", async ({
   page,
 }) => {
   const fixture = getConflictPreviewFixtureFeed();
@@ -1334,6 +1336,7 @@ test("shows 5% daily and 20% weekly moves with referral-safe buys from $200K", a
       volume24h: index === 1 ? 1 : event.volume24h,
       priceChange1h: index === 0 ? 0.9 : index === 3 ? -0.8 : null,
       priceChange24h: index === 1 ? -0.08 : 0.049,
+      recentPriceMove: index === 1 || index === 2 ? { changePoints: index === 1 ? -8 : 25, occurredAt: updatedAt, fromProbability: .5, toProbability: index === 1 ? .42 : .75 } : null,
       priceChange7d: index === 1 ? -0.19 : index === 2 ? 0.25 : null,
     })),
   };
@@ -1444,13 +1447,13 @@ test("shows 5% daily and 20% weekly moves with referral-safe buys from $200K", a
   await expect(rail.locator('[data-activity-kind="large-sell"]')).toHaveCount(0);
   await expect(rail).not.toContainText("Volume");
   await expect(rail).not.toContainText("1h");
-  await expect(rail).toContainText("7d");
+  await expect(rail).toContainText("15m");
 
   await page.evaluate(() => window.dispatchEvent(new Event("online")));
   await expect.poll(() => conflictFeedRequestCount).toBeGreaterThanOrEqual(2);
   await expect(rail).toHaveAttribute("data-activity-count", "3");
   await expect(rail).not.toContainText(" pp");
-  await expect(rail).toContainText("24h");
+  await expect(rail).toContainText("15m");
   await expect(
     rail.locator('[data-activity-kind="odds-rise"]'),
   ).toHaveAttribute("data-activity-direction", "up");

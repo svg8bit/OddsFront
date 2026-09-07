@@ -18,6 +18,13 @@ export type PreviewGeographyKind =
   | "regional"
   | "alliance";
 
+export interface RecentPriceMove {
+  changePoints: number;
+  occurredAt: string;
+  fromProbability: number;
+  toProbability: number;
+}
+
 export interface ConflictPreviewEvent {
   id: string;
   title: string;
@@ -51,6 +58,7 @@ export interface ConflictPreviewEvent {
   endDate: string | null;
   marketConditionId: string | null;
   yesTokenId?: string | null;
+  recentPriceMove?: RecentPriceMove | null;
 }
 
 export type ConflictActivityKind =
@@ -88,6 +96,7 @@ export interface ConflictPreviewFeed {
   sourceUrl: string;
   events: ConflictPreviewEvent[];
   excludedCount: number;
+  priceMoveCoverage?: { requestedMarkets: number; returnedMarkets: number };
 }
 
 export interface PreviewViewState {

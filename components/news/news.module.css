@@ -28,6 +28,6 @@
 .filters::-webkit-scrollbar{display:none}
 @media(max-width:760px){.coverContent,.featuredArt .coverContent{inset:auto;padding:18px}}
 
-.card .coverTitle{font-size:clamp(10.5px,1.05vw,15.5px);letter-spacing:-.3px;line-height:1.25}
-.featuredCard .coverTitle{font-size:clamp(12.5px,1.25vw,18px)}
-@media(max-width:760px){.card .coverTitle,.featuredCard .coverTitle{font-size:clamp(12.5px,3.7vw,17px)}}
+.card .coverTitle{font-size:clamp(15.75px,1.575vw,23.25px);letter-spacing:-.3px;line-height:1.25}
+.featuredCard .coverTitle{font-size:clamp(18.75px,1.875vw,27px)}
+@media(max-width:760px){.card .coverTitle,.featuredCard .coverTitle{font-size:clamp(18.75px,5.55vw,25.5px)}}

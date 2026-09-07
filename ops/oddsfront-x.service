@@ -1,0 +1,24 @@
+[Unit]
+Description=Publish the selected OddsFront news to @alotofbit on X
+After=network-online.target oddsfront-telegram.service
+Wants=network-online.target
+ConditionPathExists=/root/OddsFront/.local/x-credentials.env
+
+[Service]
+Type=oneshot
+WorkingDirectory=/root/OddsFront
+ExecStart=/usr/local/bin/node scripts/news/x.ts --send
+Environment=NODE_ENV=production
+Environment=PATH=/usr/local/bin:/usr/bin:/bin
+Nice=10
+CPUQuota=50%
+MemoryMax=256M
+TasksMax=64
+PrivateTmp=true
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/root/OddsFront/.local/news
+InaccessiblePaths=-/opt/arctrenches -/root/DropsAnalytics -/root/DropsAnalytics-worktrees -/opt/sunder -/root/.ssh
+UMask=0077
+TimeoutStartSec=2min

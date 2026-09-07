@@ -2,7 +2,7 @@ import { mkdir, readFile, writeFile, rename, stat } from "node:fs/promises";
 import { spawnSync } from "node:child_process";
 import path from "node:path";
 import { executeSubscriptionCodex } from "../../lib/news/writer.ts";
-import { approvedTelegramCandidate, telegramCandidates, telegramPayload, telegramSelectionPrompt, TELEGRAM_SELECTION_SCHEMA, TELEGRAM_INTERVAL_MS, TELEGRAM_CHANNEL_ID } from "../../lib/news/telegram.ts";
+import { approvedTelegramCandidate, freshEditionArticles, telegramCandidates, telegramPayload, telegramSelectionPrompt, TELEGRAM_SELECTION_SCHEMA, TELEGRAM_INTERVAL_MS, TELEGRAM_CHANNEL_ID } from "../../lib/news/telegram.ts";
 import type { TelegramSelection } from "../../lib/news/telegram.ts";
 import type { NewsCatalog } from "../../lib/news/types.ts";
 import type { ConflictPreviewFeed } from "../../features/global-conflict-map/preview/types.ts";
@@ -45,16 +45,20 @@ try {
   if (state.pending) throw new Error("Previous send has an unknown outcome; reconcile it before retrying");
   if (Date.now() - state.lastSentAt < TELEGRAM_INTERVAL_MS) { console.log(JSON.stringify({ status: "interval-not-due" })); process.exit(0); }
   const catalog = JSON.parse(await readFile(path.join(directory, "catalog.json"), "utf8")) as NewsCatalog;
-  const candidates = telegramCandidates(catalog.articles, await feed(), state.sentArticles);
-  if (!candidates.length) { console.log(JSON.stringify({ status: "no-fresh-market-match" })); process.exit(0); }
-  const selection = JSON.parse(await executeSubscriptionCodex({ prompt: telegramSelectionPrompt(candidates), schema: TELEGRAM_SELECTION_SCHEMA, timeoutMs: 180_000,
+  const articles = freshEditionArticles(catalog.articles, state.sentArticles);
+  if (!articles.length) { console.log(JSON.stringify({ status: "no-fresh-article" })); process.exit(0); }
+  const candidates = telegramCandidates(articles, await feed(), state.sentArticles);
+  const selection = JSON.parse(await executeSubscriptionCodex({ prompt: telegramSelectionPrompt(candidates, articles), schema: TELEGRAM_SELECTION_SCHEMA, timeoutMs: 180_000,
     env: Object.fromEntries(["PATH", "USER", "LOGNAME", "LANG", "LC_ALL", "HTTPS_PROXY", "HTTP_PROXY", "NO_PROXY"].map(key => [key, process.env[key]])) })) as TelegramSelection;
-  const selected = approvedTelegramCandidate(selection, candidates);
+  const article = articles.find(item => item.id === selection.articleId);
+  const selected = selection.eventId === null && article && selection.confidence >= .9 && selection.reason.length >= 30
+    ? { article, event: null } : approvedTelegramCandidate(selection, candidates);
   const stamp = new Date().toISOString().replace(/[:.]/g, "-");
   await atomic(path.join(output, `${stamp}-selection.json`), selection);
   if (!selected) { console.log(JSON.stringify({ status: "no-strong-market-match", reason: selection.reason })); process.exit(0); }
   // Refresh the selected condition before sending so title, odds and both links stay aligned.
-  const current = telegramCandidates([selected.article], await feed(), state.sentArticles).find(candidate => candidate.event.id === selected.event.id && candidate.event.marketConditionId === selected.event.marketConditionId);
+  const selectedEvent = selected.event;
+  const current = selectedEvent ? telegramCandidates([selected.article], await feed(), state.sentArticles).find(candidate => candidate.event.id === selectedEvent.id && candidate.event.marketConditionId === selectedEvent.marketConditionId) : selected;
   if (!current) throw new Error("Selected market is no longer fresh or active");
   const payload = telegramPayload(current);
   await atomic(path.join(output, `${stamp}-draft.json`), { selection, payload });
@@ -78,7 +82,7 @@ try {
   await atomic(stateFile, { ...state, pending: { articleId: current.article.id, attemptedAt: new Date().toISOString() } });
   const message = await call("sendMessage", payload);
   if (!message.message_id || message.chat?.id !== TELEGRAM_CHANNEL_ID) throw new Error("Unexpected Telegram send receipt");
-  const receipt = { status: "published", articleId: current.article.id, eventId: current.event.id, marketConditionId: current.event.marketConditionId, sentAt: new Date().toISOString(), messageId: message.message_id, url: `https://t.me/oddsfront/${message.message_id}`, previewBelow: message.link_preview_options?.show_above_text !== true };
+  const receipt = { status: "published", articleId: current.article.id, eventId: current.event?.id ?? null, marketConditionId: current.event?.marketConditionId ?? null, sentAt: new Date().toISOString(), messageId: message.message_id, url: `https://t.me/oddsfront/${message.message_id}`, previewBelow: message.link_preview_options?.show_above_text !== true };
   await atomic(path.join(output, `${stamp}-receipt.json`), receipt);
   await atomic(stateFile, { lastSentAt: Date.now(), sentArticles: [...state.sentArticles, current.article.id].slice(-1000) });
   console.log(JSON.stringify(receipt));

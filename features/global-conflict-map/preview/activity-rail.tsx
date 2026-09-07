@@ -43,7 +43,7 @@ import {
   toPolymarketReferralUrl,
 } from "@/lib/polymarket-links";
 
-const ACTIVITY_TTL_MS = 10 * 60 * 1_000;
+const ACTIVITY_TTL_MS = 15 * 60 * 1_000;
 const MAX_VISIBLE_NOTICES = 3;
 const MAX_STORED_NOTICES = 12;
 const ACTIVITY_RISE_TONE = "#22DF91";
@@ -54,7 +54,7 @@ const ACTIVITY_REFRESH_JITTER_MS = 15_000;
 const ACTIVITY_INITIAL_DELAY_MS = 1_000;
 const CONDITION_ID_PATTERN = /^0x[a-f0-9]{64}$/i;
 
-type ActivityWindowLabel = "24h" | "7d";
+type ActivityWindowLabel = "15m";
 type ActivityNoticeKind = Exclude<ConflictActivityKind, "large-sell"> | "news";
 type ActivityNoticeSource = "trade" | "rolling" | "news";
 
@@ -202,7 +202,7 @@ function selectVisibleNotices(notices: ActivityNotice[]): ActivityNotice[] {
   );
   const news = newestFirst.filter((notice) => notice.kind === "news");
   const trades = newestFirst.filter((notice) => notice.kind === "large-buy");
-  // Preserve the daily-first market ranking supplied by buildRollingActivitySignals.
+  // Keep confirmed price movements ordered by their actual occurrence.
   const rollingMovers = notices.filter(
     (notice) =>
       notice.source === "rolling" &&
@@ -435,9 +435,8 @@ export function ActivityRail({
     () => new Map(feed.events.map((event) => [event.id, event])),
     [feed.events],
   );
-  // Rolling movers are a view of the latest verified snapshot, not toast
-  // events. Stable React keys preserve the card while fresh observations renew
-  // its expiry; dismissals still apply to the stable signal identity.
+  // Occurrence times come from changed CLOB price samples. A feed refresh
+  // cannot renew an unchanged movement or its expiry.
   const rollingNotices = useMemo(
     () => fixtureMode ? [] : buildRollingNotices(feed, Math.max(clock, feedClock)),
     [clock, feed, feedClock, fixtureMode],
@@ -732,8 +731,8 @@ export function ActivityRail({
                 </span>
                 <strong>{news || locale === "en" ? noticeLabel(notice) : noticeLabel(notice).replace("Large BUY",marketLabel(locale,"Large BUY")).replace("Odds",marketLabel(locale,"Odds"))}</strong>
                 {notice.windowLabel ? <span>{notice.windowLabel}</span> : null}
-                <time dateTime={new Date(notice.occurredAt).toISOString()} data-time-kind={notice.source === "rolling" ? "updated" : "occurred"}>
-                  {notice.source === "rolling" ? `${t("updated")} ${new Intl.DateTimeFormat(locale,{hour:"2-digit",minute:"2-digit"}).format(notice.occurredAt)}` : locale === "en" ? relativeTime(notice.occurredAt, clock) : new Intl.RelativeTimeFormat(locale,{numeric:"auto",style:"narrow"}).format(-Math.max(0,Math.floor((clock-notice.occurredAt)/60_000)),"minute")}
+                <time dateTime={new Date(notice.occurredAt).toISOString()} data-time-kind="occurred">
+                  {locale === "en" ? relativeTime(notice.occurredAt, clock) : new Intl.RelativeTimeFormat(locale,{numeric:"auto",style:"narrow"}).format(-Math.max(0,Math.floor((clock-notice.occurredAt)/60_000)),"minute")}
                 </time>
                 <button
                   type="button"
