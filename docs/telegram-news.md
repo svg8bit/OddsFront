@@ -30,7 +30,9 @@ requires reconciliation rather than risking a duplicate.
 Install the service and timer from `ops/`. Install
 `ops/oddsfront-news-editions.conf` as an `oddsfront-news.service` drop-in. The
 news job tops up partial research in up to six validated rounds toward nine
-new stories; its completion can trigger the Telegram job. The Telegram timer
+new stories; its completion can trigger the Telegram job. Telegram does not
+wait for the news service's offline translation follow-up: the atomic public
+edition and send ledger provide readiness and duplicate checks. The Telegram timer
 also checks independently every five minutes; the persisted send time enforces
 the two-hour publication interval even when the news job triggers an earlier
 check. A skipped check never postpones the next due publication. Timers, receipts and all mutable

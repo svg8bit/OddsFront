@@ -7,6 +7,17 @@ import { prepareEditionCovers } from "../../lib/news/edition-covers.ts";
 const directory = process.env.ODDSFRONT_NEWS_DIRECTORY || "/root/OddsFront/.local/news";
 await mkdir(directory, { recursive: true, mode: 0o700 });
 if (!process.env.ODDSFRONT_EDITION_LOCKED) {
+  // An interval-only check must not wait behind offline translations. Recheck
+  // after acquiring the lock as well before any edition mutation.
+  if (!process.argv.includes("--force")) {
+    try {
+      const state = JSON.parse(await readFile(path.join(directory, "edition-state.json"), "utf8"));
+      if (Date.now() < state.lastPublishedAt + 2 * 60 * 60_000) {
+        console.log(JSON.stringify({ status: "interval-not-due", nextDueAt: new Date(state.lastPublishedAt + 2 * 60 * 60_000).toISOString() }));
+        process.exit(0);
+      }
+    } catch (error) { if (error.code !== "ENOENT") throw error; }
+  }
   const run = spawnSync("flock", ["-w", "300", path.join(directory, "edition.lock"), process.execPath, ...process.execArgv, ...process.argv.slice(1)], { stdio: "inherit", env: { ...process.env, ODDSFRONT_EDITION_LOCKED: "1" } });
   process.exit(run.status ?? 1);
 }

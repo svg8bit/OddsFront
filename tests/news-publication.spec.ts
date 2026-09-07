@@ -2,7 +2,8 @@ import { expect, test } from "@playwright/test";
 import { mkdtemp, readFile, rm, writeFile, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { spawnSync } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
+import { once } from "node:events";
 import { validateNewsDraft, verifiedNewsAlert } from "../lib/news/validation";
 import { buildNewsMarketAlerts, NEWS_ALERT_MINIMUM_MARKET_VOLUME, NEWS_ALERT_TTL_MS } from "../lib/news/alert-matching";
 import { normalizeLocale, negotiateLocale, localeDirection, regionFromLanguages } from "../lib/news/locale";
@@ -165,4 +166,20 @@ test("editions retain partial research privately, resume to exactly nine and enf
     const state = JSON.parse(await readFile(join(directory, "edition-state.json"), "utf8")); expect(state.articleIds).toHaveLength(9);
     expect(run().stdout).toContain("interval-not-due"); expect(await readFile(join(directory, "public/catalog.json"), "utf8")).toBe(before);
   } finally { await rm(directory, { recursive: true, force: true }); }
+});
+
+test("an interval check does not block behind a running translation", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "oddsfront-interval-lock-"));
+  const lock = spawn("flock", [join(directory, "edition.lock"), "sh", "-c", "echo ready; cat"], { stdio: ["pipe", "pipe", "pipe"] });
+  try {
+    await once(lock.stdout!, "data");
+    await writeFile(join(directory, "edition-state.json"), JSON.stringify({ lastPublishedAt: Date.now() }));
+    const run = spawnSync(process.execPath, ["scripts/news/run-edition.mjs"], { encoding: "utf8", timeout: 2_000, env: { ...process.env, ODDSFRONT_NEWS_DIRECTORY: directory } });
+    expect(run.status, run.stderr).toBe(0);
+    expect(run.stdout).toContain("interval-not-due");
+  } finally {
+    lock.stdin!.end();
+    await once(lock, "close");
+    await rm(directory, { recursive: true, force: true });
+  }
 });
