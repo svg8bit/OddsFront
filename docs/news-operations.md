@@ -37,7 +37,13 @@ Research and publication gates reduce errors; they do not replace human review.
 
 The two-hour cycle requests up to nine stories across the configured sources.
 Fewer stories, including zero, is a successful checked edition when evidence is
-insufficient. An invalid research response fails the job and retains published
+insufficient. Each cycle records coverage of all five publishers, reviewed
+candidate counts and rejection reasons. Missing source coverage or discovery
+with no inspected candidates fails the job rather than reporting a healthy
+empty edition. Source dates retain their actual precision: a verified calendar
+date is valid when the publisher does not provide a time and timezone. The
+writer must not invent those fields or reject reporting for missing clock time.
+An invalid research response fails the job and retains published
 content. Each edition writes a private receipt. The first article was manually
 checked against The Kyiv Independent and the Ukrainian presidency before release.
 

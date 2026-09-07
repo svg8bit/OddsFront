@@ -75,17 +75,13 @@ function strongestEventSignal(
 ): RankedSignal | null {
   const candidates = (["24h", "7d"] as const)
     .map((windowLabel) => rankedOddsSignal(event, windowLabel, observedAt))
-    .filter((signal): signal is RankedSignal => Boolean(signal))
-    .toSorted(
-      (left, right) =>
-        right.value - left.value ||
-        (left.windowLabel === "24h" ? -1 : 1),
-    );
+    .filter((signal): signal is RankedSignal => Boolean(signal));
   return candidates[0] ?? null;
 }
 
 function strongestFirst(left: RankedSignal, right: RankedSignal): number {
   return (
+    Number(left.windowLabel === "7d") - Number(right.windowLabel === "7d") ||
     right.score - left.score ||
     right.value - left.value ||
     left.eventId.localeCompare(right.eventId)
@@ -110,12 +106,15 @@ export function buildRollingActivitySignals(
     return [];
   }
 
-  const currentEvents = feed.events.filter((event) =>
-    isPolymarketActivityEventCurrent(event, now),
-  );
+  const currentEvents = feed.events.filter((event) => {
+    const eventTime = Date.parse(event.updatedAt);
+    return isPolymarketActivityEventCurrent(event, now) &&
+      Number.isFinite(eventTime) && eventTime <= now + 60_000 &&
+      now - eventTime <= maximumAge;
+  });
 
   return currentEvents
-    .map((event) => strongestEventSignal(event, observedAt))
+    .map((event) => strongestEventSignal(event, Math.min(observedAt, Date.parse(event.updatedAt))))
     .filter((signal): signal is RankedSignal => Boolean(signal))
     .toSorted(strongestFirst)
     .slice(0, MAX_SIGNALS);

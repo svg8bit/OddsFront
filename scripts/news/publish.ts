@@ -3,7 +3,8 @@ import { mkdir, readFile, rename, writeFile, chmod } from "node:fs/promises";
 import { spawnSync } from "node:child_process";
 import path from "node:path";
 import { executeSubscriptionCodex } from "../../lib/news/writer.ts";
-import { NEWS_BATCH_SCHEMA, researchPrompt } from "../../lib/news/research.ts";
+import { NEWS_BATCH_SCHEMA, researchPrompt, researchProblems } from "../../lib/news/research.ts";
+import type { NewsResearchReport } from "../../lib/news/research.ts";
 import { articleSlug, validateNewsDraft, verifiedNewsAlert } from "../../lib/news/validation.ts";
 import type { NewsArticle, NewsCatalog, NewsDraft } from "../../lib/news/types.ts";
 import { articleSummary } from "../../lib/news/publication.ts";
@@ -27,11 +28,12 @@ if (!process.env.ODDSFRONT_EDITION_LOCKED) {
     : await executeSubscriptionCodex({ prompt: researchPrompt(catalog.articles, maxArticles), schema: NEWS_BATCH_SCHEMA,
       env: Object.fromEntries(["PATH", "USER", "LOGNAME", "LANG", "LC_ALL", "HTTPS_PROXY", "HTTP_PROXY", "NO_PROXY"].map(key => [key, process.env[key]])),
       timeoutMs: 600_000 });
-  const parsed = JSON.parse(raw) as { articles: NewsDraft[] };
+  const parsed = JSON.parse(raw) as { articles: NewsDraft[]; research?: NewsResearchReport };
   if (!Array.isArray(parsed.articles)) throw new Error("Invalid news batch");
+  const researchErrors = process.env.ODDSFRONT_NEWS_DRAFT_FILE && !parsed.research ? [] : researchProblems(parsed.research);
   const published: NewsArticle[] = [];
   const rejected: { title: string; reasons: string[] }[] = [];
-  for (const draft of parsed.articles.slice(0, maxArticles)) {
+  for (const draft of researchErrors.length ? [] : parsed.articles.slice(0, maxArticles)) {
     const reasons = validateNewsDraft(draft, [...published, ...catalog.articles]);
     if (reasons.length) { rejected.push({ title: draft.title, reasons }); continue; }
     const now = new Date().toISOString();
@@ -41,9 +43,10 @@ if (!process.env.ODDSFRONT_EDITION_LOCKED) {
     published.push({ id, slug, title, description, body, countries, topics, alert: verifiedNewsAlert(draft), author: "OddsFront Newsdesk", publishedAt: now, updatedAt: now, translations: {},
       sources: draft.sources.map(source => ({ id:source.id,title:source.title,publisher:source.publisher,url:source.url,kind:source.kind,publishedAt:source.publishedAt })) });
   }
-  const receipt = { startedAt, finishedAt: new Date().toISOString(), requested: maxArticles, published: published.map(article => article.slug), rejected };
+  const receipt = { startedAt, finishedAt: new Date().toISOString(), requested: maxArticles, published: published.map(article => article.slug), rejected, research: parsed.research, researchErrors };
   await mkdir(path.join(directory, "receipts"), { recursive: true });
   await writeFile(path.join(directory, "receipts", `${startedAt.replace(/[:.]/g,"-")}.json`), JSON.stringify({ receipt, evidence: parsed }, null, 2), { mode: 0o600 });
+  if (researchErrors.length) throw new Error(`News research incomplete: ${researchErrors.join("; ")}`);
   if (!published.length) { console.log(JSON.stringify({...receipt,status:"No verified new stories; retained existing edition"})); process.exit(0); }
   const next = { ...catalog, updatedAt: receipt.finishedAt, articles: [...published, ...catalog.articles] };
   const temporary = `${catalogPath}.${process.pid}.tmp`;

@@ -49,18 +49,18 @@ test("builds both directions from 5% at 24h and 20% at 7d", () => {
     {
       kind: "odds-rise",
       eventId: "polymarket-70002",
-      windowLabel: "7d",
-      value: 25,
-    },
-    {
-      kind: "odds-drop",
-      eventId: "polymarket-70001",
-      windowLabel: "7d",
-      value: 20,
+      windowLabel: "24h",
+      value: 6,
     },
     {
       kind: "odds-rise",
       eventId: "polymarket-70000",
+      windowLabel: "24h",
+      value: 5,
+    },
+    {
+      kind: "odds-drop",
+      eventId: "polymarket-70001",
       windowLabel: "24h",
       value: 5,
     },
@@ -123,6 +123,7 @@ test("keeps a rolling signal identity stable while its live value updates", () =
   const fixture = getConflictPreviewFixtureFeed();
   const event = {
     ...fixture.events[0]!,
+    updatedAt: new Date(now - 60_000).toISOString(),
     id: "polymarket-72000",
     volume: 2_000_000,
     volume24h: 100_000,
@@ -155,6 +156,19 @@ test("keeps a rolling signal identity stable while its live value updates", () =
 
   expect(updatedSignal.id).toBe(firstSignal.id);
   expect(updatedSignal.value).not.toBe(firstSignal.value);
+});
+
+test("fresh transport cannot renew old market observations and daily moves precede weekly fallbacks",()=>{
+  const now=Date.parse("2026-09-07T12:00:00Z");
+  const fixture=getConflictPreviewFixtureFeed();
+  const base={...fixture.events[0]!,marketConditionId:`0x${"1".padStart(64,"0")}`,marketUrl:"https://polymarket.com/event/development-freshness-fixture",volume:2_000_000,volume24h:100_000,endDate:new Date(now+86_400_000).toISOString(),updatedAt:new Date(now-60_000).toISOString(),priceChange24h:.06,priceChange7d:.7};
+  const current={...base,id:"polymarket-73000"};
+  const weekly={...base,id:"polymarket-73001",priceChange24h:.01};
+  const stale={...base,id:"polymarket-73002",updatedAt:new Date(now-3_600_000).toISOString()};
+  const feed={...fixture,dataMode:"live" as const,updatedAt:new Date(now).toISOString(),events:[stale,weekly,current]};
+  const signals=buildRollingActivitySignals(feed,now);
+  expect(signals.map(signal=>[signal.eventId,signal.windowLabel])).toEqual([[current.id,"24h"],[weekly.id,"7d"]]);
+  expect(signals.every(signal=>signal.observedAt===now-60_000)).toBe(true);
 });
 
 test("releases a rolling signal identity only after it disappears", () => {
