@@ -2,7 +2,7 @@ import { mkdir, readFile, writeFile, rename } from "node:fs/promises";
 import { spawnSync } from "node:child_process";
 import path from "node:path";
 import type { NewsCatalog } from "../../lib/news/types.ts";
-import { xCredentials, xRequest } from "../../lib/news/x-client.ts";
+import { xCredentials, xRequest, XRequestError } from "../../lib/news/x-client.ts";
 import { xNewsArticle, xNewsCoverUrl, xNewsPayload, verifyXPhotoPost, X_NEWS_ACCOUNT, X_NEWS_INTERVAL_MS } from "../../lib/news/x-publication.ts";
 import { xUploadNewsCover } from "../../lib/news/x-media.ts";
 
@@ -42,7 +42,12 @@ try {
   const payload = { ...headline, media: { media_ids: [media.mediaId] } };
   await atomic(path.join(output, `${stamp}-draft.json`), { account: X_NEWS_ACCOUNT, articleId: article.id, payload, cover: media });
   await atomic(stateFile, { ...state, pending: { articleId: article.id, attemptedAt: new Date().toISOString() } });
-  const created = await xRequest(credentials, "POST", "/2/tweets", payload);
+  let created;
+  try { created = await xRequest(credentials, "POST", "/2/tweets", payload); }
+  catch(error) {
+    if(error instanceof XRequestError && error.definiteRejection) await atomic(stateFile,state);
+    throw error;
+  }
   const postId = created.data?.id;
   if (!postId || !/^\d+$/.test(postId)) throw new Error("Unexpected X publication receipt");
   const receipt = { status: "published", account: X_NEWS_ACCOUNT, accountId: identity.data.id, articleId: article.id, postId, url: `https://x.com/${X_NEWS_ACCOUNT}/status/${postId}`, sentAt: new Date().toISOString(), payload, cover: media };

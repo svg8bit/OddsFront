@@ -1,4 +1,5 @@
 import { LOCALES, type Locale, type NewsArticle } from "./types.ts";
+import type { NewsCategory } from "./categories.ts";
 
 export const NON_ENGLISH_LOCALES = LOCALES.filter(
   (locale): locale is Exclude<Locale, "en"> => locale !== "en",
@@ -15,6 +16,10 @@ export function newsPath(locale: Locale, suffix = ""): string {
 
 export function newsCountryPath(country: string, locale: Locale): string {
   return newsPath(locale, `/${country.toLowerCase()}`);
+}
+
+export function newsTopicPath(topic: NewsCategory, locale: Locale): string {
+  return newsPath(locale, `/topic/${topic}`);
 }
 
 export function newsArticlePath(

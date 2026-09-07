@@ -9,7 +9,7 @@ test("X posts the same fresh selection once with only the exact title and a sepa
   expect(xNewsArticle([article], [article.id], [], now)?.id).toBe(article.id);
   expect(xNewsArticle([article], [article.id], [article.id], now)).toBeNull();
   expect(xNewsArticle([article], [article.id, "unknown-new-edition"], [], now)).toBeNull();
-  expect(xNewsArticle([article], [article.id], [], now + 4 * 3_600_000)).toBeNull();
+  expect(xNewsArticle([article], [article.id], [], now + 7 * 3_600_000)).toBeNull();
   expect(xNewsPayload(article).text).toBe(`🗞 ${article.title}`);
   expect(xNewsCoverUrl(article)).toBe(`https://oddsfront.com/social/news/en/${article.slug}?v=${encodeURIComponent(article.updatedAt)}`);
   expect(() => xNewsPayload({ ...article, title: "x".repeat(300) })).toThrow();

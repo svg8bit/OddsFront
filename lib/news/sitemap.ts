@@ -1,4 +1,5 @@
-import { articleLocales, languageAlternates, newsArticlePath, newsCountryPath, newsPath } from "./routing.ts";
+import { articleLocales, languageAlternates, newsArticlePath, newsCountryPath, newsPath, newsTopicPath } from "./routing.ts";
+import { NEWS_CATEGORIES, articleCategory } from "./categories.ts";
 import { LOCALES, type Locale, type NewsCatalog } from "./types.ts";
 
 export const SITEMAP_ARTICLE_BATCH_SIZE = 200;
@@ -46,11 +47,13 @@ export function sitemapIndex(catalog: NewsCatalog): string {
 
 export function coreSitemap(catalog: NewsCatalog): string {
   const countries = ["world", ...new Set(catalog.articles.flatMap((article) => article.countries.map((code) => code.toLowerCase())))];
+  const categories = NEWS_CATEGORIES.filter(topic=>catalog.articles.some(article=>articleCategory(article)===topic));
   const urls = [
     urlEntry({ path: "", updatedAt: catalog.updatedAt, priority: "1.0" }),
     urlEntry({ path: "/global-conflict-map", updatedAt: catalog.updatedAt, priority: "1.0" }),
     ...LOCALES.flatMap((locale) => [
       urlEntry({ path: newsPath(locale), updatedAt: catalog.updatedAt, priority: "0.9", alternateLinks: alternates("/news") }),
+      ...categories.map(topic=>urlEntry({ path:newsTopicPath(topic,locale), updatedAt:catalog.updatedAt, priority:"0.8", alternateLinks:alternates(newsTopicPath(topic,"en")) })),
       ...countries.map((country) => urlEntry({ path: newsCountryPath(country, locale), updatedAt: catalog.updatedAt, priority: "0.8", alternateLinks: alternates(`/news/${country}`) })),
     ]),
   ];

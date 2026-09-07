@@ -71,6 +71,12 @@ async function refreshOAuth2(credentials: XOAuth2Credentials) {
   }
 }
 
+export class XRequestError extends Error {
+  readonly definiteRejection:boolean;
+  readonly status:number;
+  constructor(message:string,status:number) { super(message);this.status=status;this.definiteRejection=status>=400&&status<500&&status!==408; }
+}
+
 export async function xRequest(credentials: XCredentials, method: string, pathname: string, body?: Record<string, unknown>) {
   const target = new URL(pathname, "https://api.x.com");
   if (target.origin !== "https://api.x.com") throw new Error("Invalid X endpoint");
@@ -80,6 +86,6 @@ export async function xRequest(credentials: XCredentials, method: string, pathna
   try { response = await fetch(target, { method, headers: { Authorization: authorization, ...(body ? { "Content-Type": "application/json" } : {}) }, ...(body ? { body: JSON.stringify(body) } : {}), signal: AbortSignal.timeout(20_000) }); }
   catch { throw new Error(`X ${method} transport failed`); }
   const data = await response.json();
-  if (!response.ok) throw new Error(`X ${method} ${target.pathname} rejected (${response.status}): ${String(data.title || data.detail || "Request failed").slice(0, 150)}`);
+  if (!response.ok) throw new XRequestError(`X ${method} ${target.pathname} rejected (${response.status}): ${String(data.title || data.detail || "Request failed").slice(0, 150)}`,response.status);
   return data;
 }
