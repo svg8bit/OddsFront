@@ -3,7 +3,8 @@ import { spawnSync } from "node:child_process";
 import path from "node:path";
 import type { NewsCatalog } from "../../lib/news/types.ts";
 import { xCredentials, xRequest } from "../../lib/news/x-client.ts";
-import { xNewsArticle, xNewsPayload, X_NEWS_ACCOUNT, X_NEWS_INTERVAL_MS } from "../../lib/news/x-publication.ts";
+import { xNewsArticle, xNewsCoverUrl, xNewsPayload, verifyXPhotoPost, X_NEWS_ACCOUNT, X_NEWS_INTERVAL_MS } from "../../lib/news/x-publication.ts";
+import { xUploadNewsCover } from "../../lib/news/x-media.ts";
 
 const directory = process.env.ODDSFRONT_NEWS_DIRECTORY || "/root/OddsFront/.local/news";
 const output = path.join(directory, "x");
@@ -28,29 +29,28 @@ try {
   try { telegram = JSON.parse(await readFile(path.join(directory, "telegram/state.json"), "utf8")); } catch (error) { if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error; }
   const article = xNewsArticle(catalog.articles, telegram.sentArticles, state.sentArticles);
   if (!article) { console.log(JSON.stringify({ status: "waiting-for-fresh-edition-selection" })); process.exit(0); }
-  const payload = xNewsPayload(article);
+  const headline = xNewsPayload(article);
+  const coverUrl = xNewsCoverUrl(article);
   const stamp = new Date().toISOString().replace(/[:.]/g, "-");
-  await atomic(path.join(output, `${stamp}-draft.json`), { account: X_NEWS_ACCOUNT, articleId: article.id, payload });
-  if (!process.argv.includes("--send")) { console.log(JSON.stringify({ status: "draft", account: X_NEWS_ACCOUNT, payload })); process.exit(0); }
-  const credentialFile = process.env.ODDSFRONT_X_CREDENTIAL_ENV || "/root/OddsFront/.local/x-credentials.env";
+  await atomic(path.join(output, `${stamp}-draft.json`), { account: X_NEWS_ACCOUNT, articleId: article.id, payload: headline, coverUrl });
+  if (!process.argv.includes("--send")) { console.log(JSON.stringify({ status: "draft", account: X_NEWS_ACCOUNT, payload: headline, coverUrl })); process.exit(0); }
+  const credentialFile = process.env.ODDSFRONT_X_CREDENTIAL_ENV || "/root/OddsFront/.local/x-auth/credentials.env";
   const credentials = await xCredentials(credentialFile);
   const identity = await xRequest(credentials, "GET", "/2/users/me");
   if (identity.data?.username?.toLowerCase() !== X_NEWS_ACCOUNT || !identity.data?.id) throw new Error("X credentials do not belong to @alotofbit");
-  const articleUrl = payload.text.split("\n").at(-1)!;
-  const page = await fetch(articleUrl, { signal: AbortSignal.timeout(15_000) });
-  if (!page.ok) throw new Error("Selected article is not public");
-  const html = await page.text();
-  if (!html.includes('name="twitter:card" content="summary_large_image"') || !html.includes('property="og:image"')) throw new Error("Article social preview is missing");
+  const media = await xUploadNewsCover(credentials, article);
+  const payload = { ...headline, media: { media_ids: [media.mediaId] } };
+  await atomic(path.join(output, `${stamp}-draft.json`), { account: X_NEWS_ACCOUNT, articleId: article.id, payload, cover: media });
   await atomic(stateFile, { ...state, pending: { articleId: article.id, attemptedAt: new Date().toISOString() } });
   const created = await xRequest(credentials, "POST", "/2/tweets", payload);
   const postId = created.data?.id;
   if (!postId || !/^\d+$/.test(postId)) throw new Error("Unexpected X publication receipt");
-  const receipt = { status: "published", account: X_NEWS_ACCOUNT, accountId: identity.data.id, articleId: article.id, postId, url: `https://x.com/${X_NEWS_ACCOUNT}/status/${postId}`, sentAt: new Date().toISOString(), payload };
+  const receipt = { status: "published", account: X_NEWS_ACCOUNT, accountId: identity.data.id, articleId: article.id, postId, url: `https://x.com/${X_NEWS_ACCOUNT}/status/${postId}`, sentAt: new Date().toISOString(), payload, cover: media };
   await atomic(path.join(output, `${stamp}-receipt.json`), receipt);
   await atomic(stateFile, { lastSentAt: Date.now(), sentArticles: [...state.sentArticles, article.id].slice(-1_000) });
-  const verified = await xRequest(credentials, "GET", `/2/tweets/${postId}?tweet.fields=author_id,entities`);
-  if (verified.data?.id !== postId || verified.data?.author_id !== identity.data.id) throw new Error("X post author verification failed");
-  await atomic(path.join(output, `${stamp}-verification.json`), { postId, accountId: verified.data.author_id, verifiedAt: new Date().toISOString() });
+  const verified = await xRequest(credentials, "GET", `/2/tweets/${postId}?tweet.fields=author_id,entities,attachments&expansions=attachments.media_keys&media.fields=type,url`);
+  verifyXPhotoPost(verified, { postId, accountId: identity.data.id, text: headline.text, mediaKey: media.mediaKey });
+  await atomic(path.join(output, `${stamp}-verification.json`), { postId, accountId: verified.data.author_id, mediaKey: media.mediaKey, noExternalLinks: true, verifiedAt: new Date().toISOString() });
   console.log(JSON.stringify({ ...receipt, verified: true }));
 } catch (error) {
   console.error(JSON.stringify({ status: "failed", error: error instanceof Error ? error.message : "X publication failed" }));

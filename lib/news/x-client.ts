@@ -1,5 +1,5 @@
 import { createHmac, randomBytes } from "node:crypto";
-import { readFile, rename, stat, unlink, writeFile } from "node:fs/promises";
+import { open, readFile, rename, stat, unlink } from "node:fs/promises";
 
 export interface XOAuth1Credentials { apiKey: string; apiSecret: string; accessToken: string; accessSecret: string; }
 export interface XOAuth2Credentials { oauth2: true; clientId: string; clientSecret: string; accessToken: string; refreshToken: string; expiresAt: number; file: string; }
@@ -32,28 +32,43 @@ export function xAuthorization(method: string, target: string, credentials: XOAu
 }
 
 async function refreshOAuth2(credentials: XOAuth2Credentials) {
-  let response: Response;
-  try {
-    response = await fetch("https://api.x.com/2/oauth2/token", {
-      method: "POST",
-      headers: { Authorization: `Basic ${Buffer.from(`${credentials.clientId}:${credentials.clientSecret}`).toString("base64")}`, "Content-Type": "application/x-www-form-urlencoded" },
-      body: new URLSearchParams({ grant_type: "refresh_token", refresh_token: credentials.refreshToken }),
-      signal: AbortSignal.timeout(20_000),
-    });
-  } catch { throw new Error("X OAuth2 refresh transport failed"); }
-  if (!response.ok) throw new Error(`X OAuth2 refresh rejected (${response.status})`);
-  const tokens = await response.json();
-  const validToken = (value: unknown): value is string => typeof value === "string" && value.length > 0 && !/[\r\n\0]/.test(value);
-  if (!validToken(tokens.access_token) || !validToken(tokens.refresh_token) || !Number.isFinite(tokens.expires_in) || tokens.expires_in <= 0) throw new Error("Invalid X OAuth2 refresh response");
-  const next = { ...credentials, accessToken: tokens.access_token, refreshToken: tokens.refresh_token, expiresAt: Date.now() + tokens.expires_in * 1_000 };
-  const content = Object.entries({ X_OAUTH2_CLIENT_ID: next.clientId, X_OAUTH2_CLIENT_SECRET: next.clientSecret, X_OAUTH2_ACCESS_TOKEN: next.accessToken, X_OAUTH2_REFRESH_TOKEN: next.refreshToken, X_OAUTH2_EXPIRES_AT: String(next.expiresAt) }).map(([key, value]) => `${key}=${value}\n`).join("");
   const temporary = `${credentials.file}.${process.pid}.${randomBytes(6).toString("hex")}.tmp`;
+  // Reserve writable private storage before consuming a rotating refresh token.
+  // A read-only service mount must fail before the provider invalidates it.
+  const storage = await open(temporary, "wx", 0o600);
   try {
-    await writeFile(temporary, content, { mode: 0o600, flag: "wx" });
+    // Allocate and flush data blocks too: creating an empty file alone can
+    // succeed when the filesystem cannot store the replacement credentials.
+    const reservation = Buffer.alloc(64 * 1024);
+    const reserved = await storage.write(reservation, 0, reservation.length, 0);
+    if (reserved.bytesWritten !== reservation.length) throw new Error("X credential storage reservation is incomplete");
+    await storage.sync();
+    let response: Response;
+    try {
+      response = await fetch("https://api.x.com/2/oauth2/token", {
+        method: "POST",
+        headers: { Authorization: `Basic ${Buffer.from(`${credentials.clientId}:${credentials.clientSecret}`).toString("base64")}`, "Content-Type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({ grant_type: "refresh_token", refresh_token: credentials.refreshToken }),
+        signal: AbortSignal.timeout(20_000),
+      });
+    } catch { throw new Error("X OAuth2 refresh transport failed"); }
+    if (!response.ok) throw new Error(`X OAuth2 refresh rejected (${response.status})`);
+    const tokens = await response.json();
+    const validToken = (value: unknown): value is string => typeof value === "string" && value.length > 0 && !/[\r\n\0]/.test(value);
+    if (!validToken(tokens.access_token) || !validToken(tokens.refresh_token) || !Number.isFinite(tokens.expires_in) || tokens.expires_in <= 0) throw new Error("Invalid X OAuth2 refresh response");
+    const next = { ...credentials, accessToken: tokens.access_token, refreshToken: tokens.refresh_token, expiresAt: Date.now() + tokens.expires_in * 1_000 };
+    const content = Object.entries({ X_OAUTH2_CLIENT_ID: next.clientId, X_OAUTH2_CLIENT_SECRET: next.clientSecret, X_OAUTH2_ACCESS_TOKEN: next.accessToken, X_OAUTH2_REFRESH_TOKEN: next.refreshToken, X_OAUTH2_EXPIRES_AT: String(next.expiresAt) }).map(([key, value]) => `${key}=${value}\n`).join("");
+    // The positional reservation left this handle's write cursor at byte zero.
+    await storage.writeFile(content);
+    await storage.truncate(Buffer.byteLength(content));
+    await storage.sync();
     await rename(temporary, credentials.file);
-  } finally { await unlink(temporary).catch(() => {}); }
-  // The publisher holds its process lock across refresh, send and receipt writes.
-  Object.assign(credentials, next);
+    // The publisher holds its process lock across refresh, send and receipt writes.
+    Object.assign(credentials, next);
+  } finally {
+    await storage.close();
+    await unlink(temporary).catch(() => {});
+  }
 }
 
 export async function xRequest(credentials: XCredentials, method: string, pathname: string, body?: Record<string, unknown>) {
