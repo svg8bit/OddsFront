@@ -50,6 +50,18 @@ After deployment, verify:
 
 ## Rollback
 
+The VPS X publisher reads only its private named credential file
+(`/root/OddsFront/.local/x-credentials.env`, mode `0600`). It accepts the four
+`X_API_*` / `X_ACCESS_TOKEN*` OAuth1 values, or OAuth2 values
+`X_OAUTH2_CLIENT_ID`, `X_OAUTH2_CLIENT_SECRET`, `X_OAUTH2_ACCESS_TOKEN`,
+`X_OAUTH2_REFRESH_TOKEN` and `X_OAUTH2_EXPIRES_AT` (Unix milliseconds).
+OAuth2 tokens refresh before expiry and rotate atomically in that file while
+the publisher holds its lock. Keep these credentials off Vercel and Git.
+Every post still verifies `@alotofbit` before sending and retains the existing
+two-hour interval, pending-send guard and verified publication receipts.
+When rolling back to an OAuth1-only publisher, retain the OAuth2 credential
+file privately and pause the X publisher until compatible code is restored.
+
 News readership additionally uses the existing OddsFront feed service. Install
 `ops/market-feed/news_readership.py` alongside `oddsfront_market_feed.py`, and
 install `ops/oddsfront-readership.conf` as a drop-in for
