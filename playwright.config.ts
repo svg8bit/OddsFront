@@ -1,5 +1,7 @@
 import { defineConfig } from "@playwright/test";
 
+const port = Number(process.env.PLAYWRIGHT_PORT || 3100);
+
 export default defineConfig({
   testDir: "./tests",
   outputDir: "./output/playwright/test-results",
@@ -12,7 +14,7 @@ export default defineConfig({
   reporter: [["list"], ["html", { outputFolder: "output/playwright/report", open: "never" }]],
   use: {
     actionTimeout: 12_000,
-    baseURL: "http://127.0.0.1:3100",
+    baseURL: `http://127.0.0.1:${port}`,
     viewport: { width: 1672, height: 941 },
     deviceScaleFactor: 1,
     locale: "en-US",
@@ -24,9 +26,9 @@ export default defineConfig({
   webServer: {
     // Verify the release bundle produced by `npm run check`. Next's dev-only
     // anti-FOUC overlay hides the page when JavaScript is disabled.
-    command: "npm run start -- --port 3100",
-    url: "http://127.0.0.1:3100/global-conflict-map-preview",
-    reuseExistingServer: !process.env.CI,
+    command: `npm run start -- --port ${port}`,
+    url: `http://127.0.0.1:${port}/global-conflict-map-preview`,
+    reuseExistingServer: false,
     timeout: 120_000,
   },
   projects: [{ name: "chromium", use: { browserName: "chromium" } }],

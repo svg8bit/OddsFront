@@ -19,7 +19,7 @@ export async function GET(
   const article = await getNewsArticle(slug);
   const source = article?.sources.find(candidate => candidate.kind === "media");
   if (!source) return unavailable(404);
-  const cover = await fetchPartnerCover(source.url);
+  const cover = await fetchPartnerCover(article?.cover?.sourceUrl || source.url, article?.cover?.imageUrl);
   if (!cover) return unavailable(404);
   return new Response(cover.body, {
     headers: {

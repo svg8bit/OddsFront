@@ -10,7 +10,7 @@ can read only that export, with its existing bearer authentication. Caddy adds
 `/v1/news` and `/v1/news/articles/<slug>` on the existing feed host. No new port,
 public write API, shared environment, or cross-product credential is used.
 Vercel reads the edition with the existing OddsFront feed variables, revalidates
-in 60 seconds, and keeps the verified bundled edition during an outage. Browser
+in 30 seconds, and retains the last successful live response during an outage. Browser
 news refreshes retain the newer edition on failed or older responses. Article
 publication requires neither a commit nor a deployment. `/news/archive`, country
 routes, RSS and the sitemap derive from the same catalog.
@@ -24,7 +24,8 @@ principles are adapted for geopolitics. ColdMath was read only. Its sports data,
 trading UI, credentials, infrastructure and branded assets were not migrated.
 
 Allowed news publishers: Reuters World, Axios World, Al Jazeera Middle East,
-The Kyiv Independent and BBC World. A publishable story needs a recent report
+The Kyiv Independent, BBC World, The Guardian World, Euronews International,
+Sky News World, Meduza and TV Rain. A publishable story needs a recent report
 (maximum 72 hours), an independent institutional primary source, dated source
 links, at least three source-backed facts and at least five substantive
 paragraphs. Write original English reporting: news, verified context, remaining
@@ -35,10 +36,14 @@ full-text licensing, so ColdMath's licensed syndication mode is not enabled.
 The overlap gate checks evidence notes, not every word of a paywalled source.
 Research and publication gates reduce errors; they do not replace human review.
 
-The two-hour cycle requests up to nine stories across the configured sources.
-Fewer stories, including zero, is a successful checked edition when evidence is
-insufficient. Each cycle records coverage of all five publishers, reviewed
-candidate counts and rejection reasons. Missing source coverage or discovery
+The two-hour cycle publishes exactly nine verified new stories. Research runs
+in small rounds of up to three so a slow writer cannot lose the entire edition.
+Partial results persist privately in `pending-edition` and are topped up;
+they never replace the public catalog. An incomplete cycle exits unsuccessfully
+and the five-minute timer retries that pending edition. The two-hour interval
+is measured from the last complete publication in `edition-state.json`.
+Each round records coverage of all ten publishers, reviewed candidate counts
+and rejection reasons. Missing source coverage or discovery
 with no inspected candidates fails the job rather than reporting a healthy
 empty edition. Source dates retain their actual precision: a verified calendar
 date is valid when the publisher does not provide a time and timezone. The
@@ -57,7 +62,13 @@ and market actions are required; News alerts show no odds.
 Partner cover images are fetched from the source page's Open Graph metadata and
 proxied through a fixed host and MIME allowlist. Source provenance stays in the
 private receipt and structured data; cover UI contains no technical source label.
-The existing OddsFront art is used when an image is unavailable.
+Sky News RSS enclosures are matched to the exact article URL when discovering
+its photograph. Verified image URLs are saved with articles so subsequent RSS
+rotation does not remove their covers. Publisher title/logo-only share cards
+(including Meduza's `imgly` cards) use OddsFront artwork instead.
+Every nine-story edition must contain at least six verified photographic covers,
+with at most three OddsFront fallbacks. Excess stories without usable images
+are retained as private rejections and replaced during the next research round.
 
 ## Writer and translation costs
 
@@ -89,8 +100,9 @@ RTL map shaping. Country glyphs are precomputed and requested by Unicode range.
 ## Service operation
 
 Tracked units: `ops/systemd/oddsfront-news.service` and `.timer`. The oneshot
-publisher runs every two hours with Nice 10, one CPU quota and a 3 GB memory
-limit. Translation follows research. `edition.lock` uses OS flock for both
+timer checks every five minutes, with actual publication due every two hours,
+using Nice 10, one CPU quota and a 3 GB memory limit. Translation and IndexNow
+run only after a complete edition, never on an interval check. `edition.lock` uses OS flock for both
 processes, preventing lost updates and releasing automatically after termination.
 No lock-file deletion is required after a crash. The Codex CLI also needs its
 shared `/root/.codex` runtime directory writable for its app-server SQLite state,
@@ -115,6 +127,18 @@ npm run news:translate
 `ODDSFRONT_NEWS_BATCH_SIZE` configure isolated runs. A reviewed local
 `ODDSFRONT_NEWS_DRAFT_FILE` is supported for editorial review and tests. Test
 fixtures use a temporary directory and never enter the production export.
+
+`node scripts/news/run-edition.mjs --force` is the explicit operator command
+for an immediate complete edition. Telegram and X accept `--send --force` for
+an explicitly requested immediate post; this bypasses only the interval, never
+account, freshness, duplicate or pending-send checks. Normal timers omit it.
+
+Public catalog and detail files are explicitly chmodded to `0644` before
+atomic rename, including under the service's `UMask=0077`. Private staging,
+state and evidence stay `0600`. Vercel caches only successful live catalog
+results, retains the previous cache on refresh failure and returns 503 from
+an uncached polling request during an outage, never a successful one-story
+seed response. Seed data is used only when no runtime feed is configured.
 
 ## Verification and rollback
 

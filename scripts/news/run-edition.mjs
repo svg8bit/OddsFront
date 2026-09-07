@@ -1,28 +1,102 @@
 import { readFile, mkdir, writeFile, rename } from "node:fs/promises";
 import { spawnSync } from "node:child_process";
 import path from "node:path";
+import { writeNewsCatalog } from "../../lib/news/storage.ts";
+import { prepareEditionCovers } from "../../lib/news/edition-covers.ts";
 
 const directory = process.env.ODDSFRONT_NEWS_DIRECTORY || "/root/OddsFront/.local/news";
 await mkdir(directory, { recursive: true, mode: 0o700 });
 if (!process.env.ODDSFRONT_EDITION_LOCKED) {
-  const run = spawnSync("flock", ["-w", "300", path.join(directory, "edition.lock"), process.execPath, ...process.argv.slice(1)], { stdio: "inherit", env: { ...process.env, ODDSFRONT_EDITION_LOCKED: "1" } });
+  const run = spawnSync("flock", ["-w", "300", path.join(directory, "edition.lock"), process.execPath, ...process.execArgv, ...process.argv.slice(1)], { stdio: "inherit", env: { ...process.env, ODDSFRONT_EDITION_LOCKED: "1" } });
   process.exit(run.status ?? 1);
 }
-const catalog = async () => JSON.parse(await readFile(path.join(directory, "catalog.json"), "utf8"));
-const previous = new Set((await catalog()).articles.map(article => article.id));
+const publicDirectory = process.env.ODDSFRONT_NEWS_PUBLIC_DIRECTORY || (process.env.ODDSFRONT_NEWS_DIRECTORY ? path.join(directory, "public") : "/opt/oddsfront-market-feed/news");
+const read = async (file, fallback) => {
+  try { return JSON.parse(await readFile(file, "utf8")); }
+  catch (error) { if (error.code === "ENOENT") return fallback; throw error; }
+};
+const atomic = async (file, value) => {
+  await writeFile(`${file}.tmp`, JSON.stringify(value, null, 2), { mode: 0o600 });
+  await rename(`${file}.tmp`, file);
+};
+const emptyCatalog = { version: 1, updatedAt: "1970-01-01T00:00:00.000Z", articles: [], marketTranslations: {} };
+const catalog = () => read(path.join(directory, "catalog.json"), emptyCatalog);
+const stateFile = path.join(directory, "edition-state.json");
+const state = await read(stateFile, { lastPublishedAt: 0 });
+if (!process.argv.includes("--force") && Date.now() < state.lastPublishedAt + 2 * 60 * 60_000) {
+  console.log(JSON.stringify({ status: "interval-not-due", nextDueAt: new Date(state.lastPublishedAt + 2 * 60 * 60_000).toISOString() }));
+  process.exit(0);
+}
+const pendingDirectory = path.join(directory, "pending-edition");
+await mkdir(pendingDirectory, { recursive: true, mode: 0o700 });
+const pendingFile = path.join(pendingDirectory, "edition.json");
+let pending = await read(pendingFile, null);
+if (!pending) {
+  const current = await catalog();
+  pending = { startedAt: new Date().toISOString(), baseIds: current.articles.map(article => article.id) };
+  await atomic(path.join(pendingDirectory, "catalog.json"), current);
+  await atomic(pendingFile, pending);
+}
+const previous = new Set(pending.baseIds);
+const stagedCatalog = () => read(path.join(pendingDirectory, "catalog.json"), emptyCatalog);
+const fresh = article => article.sources.some(source => source.kind === "media" && Date.parse(source.publishedAt) >= Date.now() - 72 * 60 * 60_000);
+const staged = await stagedCatalog();
+staged.articles = staged.articles.filter(article => previous.has(article.id) || fresh(article));
+await atomic(path.join(pendingDirectory, "catalog.json"), staged);
 const startedAt = new Date().toISOString();
 const rounds = [];
-let published = [];
-// Top up the same edition after partial research; all normal evidence and duplicate gates remain active.
-for (let attempt = 1; attempt <= 4 && published.length < 9; attempt++) {
-  const run = spawnSync(process.execPath, ["scripts/news/publish.ts"], { stdio: "inherit", env: { ...process.env, ODDSFRONT_NEWS_BATCH_SIZE: String(9 - published.length) }, timeout: 11 * 60_000 });
-  published = (await catalog()).articles.filter(article => !previous.has(article.id));
-  rounds.push({ attempt, exitCode: run.status, published: published.length });
+let prepared = (await stagedCatalog()).articles.filter(article => !previous.has(article.id));
+async function checkCovers() {
+  if (prepared.length < 9) return;
+  const { accepted, rejected } = await prepareEditionCovers(prepared);
+  const staged = await stagedCatalog();
+  await atomic(path.join(pendingDirectory, "catalog.json"), {
+    ...staged, articles: [...accepted, ...staged.articles.filter(article => previous.has(article.id))],
+  });
+  if (rejected.length) {
+    const file = path.join(pendingDirectory, "cover-rejections.json");
+    await atomic(file, [...await read(file, []), ...rejected]);
+  }
+  prepared = accepted;
 }
-const receipt = { startedAt, finishedAt: new Date().toISOString(), requested: 9, published: published.map(article => article.slug), rounds, status: published.length === 9 ? "complete" : published.length ? "partial" : "empty" };
+await checkCovers();
+// Research may return a partial result. Persist it privately and keep filling
+// the same edition; never expose five stories as a successful nine-story run.
+for (let attempt = 1; attempt <= 6 && prepared.length < 9; attempt++) {
+  const run = spawnSync(process.execPath, ["scripts/news/publish.ts"], { stdio: "inherit", env: { ...process.env,
+    ODDSFRONT_NEWS_DIRECTORY: pendingDirectory, ODDSFRONT_NEWS_PUBLIC_DIRECTORY: path.join(pendingDirectory, "public"),
+    ODDSFRONT_NEWS_BATCH_SIZE: String(Math.min(3, 9 - prepared.length)) }, timeout: 11 * 60_000 });
+  prepared = (await stagedCatalog()).articles.filter(article => !previous.has(article.id));
+  await checkCovers();
+  rounds.push({ attempt, exitCode: run.status, prepared: prepared.length });
+}
 await mkdir(path.join(directory, "editions"), { recursive: true, mode: 0o700 });
 const target = path.join(directory, "editions", `${startedAt.replace(/[:.]/g, "-")}.json`);
-await writeFile(`${target}.tmp`, JSON.stringify(receipt, null, 2), { mode: 0o600 });
-await rename(`${target}.tmp`, target);
+if (prepared.length !== 9) {
+  const receipt = { startedAt, finishedAt: new Date().toISOString(), requested: 9, published: [], prepared: prepared.length, rounds, status: "incomplete-retrying" };
+  await atomic(target, receipt);
+  console.error(JSON.stringify(receipt));
+  process.exit(1);
+}
+const publishedAt = pending.publishedAt || new Date().toISOString();
+await atomic(pendingFile, { ...pending, publishedAt });
+const published = prepared.map(article => ({ ...article, publishedAt, updatedAt: publishedAt }));
+const ids = new Set(published.map(article => article.id));
+const current = await catalog();
+const next = { ...current, updatedAt: publishedAt, articles: [...published, ...current.articles.filter(article => !ids.has(article.id))] };
+await writeNewsCatalog(directory, publicDirectory, next, published);
+const receipt = { startedAt, finishedAt: new Date().toISOString(), requested: 9, published: published.map(article => article.slug), photographicCovers: published.filter(article => article.cover).length, fallbackCovers: published.filter(article => !article.cover).length, rounds, status: "complete" };
+await atomic(target, receipt);
+await atomic(stateFile, { lastPublishedAt: Date.parse(publishedAt), articleIds: [...ids], receipt: target });
+// Keep research evidence; only the disposable staged catalogs are removed.
+await rename(pendingDirectory, path.join(directory, "editions", `${startedAt.replace(/[:.]/g, "-")}-research`));
 console.log(JSON.stringify(receipt));
-if (!published.length && rounds.every(round => round.exitCode !== 0)) process.exitCode = 1;
+if (process.argv.includes("--with-followups")) {
+  for (const [command, args, timeout] of [
+    ["/root/OddsFront/.local/translation-venv/bin/python", ["scripts/news/translate.py"], 45 * 60_000],
+    [process.execPath, ["scripts/news/indexnow.mjs"], 60_000],
+  ]) {
+    const result = spawnSync(command, args, { stdio: "inherit", env: process.env, timeout });
+    if (result.status !== 0) console.error(JSON.stringify({ status: "followup-failed", command: path.basename(command), exitCode: result.status }));
+  }
+}

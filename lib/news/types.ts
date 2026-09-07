@@ -44,6 +44,7 @@ export interface NewsArticle extends ArticleText {
   countries: string[];
   topics: string[];
   alert?: NewsAlert | null;
+  cover?: { imageUrl: string; sourceUrl: string; verifiedAt: string };
   sources: Omit<NewsSource, "evidence">[];
   translations: Partial<Record<Locale, ArticleText>>;
 }

@@ -78,14 +78,16 @@ The lightweight loader owns one event-feed subscription independently of the
 deferred map bundle. It refreshes immediately on entry, pageshow, focus,
 visibility restoration and reconnect, deduplicates in-flight requests, times
 out blocked requests and ignores older snapshots. Visible tabs poll roughly
-once per minute. The activity rail uses confirmed CLOB price changes of at least
-five percentage points within fifteen minutes. The server batches histories for
-up to 200 active individual markets with at least $100K volume, caches them for
-sixty seconds and bounds each parallel request to two seconds. Invalid, gapped
-or stale history produces no movement. A notice expires fifteen minutes after
-the actual changed sample; unchanged prices and renewed Gamma timestamps
-cannot refresh its age. Large trades and strict breaking-news matches retain
-their own occurrence times and gates.
+once per minute. The activity rail shows the live Gamma day/week changes for
+active individual markets with at least $100K volume: at least five percentage
+points over 24 hours or twenty over seven days. It includes both periods and
+directions when eligible markets exist, and rotates current leaders every
+fifteen minutes. A price refresh updates the value without extending that
+display cycle. The timestamp is labelled Updated, not a new event occurrence.
+Stale feeds and expired markets cannot produce notices. This requires no
+additional CLOB history requests from Vercel. Large trades and strict
+breaking-news matches retain their actual occurrence times and fifteen-minute
+lifetimes.
 
 ## Security boundary
 

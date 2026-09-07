@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
@@ -124,4 +124,45 @@ test("news index excludes article bodies and the full market dictionary",()=>{
   const index=newsIndex(seed as NewsCatalog);
   expect(index).not.toHaveProperty("marketTranslations");expect(index.articles.length).toBeGreaterThan(0);
   for(const article of index.articles){expect(article.body).toEqual([]);expect(article.readingMinutes).toBeGreaterThan(0);for(const text of Object.values(article.translations))expect(text.body).toEqual([]);}
+});
+
+
+test("public exports remain readable under the production service's private umask", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "oddsfront-export-permissions-"));
+  try {
+    const input = join(directory, "draft.json"); await writeFile(input, JSON.stringify({ articles: [draft()] }));
+    const run = spawnSync(process.execPath, ["--input-type=module", "--eval", "process.umask(0o077); await import('./scripts/news/publish.ts');"], {
+      encoding: "utf8", env: { ...process.env, ODDSFRONT_EDITION_LOCKED: "1", ODDSFRONT_NEWS_DIRECTORY: directory, ODDSFRONT_NEWS_DRAFT_FILE: input },
+    });
+    expect(run.status, run.stderr).toBe(0);
+    const index = JSON.parse(await readFile(join(directory, "public/catalog.json"), "utf8"));
+    for (const file of ["public/catalog.json", `public/articles/${index.articles[0].slug}.json`]) expect((await stat(join(directory, file))).mode & 0o777).toBe(0o644);
+    expect((await stat(join(directory, "catalog.json"))).mode & 0o777).toBe(0o600);
+  } finally { await rm(directory, { recursive: true, force: true }); }
+});
+
+test("editions retain partial research privately, resume to exactly nine and enforce the two-hour interval", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "oddsfront-complete-edition-"));
+  const titles = ["Test: Alpine delegations reopen mountain crossing", "Test: Coastal parliament approves maritime reform", "Test: Desert authorities announce water-sharing framework", "Test: Island leaders establish regional assembly", "Test: Northern ambassadors resume diplomatic dialogue", "Test: Eastern ministers appoint border commission", "Test: Southern council ratifies migration accord", "Test: Western agencies restore emergency coordination", "Test: Pacific representatives sign environmental treaty"];
+  const articles = titles.map((title, i) => { const item = draft(); item.title = title; item.sources[0].url += `-${i}`; item.sources[1].url += `-${i}`; return item; });
+  try {
+    const input = join(directory, "draft.json");
+    const mock = join(directory, "development-cover-fetch.mjs");
+    await writeFile(mock, `globalThis.fetch = async url => {
+      const image = String(url).startsWith('https://images.axios.com/');
+      const response = new Response(image ? new Uint8Array([137,80,78,71]) : '<meta property="og:image" content="https://images.axios.com/development-fixture.png">', { headers: { 'content-type': image ? 'image/png' : 'text/html' } });
+      Object.defineProperty(response, 'url', { value: String(url) }); return response;
+    };`);
+    const run = () => spawnSync(process.execPath, ["--import", mock, "scripts/news/run-edition.mjs"], { encoding: "utf8", env: { ...process.env, ODDSFRONT_NEWS_DIRECTORY: directory, ODDSFRONT_NEWS_DRAFT_FILE: input } });
+    await writeFile(input, JSON.stringify({ articles: articles.slice(0, 3) }));
+    const partial = run(); expect(partial.status, partial.stderr).toBe(1);
+    await expect(readFile(join(directory, "public/catalog.json"))).rejects.toThrow();
+    const staged = JSON.parse(await readFile(join(directory, "pending-edition/catalog.json"), "utf8")); expect(staged.articles).toHaveLength(3);
+    await writeFile(input, JSON.stringify({ articles: articles.slice(3) }));
+    const complete = run(); expect(complete.status, complete.stderr).toBe(0);
+    const before = await readFile(join(directory, "public/catalog.json"), "utf8");
+    const index = JSON.parse(before); expect(index.articles).toHaveLength(9); expect(new Set(index.articles.map((a: NewsArticle) => a.publishedAt)).size).toBe(1);
+    const state = JSON.parse(await readFile(join(directory, "edition-state.json"), "utf8")); expect(state.articleIds).toHaveLength(9);
+    expect(run().stdout).toContain("interval-not-due"); expect(await readFile(join(directory, "public/catalog.json"), "utf8")).toBe(before);
+  } finally { await rm(directory, { recursive: true, force: true }); }
 });

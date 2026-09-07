@@ -1042,7 +1042,7 @@ test("groups co-located alliance events behind popup pager arrows", async ({
   await expect(popup).toContainText("Market 2 of 2");
 });
 
-test("shows only confirmed recent movements in both directions", async ({
+test("shows daily and weekly movement leaders in both directions", async ({
   page,
 }) => {
   const fixture = getConflictPreviewFixtureFeed();
@@ -1098,12 +1098,11 @@ test("shows only confirmed recent movements in both directions", async ({
     true,
   );
   await expect(rail).toHaveAttribute("data-activity-count", "3");
-  await expect(rail).toContainText("+6.0%");
   await expect(rail).toContainText("-20.0%");
-  await expect(rail).toContainText("+5.0%");
+  await expect(rail.locator('[data-activity-kind="odds-rise"]')).toHaveCount(2);
   await expect(rail).not.toContainText("Odds");
-  await expect(rail.locator('time[data-time-kind="occurred"]')).toHaveCount(3);
-  await expect(rail.locator("article").first()).toHaveAttribute("data-activity-window", "15m");
+  await expect(rail.locator('time[data-time-kind="updated"]')).toHaveCount(3);
+  await expect(rail.locator("article").first()).toHaveAttribute("data-activity-window", "24H");
   await expect(rail).not.toContainText(" pp");
   await expect(rail).not.toContainText("Volume");
   await expect(rail).not.toContainText("1h");
@@ -1165,8 +1164,8 @@ test("shows only confirmed recent movements in both directions", async ({
   }
   await expect(rail).not.toContainText(liveFeed.events[3]!.title);
   await expect(rail).not.toContainText(liveFeed.events[4]!.title);
-  await expect(rail.locator('[data-activity-window="7d"]')).toHaveCount(0);
-  await expect(rail.locator('[data-activity-window="15m"]')).toHaveCount(3);
+  await expect(rail.locator('[data-activity-window="7D"]')).not.toHaveCount(0);
+  await expect(rail.locator('[data-activity-window="24H"]')).not.toHaveCount(0);
 });
 
 test("batches trade-watch coverage across every eligible $100K market", async ({
@@ -1447,13 +1446,13 @@ test("shows confirmed price moves with referral-safe buys from $200K", async ({
   await expect(rail.locator('[data-activity-kind="large-sell"]')).toHaveCount(0);
   await expect(rail).not.toContainText("Volume");
   await expect(rail).not.toContainText("1h");
-  await expect(rail).toContainText("15m");
+  await expect(rail).toContainText("24H");
 
   await page.evaluate(() => window.dispatchEvent(new Event("online")));
   await expect.poll(() => conflictFeedRequestCount).toBeGreaterThanOrEqual(2);
   await expect(rail).toHaveAttribute("data-activity-count", "3");
   await expect(rail).not.toContainText(" pp");
-  await expect(rail).toContainText("15m");
+  await expect(rail).toContainText("24H");
   await expect(
     rail.locator('[data-activity-kind="odds-rise"]'),
   ).toHaveAttribute("data-activity-direction", "up");

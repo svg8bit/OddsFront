@@ -92,7 +92,7 @@ test("refreshes on mobile restore and preserves good data on old or failed respo
   await expect(layer).toHaveAttribute("data-activity-feed-updated-at", payload.updatedAt);
 });
 
-test("refreshing an unchanged price cannot renew an alert and expired movements stay hidden", async ({ page }) => {
+test("refreshing prices preserves a display cycle and a lost feed expires the alerts", async ({ page }) => {
   await isolateActivity(page);
   const now = Date.now();
   await page.clock.install({ time: now });
@@ -125,4 +125,28 @@ test("refreshing an unchanged price cannot renew an alert and expired movements 
   status = 503;
   await page.clock.fastForward(11 * 60_000);
   await expect(rail).toHaveCount(0);
+});
+
+test("confirmed news appears alongside market alerts and expires after fifteen minutes", async ({ page }) => {
+  await isolateActivity(page);
+  const now = Date.now();
+  await page.clock.install({ time: now });
+  let payload = liveFeed(now);
+  payload.events[0] = { ...payload.events[0]!, title: "Will the United States strike Iran by September 30?", countryCodes: ["US", "IR"], marketVolume: 2_000_000 };
+  await page.route("**/api/global-conflict-events", route => route.fulfill({ json: payload }));
+  const news = { id: "qa-news-strike", slug: "qa-news-strike", title: "United States strikes Iran after overnight attacks", countries: ["US", "IR"],
+    publishedAt: new Date(now).toISOString(), alert: { kind: "strike", actorCountries: ["US"], targetCountries: ["IR"] } };
+  await page.route("**/api/news", route => route.fulfill({ json: { updatedAt: new Date(now).toISOString(), articles: [news] } }));
+  await page.goto("/global-conflict-map-preview");
+  const rail = page.getByRole("complementary", { name: "Live market activity" });
+  const card = rail.locator('[data-activity-kind="news"]');
+  await expect(card).toBeVisible();
+  await expect(card).toContainText(news.title);
+  await expect(card).toHaveAttribute("data-expires-at", new Date(now + 15 * 60_000).toISOString());
+  await expect(card.locator("[data-activity-metric]")).toHaveCount(0);
+  payload = { ...payload, updatedAt: new Date(now + 16 * 60_000).toISOString() };
+  await page.clock.setSystemTime(now + 16 * 60_000);
+  await page.evaluate(() => window.dispatchEvent(new Event("focus")));
+  await expect(card).toHaveCount(0);
+  await expect(rail.locator('[data-activity-source="rolling"]')).not.toHaveCount(0);
 });

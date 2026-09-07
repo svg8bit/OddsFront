@@ -43,7 +43,6 @@ import {
   toPolymarketReferralUrl,
 } from "@/lib/polymarket-links";
 
-const ACTIVITY_TTL_MS = 15 * 60 * 1_000;
 const MAX_VISIBLE_NOTICES = 3;
 const MAX_STORED_NOTICES = 12;
 const ACTIVITY_RISE_TONE = "#22DF91";
@@ -54,7 +53,7 @@ const ACTIVITY_REFRESH_JITTER_MS = 15_000;
 const ACTIVITY_INITIAL_DELAY_MS = 1_000;
 const CONDITION_ID_PATTERN = /^0x[a-f0-9]{64}$/i;
 
-type ActivityWindowLabel = "15m";
+type ActivityWindowLabel = "24H" | "7D";
 type ActivityNoticeKind = Exclude<ConflictActivityKind, "large-sell"> | "news";
 type ActivityNoticeSource = "trade" | "rolling" | "news";
 
@@ -249,9 +248,10 @@ function selectVisibleNotices(notices: ActivityNotice[]): ActivityNotice[] {
 function buildRollingNotices(
   feed: ConflictPreviewFeed,
   now = Date.now(),
+  cycleStartedAt = now,
 ): ActivityNotice[] {
   const eventsById = new Map(feed.events.map((event) => [event.id, event]));
-  return buildRollingActivitySignals(feed, now)
+  return buildRollingActivitySignals(feed, now, cycleStartedAt)
     .map((signal): ActivityNotice | null => {
       const event = eventsById.get(signal.eventId);
       if (!event) return null;
@@ -268,7 +268,7 @@ function buildRollingNotices(
         outcome: null,
         outcomeOdds: null,
         occurredAt: signal.observedAt,
-        expiresAt: signal.observedAt + ACTIVITY_TTL_MS,
+        expiresAt: signal.expiresAt,
         marketUrl: toPolymarketReferralUrl(event.marketUrl),
         article: null,
         articleUrl: null,
@@ -334,6 +334,7 @@ export function ActivityRail({
   // This rail mounts after hydration: use wall time, never an old ISR timestamp
   // as "now", which made expired server-rendered cards flash and disappear.
   const [clock, setClock] = useState(() => Date.now());
+  const [cycleStartedAt] = useState(() => Date.now());
   const [newsIndex, setNewsIndex] = useState<{
     articles: NewsArticle[];
     receivedAt: number;
@@ -435,11 +436,10 @@ export function ActivityRail({
     () => new Map(feed.events.map((event) => [event.id, event])),
     [feed.events],
   );
-  // Occurrence times come from changed CLOB price samples. A feed refresh
-  // cannot renew an unchanged movement or its expiry.
+  // Updated day/week odds do not extend the fifteen-minute display cycle.
   const rollingNotices = useMemo(
-    () => fixtureMode ? [] : buildRollingNotices(feed, Math.max(clock, feedClock)),
-    [clock, feed, feedClock, fixtureMode],
+    () => fixtureMode ? [] : buildRollingNotices(feed, Math.max(clock, feedClock), cycleStartedAt),
+    [clock, feed, feedClock, fixtureMode, cycleStartedAt],
   );
   useEffect(() => {
     if (fixtureMode || newsIndex.receivedAt === 0) return;
@@ -449,7 +449,7 @@ export function ActivityRail({
         const next = buildNewsMarketAlerts(
           newsIndex.articles,
           feed.events,
-          newsIndex.receivedAt,
+          Math.max(clock, newsIndex.receivedAt),
         ).map(newsNotice);
         if (!cancelled) setNewsNotices(next);
       })
@@ -457,7 +457,7 @@ export function ActivityRail({
         // Market activity stays available when the additive News matcher fails.
       });
     return () => { cancelled = true; };
-  }, [feed.events, fixtureMode, newsIndex]);
+  }, [clock, feed.events, fixtureMode, newsIndex]);
   const marketIdQueries = useMemo(
     () =>
       batchPolymarketActivityMarketIds(
@@ -731,8 +731,8 @@ export function ActivityRail({
                 </span>
                 <strong>{news || locale === "en" ? noticeLabel(notice) : noticeLabel(notice).replace("Large BUY",marketLabel(locale,"Large BUY")).replace("Odds",marketLabel(locale,"Odds"))}</strong>
                 {notice.windowLabel ? <span>{notice.windowLabel}</span> : null}
-                <time dateTime={new Date(notice.occurredAt).toISOString()} data-time-kind="occurred">
-                  {locale === "en" ? relativeTime(notice.occurredAt, clock) : new Intl.RelativeTimeFormat(locale,{numeric:"auto",style:"narrow"}).format(-Math.max(0,Math.floor((clock-notice.occurredAt)/60_000)),"minute")}
+                <time dateTime={new Date(notice.occurredAt).toISOString()} data-time-kind={notice.source === "rolling" ? "updated" : "occurred"}>
+                  {notice.source === "rolling" ? `${t("updated")} ${new Intl.DateTimeFormat(locale,{hour:"2-digit",minute:"2-digit"}).format(notice.occurredAt)}` : locale === "en" ? relativeTime(notice.occurredAt, clock) : new Intl.RelativeTimeFormat(locale,{numeric:"auto",style:"narrow"}).format(-Math.max(0,Math.floor((clock-notice.occurredAt)/60_000)),"minute")}
                 </time>
                 <button
                   type="button"

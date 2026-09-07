@@ -7,9 +7,7 @@ ConditionPathExists=/root/OddsFront/scripts/news/publish.ts
 [Service]
 Type=oneshot
 WorkingDirectory=/root/OddsFront
-ExecStart=/usr/local/bin/node scripts/news/publish.ts
-ExecStartPost=/root/OddsFront/.local/translation-venv/bin/python scripts/news/translate.py
-ExecStartPost=/usr/local/bin/node scripts/news/indexnow.mjs
+ExecStart=/usr/local/bin/node scripts/news/run-edition.mjs --with-followups
 Environment=NODE_ENV=production
 Environment=PATH=/usr/local/bin:/usr/bin:/bin
 Environment=ODDSFRONT_NEWS_BATCH_SIZE=9
@@ -24,4 +22,4 @@ ProtectHome=read-only
 ReadWritePaths=/root/OddsFront/.local/news /opt/oddsfront-market-feed/news /root/.codex
 InaccessiblePaths=-/opt/arctrenches -/opt/arctrenches-legacy-6c13c07 -/root/DropsAnalytics -/root/DropsAnalytics-worktrees -/opt/sunder -/root/.ssh -/etc/oddsfront-market-feed.env
 UMask=0077
-TimeoutStartSec=60min
+TimeoutStartSec=150min

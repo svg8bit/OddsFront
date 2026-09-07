@@ -43,7 +43,7 @@ try {
   let state: State = { lastSentAt: 0, sentArticles: [] };
   try { state = JSON.parse(await readFile(stateFile, "utf8")); } catch (error) { if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error; }
   if (state.pending) throw new Error("Previous send has an unknown outcome; reconcile it before retrying");
-  if (Date.now() - state.lastSentAt < TELEGRAM_INTERVAL_MS) { console.log(JSON.stringify({ status: "interval-not-due" })); process.exit(0); }
+  if (!process.argv.includes("--force") && Date.now() - state.lastSentAt < TELEGRAM_INTERVAL_MS) { console.log(JSON.stringify({ status: "interval-not-due" })); process.exit(0); }
   const catalog = JSON.parse(await readFile(path.join(directory, "catalog.json"), "utf8")) as NewsCatalog;
   const articles = freshEditionArticles(catalog.articles, state.sentArticles);
   if (!articles.length) { console.log(JSON.stringify({ status: "no-fresh-article" })); process.exit(0); }

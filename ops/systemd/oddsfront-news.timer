@@ -2,8 +2,7 @@
 Description=Refresh OddsFront news every two hours
 
 [Timer]
-OnBootSec=10min
-OnUnitActiveSec=2h
+OnCalendar=*-*-* *:0/5:00
 AccuracySec=1min
 Persistent=true
 Unit=oddsfront-news.service
