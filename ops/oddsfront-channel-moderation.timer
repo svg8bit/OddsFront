@@ -1,0 +1,12 @@
+[Unit]
+Description=Check OddsFront channels for unwanted disputed-resolution broadcasts
+
+[Timer]
+OnCalendar=*-*-* *:*:00
+AccuracySec=5s
+RandomizedDelaySec=5s
+Persistent=true
+Unit=oddsfront-channel-moderation.service
+
+[Install]
+WantedBy=timers.target
