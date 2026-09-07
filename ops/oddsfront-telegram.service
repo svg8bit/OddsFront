@@ -1,6 +1,6 @@
 [Unit]
 Description=Publish one verified OddsFront news and market Telegram post
-After=network-online.target oddsfront-news.service
+After=network-online.target
 Wants=network-online.target
 ConditionPathExists=/root/OddsFront/.local/telegram.env
 
