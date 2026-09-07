@@ -13,11 +13,11 @@ function fixture() {
   return { article, event, feed: { ...feed, dataMode: "live" as const, updatedAt: event.updatedAt, events: [event] }, now };
 }
 
-test("only one story is posted per completed edition even when the next research cycle is late", () => {
+test("hourly social slots can select different stories from one two-hour site edition", () => {
   const { article, now } = fixture();
   const edition = Array.from({ length: 9 }, (_, i) => ({ ...article, id: `qa-edition-${i}` }));
   expect(freshEditionArticles(edition, [], now)).toHaveLength(9);
-  expect(freshEditionArticles(edition, [edition[3]!.id], now + 2 * 3_600_000)).toEqual([]);
+  expect(freshEditionArticles(edition, [edition[3]!.id], now + 3_600_000)).toHaveLength(8);
   const next = edition.map((item, i) => ({ ...item, id: `qa-next-edition-${i}`, publishedAt: new Date(now + 2 * 3_600_000).toISOString() }));
   expect(freshEditionArticles([...next, ...edition], [edition[3]!.id], now + 2 * 3_600_000)).toHaveLength(9);
 });
@@ -26,7 +26,7 @@ test("Telegram excludes expired news, stale markets and articles already sent", 
   const { article, event, feed, now } = fixture();
   expect(telegramCandidates([article], feed, [], now)).toHaveLength(1);
   expect(telegramCandidates([article], feed, [article.id], now)).toHaveLength(0);
-  expect(telegramCandidates([{ ...article, publishedAt: new Date(now - 4 * 3_600_000).toISOString() }], feed, [], now)).toHaveLength(0);
+  expect(telegramCandidates([{ ...article, publishedAt: new Date(now - 7 * 3_600_000).toISOString() }], feed, [], now)).toHaveLength(0);
   expect(telegramCandidates([article], { ...feed, events: [{ ...event, updatedAt: new Date(now - 3_600_000).toISOString() }] }, [], now)).toHaveLength(0);
   expect(telegramCandidates([article], { ...feed, events: [{ ...event, marketVolume: 99_999 }] }, [], now)).toHaveLength(0);
 });
@@ -96,7 +96,7 @@ test("Russian channel waits for the English choice and reviewed translation, ski
   expect(russianTelegramArticle(edition, choice.id, [], choice.publishedAt, now)).toBeNull();
   expect(russianTelegramArticle(edition, choice.id, [], new Date(now - 3_600_000).toISOString(), now)?.id).toBe(choice.id);
   expect(russianTelegramArticle(edition, choice.id, [choice.id], undefined, now)).toBeNull();
-  expect(russianTelegramArticle(edition, edition[3]!.id, [choice.id], undefined, now)).toBeNull();
+  expect(russianTelegramArticle(edition, edition[3]!.id, [choice.id], undefined, now)?.id).toBe(edition[3]!.id);
 });
 
 test("Russian editorial checks reject untranslated text and changed dates or counts", () => {

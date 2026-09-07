@@ -1,0 +1,23 @@
+[Unit]
+Description=Recover overdue OddsFront editions and report persistent delivery failures
+After=network-online.target
+Wants=network-online.target
+ConditionPathExists=/root/OddsFront/scripts/news/supervise.ts
+
+[Service]
+Type=oneshot
+WorkingDirectory=/root/OddsFront
+ExecStart=/usr/local/bin/node scripts/news/supervise.ts
+Environment=PATH=/usr/local/bin:/usr/bin:/bin
+Nice=15
+CPUQuota=25%
+MemoryMax=256M
+TasksMax=48
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/root/OddsFront/.local/news
+InaccessiblePaths=-/opt/arctrenches -/root/DropsAnalytics -/root/DropsAnalytics-worktrees -/opt/sunder -/root/.ssh
+UMask=0077
+TimeoutStartSec=2min

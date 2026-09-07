@@ -20,7 +20,7 @@ test("assigned Vercel aliases redirect to the canonical host", async ({ request 
   }
 });
 
-test("news remains lightweight and preserves language without hiding countries",async({page})=>{
+test("news remains lightweight and preserves language with topic navigation",async({page})=>{
   const requests:string[]=[];page.on("request",request=>requests.push(request.url()));
   await page.goto("/news");await expect(page.getByRole("heading",{level:1})).toBeVisible();
   await page.getByRole("button",{name:"Language",exact:true}).click();
@@ -63,7 +63,7 @@ test("long translated listing headlines remain inside unbranded covers", async (
       return title.bottom <= cover.bottom && title.top >= cover.top && title.left >= cover.left && title.right <= cover.right;
     }));
     expect(bounds).toBe(true);
-    const filters = page.getByRole("navigation").filter({ has: page.getByRole("link", { name: "Все страны", exact: true }) });
+    const filters = page.getByRole("navigation").filter({ has: page.getByRole("link", { name: "Все новости", exact: true }) });
     await expect(filters).toHaveCount(1);
     expect(await filters.evaluate(node => getComputedStyle(node).scrollbarWidth)).toBe("none");
   }

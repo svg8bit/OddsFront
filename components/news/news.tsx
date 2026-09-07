@@ -12,7 +12,8 @@ import { useLiveConflictFeed } from "@/features/global-conflict-map/preview/use-
 import { relatedMarkets } from "@/lib/news/related-markets";
 import { buildDropsBotTrackUrl, toPolymarketReferralUrl } from "@/lib/polymarket-links";
 import { CountryFlag } from "@/features/global-conflict-map/preview/country-flag";
-import { availableNewsArticlePath, newsArticlePath, newsCountryPath, newsPath } from "@/lib/news/routing";
+import { availableNewsArticlePath, newsArticlePath, newsPath, newsTopicPath } from "@/lib/news/routing";
+import { NEWS_CATEGORIES, articleCategory, categoryLabel, allNewsLabel, newsCategoriesLabel, type NewsCategory } from "@/lib/news/categories";
 import styles from "./news.module.css";
 import { useArticleReadership } from "./use-article-readership";
 
@@ -23,7 +24,7 @@ export function NewsChrome({ children }: { children: React.ReactNode }) {
   return <div className={styles.page} dir={localeDirection(locale)}>
     <header className={styles.header}><div className={styles.headerInner}><Link className={styles.wordmark} href={newsPath(locale)} prefetch={false} dir="ltr"><Image className={styles.brandMark} src="/brand/oddsfront-mark-v1.svg" alt="" width={30} height={23} unoptimized/><strong>OddsFront</strong><span> / {t("news")}</span></Link><SiteNavigation mode="news"/></div></header>
     <main className={styles.content}>{children}</main>
-    <footer className={styles.footer}><span>© {new Date().getUTCFullYear()} OddsFront</span><a href="https://t.me/oddsfront" target="_blank" rel="noreferrer"><Send size={13}/>Telegram</a></footer>
+    <footer className={styles.footer}><span>© {new Date().getUTCFullYear()} OddsFront</span><Link href="/news/about" prefetch={false}>{t("about")}</Link><a href={newsPath(locale,"/rss.xml")}>{t("feed")}</a><a href="https://t.me/oddsfront" target="_blank" rel="noreferrer"><Send size={13}/>Telegram EN</a><a href="https://t.me/oddsfront_ru" target="_blank" rel="noreferrer"><Send size={13}/>Telegram RU</a></footer>
   </div>;
 }
 
@@ -46,16 +47,16 @@ function StoryArt({ article, featured = false, headingLevel = "h2" }: { article:
 }
 
 function StoryCard({ article, featured = false }: { article: NewsArticle; featured?: boolean }) {
-  const { locale, t, country } = useLocale(); const text = articleText(article,locale);
+  const { locale, t } = useLocale(); const text = articleText(article,locale);
   return <Link className={`${styles.card} ${featured ? styles.featuredCard : ""}`} href={availableNewsArticlePath(article, locale)} prefetch={false}>
     <StoryArt key={article.slug} article={article} featured={featured}/>
-    <div className={styles.cardBody}><span className={styles.eyebrow}>{article.countries.slice(0,2).map(country).join(" / ") || t("news")}</span>
+    <div className={styles.cardBody}><span className={styles.eyebrow}>{categoryLabel(articleCategory(article),locale)}</span>
       <p>{text.description}</p><div className={styles.cardMeta}><time dateTime={article.publishedAt}>{new Intl.DateTimeFormat(locale,{month:"short",day:"numeric",hour:"2-digit",minute:"2-digit"}).format(new Date(article.publishedAt))}</time><span>{article.readingMinutes ?? Math.max(1,Math.ceil(article.body.map(block=>block.text).join(" ").split(/\s+/).length/220))} {t("minute")}</span><ArrowRight size={17}/></div>
     </div>
   </Link>;
 }
 
-export function NewsOverview({ initialArticles, initialUpdatedAt, activeCountry, archive = false }: { initialArticles: NewsArticle[]; initialUpdatedAt: string; activeCountry?: string; archive?: boolean }) {
+export function NewsOverview({ initialArticles, initialUpdatedAt, activeCountry, activeCategory, archive = false }: { initialArticles: NewsArticle[]; initialUpdatedAt: string; activeCountry?: string; activeCategory?: NewsCategory; archive?: boolean }) {
   const { locale, country, t } = useLocale();
   const [articles,setArticles] = useState(initialArticles);
   const newestEdition=useRef(Date.parse(initialUpdatedAt));
@@ -67,14 +68,13 @@ export function NewsOverview({ initialArticles, initialUpdatedAt, activeCountry,
     refresh(); const interval=setInterval(refresh,60_000); window.addEventListener("focus",refresh); window.addEventListener("pageshow",refresh);
     return ()=>{controller.abort();clearInterval(interval);window.removeEventListener("focus",refresh);window.removeEventListener("pageshow",refresh);};
   },[]);
-  const countries=[...new Set(articles.flatMap(article=>article.countries))].sort((a,b)=>country(a).localeCompare(country(b),locale));
-  const filtered=articles.filter(article=>(selected==="ALL"||article.countries.includes(selected))&&`${articleText(article,locale).title} ${articleText(article,locale).description}`.toLowerCase().includes(query.toLowerCase()));
+  const filtered=articles.filter(article=>(selected==="ALL"||article.countries.includes(selected))&&(!activeCategory||articleCategory(article)===activeCategory)&&`${articleText(article,locale).title} ${articleText(article,locale).description}`.toLowerCase().includes(query.toLowerCase()));
   const featured=filtered[0];
   const popular=articles.filter(article=>Number.isSafeInteger(article.views7d)&&(article.views7d??0)>0).toSorted((left,right)=>(right.views7d??0)-(left.views7d??0)||Date.parse(right.publishedAt)-Date.parse(left.publishedAt)||left.id.localeCompare(right.id)).slice(0,5);
   return <NewsChrome>
-    <section className={styles.intro}><div><h1>{archive?t("archive"):selected==="ALL"?t("latest"):country(selected)}</h1><p>{t("description")}</p></div><label className={styles.search}><Search size={16}/><input type="search" aria-label={t("search")} placeholder={t("search")} value={query} onChange={event=>setQuery(event.target.value)}/></label></section>
-    <nav className={styles.filters} aria-label={t("countryNews")}><Link href={newsCountryPath("world",locale)} aria-current={selected==="ALL"?"page":undefined} prefetch={false}>{t("all")}</Link>{countries.map(code=><Link key={code} href={newsCountryPath(code,locale)} aria-current={selected===code?"page":undefined} prefetch={false}><CountryFlag code={code}/>{country(code)}</Link>)}</nav>
-    <div className={styles.overviewGrid}><section aria-label={t("latest")}>{featured?<StoryCard article={featured} featured/>:<div className={styles.empty}>{query?t("noResults"):t("empty")}</div>}<div className={styles.cardGrid}>{filtered.slice(1,limit).map(article=><StoryCard key={article.id} article={article}/>)}</div>{filtered.length>limit?<button className={styles.loadMore} onClick={()=>setLimit(limit+12)}>{t("loadMore")}</button>:null}</section>
+    <section className={styles.intro}><div><h1>{archive?t("archive"):activeCategory?categoryLabel(activeCategory,locale):selected==="ALL"?t("latest"):country(selected)}</h1><p>{t("description")}</p></div><label className={styles.search}><Search size={16}/><input type="search" aria-label={t("search")} placeholder={t("search")} value={query} onChange={event=>setQuery(event.target.value)}/></label></section>
+    <nav className={styles.filters} aria-label={newsCategoriesLabel(locale)}><Link href={newsPath(locale)} aria-current={!activeCategory&&selected==="ALL"?"page":undefined} prefetch={false}>{allNewsLabel(locale)}</Link>{NEWS_CATEGORIES.map(topic=><Link key={topic} href={newsTopicPath(topic,locale)} aria-current={activeCategory===topic?"page":undefined} prefetch={false}>{categoryLabel(topic,locale)}</Link>)}</nav>
+    <div className={styles.overviewGrid}><section aria-label={t("latest")}>{featured?<StoryCard article={featured} featured/>:<div className={styles.empty}>{query||activeCategory?t("noResults"):t("empty")}</div>}<div className={styles.cardGrid}>{filtered.slice(1,limit).map(article=><StoryCard key={article.id} article={article}/>)}</div>{filtered.length>limit?<button className={styles.loadMore} onClick={()=>setLimit(limit+12)}>{t("loadMore")}</button>:null}</section>
       <aside className={styles.latestRail} aria-label={t("popular")}><span className={styles.eyebrow}>{t("popular")}</span>{popular.length?popular.map((article,index)=><Link key={article.id} href={availableNewsArticlePath(article,locale)} prefetch={false}><span>{String(index+1).padStart(2,"0")}</span><div><h3>{articleText(article,locale).title}</h3><time dateTime={article.publishedAt}>{new Intl.DateTimeFormat(locale,{month:"short",day:"numeric"}).format(new Date(article.publishedAt))}</time></div></Link>):<p className={styles.popularEmpty}>{t("popularEmpty")}</p>}</aside>
     </div>
   </NewsChrome>;

@@ -5,6 +5,8 @@ import { writeNewsCatalog } from "../../lib/news/storage.ts";
 import { prepareEditionCovers } from "../../lib/news/edition-covers.ts";
 
 const directory = process.env.ODDSFRONT_NEWS_DIRECTORY || "/root/OddsFront/.local/news";
+const editionIntervalMs = 2 * 60 * 60_000;
+const preparationLeadMs = 60 * 60_000;
 await mkdir(directory, { recursive: true, mode: 0o700 });
 if (!process.env.ODDSFRONT_EDITION_LOCKED) {
   // An interval-only check must not wait behind offline translations. Recheck
@@ -12,8 +14,8 @@ if (!process.env.ODDSFRONT_EDITION_LOCKED) {
   if (!process.argv.includes("--force")) {
     try {
       const state = JSON.parse(await readFile(path.join(directory, "edition-state.json"), "utf8"));
-      if (Date.now() < state.lastPublishedAt + 2 * 60 * 60_000) {
-        console.log(JSON.stringify({ status: "interval-not-due", nextDueAt: new Date(state.lastPublishedAt + 2 * 60 * 60_000).toISOString() }));
+      if (Date.now() < state.lastPublishedAt + editionIntervalMs - preparationLeadMs) {
+        console.log(JSON.stringify({ status: "interval-not-due", nextDueAt: new Date(state.lastPublishedAt + editionIntervalMs).toISOString() }));
         process.exit(0);
       }
     } catch (error) { if (error.code !== "ENOENT") throw error; }
@@ -34,8 +36,8 @@ const emptyCatalog = { version: 1, updatedAt: "1970-01-01T00:00:00.000Z", articl
 const catalog = () => read(path.join(directory, "catalog.json"), emptyCatalog);
 const stateFile = path.join(directory, "edition-state.json");
 const state = await read(stateFile, { lastPublishedAt: 0 });
-if (!process.argv.includes("--force") && Date.now() < state.lastPublishedAt + 2 * 60 * 60_000) {
-  console.log(JSON.stringify({ status: "interval-not-due", nextDueAt: new Date(state.lastPublishedAt + 2 * 60 * 60_000).toISOString() }));
+if (!process.argv.includes("--force") && Date.now() < state.lastPublishedAt + editionIntervalMs - preparationLeadMs) {
+  console.log(JSON.stringify({ status: "interval-not-due", nextDueAt: new Date(state.lastPublishedAt + editionIntervalMs).toISOString() }));
   process.exit(0);
 }
 const pendingDirectory = path.join(directory, "pending-edition");
@@ -89,6 +91,11 @@ if (prepared.length !== 9) {
   console.error(JSON.stringify(receipt));
   process.exit(1);
 }
+// Prepare privately before the deadline, so research time is not added to
+// every two-hour publishing interval. A forced operator edition publishes now.
+const dueAt = process.argv.includes("--force") ? Date.now() : state.lastPublishedAt + editionIntervalMs;
+if (Date.now() < dueAt) console.log(JSON.stringify({status:"edition-ready",articles:9,publishAt:new Date(dueAt).toISOString()}));
+while (Date.now() < dueAt) await new Promise(resolve=>setTimeout(resolve,Math.min(30_000,dueAt-Date.now())));
 const publishedAt = pending.publishedAt || new Date().toISOString();
 await atomic(pendingFile, { ...pending, publishedAt });
 const published = prepared.map(article => ({ ...article, publishedAt, updatedAt: publishedAt }));

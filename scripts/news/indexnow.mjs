@@ -1,4 +1,5 @@
 import { readFile } from "node:fs/promises";
+import { NEWS_CATEGORIES, articleCategory } from "../../lib/news/categories.ts";
 
 const host = "oddsfront.com";
 const origin = `https://${host}`;
@@ -24,6 +25,7 @@ try {
   }
   for (const locale of locales) {
     urls.add(`${origin}${prefix(locale)}/news`);
+    for(const topic of NEWS_CATEGORIES.filter(topic=>catalog.articles.some(article=>articleCategory(article)===topic))) urls.add(`${origin}${prefix(locale)}/news/topic/${topic}`);
     for (const country of countries) urls.add(`${origin}${prefix(locale)}/news/${country}`);
   }
   const response = await fetch("https://api.indexnow.org/indexnow", {

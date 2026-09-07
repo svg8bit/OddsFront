@@ -38,21 +38,22 @@ and lock live in `.local/news/telegram-ru`. Initialize `state.json` with
 `lastSentAt: 0`, `sentArticles: []` and `startAfterPublishedAt` equal to the
 latest existing edition's publication timestamp to start with the next edition.
 This activation boundary is not a claimed historical send. The Russian timer
-checks every five minutes and has its own two-hour interval and pending-outcome
+checks every five minutes and has its own one-hour interval and pending-outcome
 guard. Its preparation step retries missing Russian translations after a failed
 follow-up, skipping a busy edition lock; it never reruns news research.
-A delayed RU translation cannot resend EN or X, and retries cannot post
-another story from the same nine. The resulting edition is nine site articles,
-one English Telegram post, one Russian Telegram post and one English X post.
+A delayed RU translation cannot resend EN or X. Every article is deduplicated
+independently in each channel. The website publishes nine articles every two
+hours; EN Telegram, RU Telegram and X each publish one selected story per hour.
+The next hourly slot can select another article from the same site edition.
 
-Only stories published in the last three hours and market observations younger
-than ten minutes are candidates. The latest nine fresh articles form the selection pool. Actual strikes, attacks,
+Only stories published in the last six hours and market observations younger
+than ten minutes are candidates. Up to nine recent unsent articles form the selection pool, with a different country and topic from the previous post when possible. Two social slots can use different stories from the same site edition. Actual strikes, attacks,
 invasions and ceasefires take priority; otherwise the editor chooses the best
 general story. A market is attached only for a strong specific relationship,
 with its real tracking link. A common country alone is insufficient. Without a
 relevant market, a news-only post retains the article preview. Market prices are fetched
 again after selection. The channel ledger prevents duplicate articles and more
-than one post within two hours. An ambiguous send outcome remains pending and
+than one post within one hour. An ambiguous send outcome remains pending and
 requires reconciliation rather than risking a duplicate.
 
 Install the service and timer from `ops/`. Install
@@ -62,7 +63,7 @@ new stories; its completion can trigger the Telegram job. Telegram does not
 wait for the news service's offline translation follow-up: the atomic public
 edition and send ledger provide readiness and duplicate checks. The Telegram timer
 also checks independently every five minutes; the persisted send time enforces
-the two-hour publication interval even when the news job triggers an earlier
+the one-hour publication interval even when the news job triggers an earlier
 check. A skipped check never postpones the next due publication. Timers, receipts and all mutable
 state remain OddsFront-specific. The bot's existing webhook is not changed.
 
@@ -89,8 +90,8 @@ service's scoped write permission before enabling its timer. Verify the account 
 other account must never be substituted. The user authorized copying only the
 `@alotofbit` connection from the second VPS into this isolated file.
 
-X has its own lock, two-hour interval, article deduplication, pending-outcome
+X has its own lock, one-hour interval, article deduplication, pending-outcome
 guard and receipts under `.local/news/x`. Every successful send verifies the
 post's author ID, headline and attached photo, and rejects external links.
 Both timers check every five minutes; they publish at most
-once in a two-hour period and wait for fresh news. No external post is simulated.
+once in a one-hour period and wait for fresh news. No external post is simulated.

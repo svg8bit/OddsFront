@@ -24,10 +24,12 @@ async function atomic(file: string, value: unknown) {
   await writeFile(`${file}.${process.pid}.tmp`, JSON.stringify(value, null, 2), { mode: 0o600 });
   await rename(`${file}.${process.pid}.tmp`, file);
 }
-async function feed(): Promise<ConflictPreviewFeed> {
+async function feed(): Promise<ConflictPreviewFeed | null> {
+  try {
   const response = await fetch("https://oddsfront.com/api/global-conflict-events", { cache: "no-store", signal: AbortSignal.timeout(15_000) });
-  if (!response.ok) throw new Error("Live market feed unavailable");
+  if (!response.ok) return null;
   return response.json();
+  } catch { return null; }
 }
 async function botToken() {
   if (process.env.ODDSFRONT_TELEGRAM_BOT_TOKEN) return process.env.ODDSFRONT_TELEGRAM_BOT_TOKEN;
@@ -79,15 +81,21 @@ try {
     candidates = telegramCandidates(articles, await feed(), state.sentArticles).filter(candidate => candidate.event.marketConditionId === expectedCondition);
   } else {
     candidates = telegramCandidates(articles, await feed(), state.sentArticles);
+    try {
     selection = JSON.parse(await executeSubscriptionCodex({ prompt: telegramSelectionPrompt(candidates, articles), schema: TELEGRAM_SELECTION_SCHEMA, timeoutMs: 180_000,
       env: Object.fromEntries(["PATH", "USER", "LOGNAME", "LANG", "LC_ALL", "HTTPS_PROXY", "HTTP_PROXY", "NO_PROXY"].map(key => [key, process.env[key]])) })) as TelegramSelection;
+    } catch {
+      // The original article has already passed publication gates. A failed
+      // optional market editor must not stop the hourly news-only edition.
+      selection = { articleId:articles[0]!.id, eventId:null, confidence:1, reason:"Verified published site reporting selected from the country/topic rotation; market editor unavailable, so no odds are attached." };
+    }
   }
   const article = articles.find(item => item.id === selection.articleId);
   const selected = selection.eventId === null && article && selection.confidence >= .9 && selection.reason.length >= 30
     ? { article, event: null } : approvedTelegramCandidate(selection, candidates);
   const stamp = new Date().toISOString().replace(/[:.]/g, "-");
   await atomic(path.join(output, `${stamp}-selection.json`), selection);
-  if (!selected) { console.log(JSON.stringify({ status: "no-strong-market-match", reason: selection.reason })); process.exit(0); }
+  if (!selected) throw new Error("The news editor returned no acceptable selection; retry at the next check");
   // Refresh the selected condition before sending so title, odds and both links stay aligned.
   const selectedEvent = selected.event;
   const current = selectedEvent ? telegramCandidates([selected.article], await feed(), state.sentArticles).find(candidate => candidate.event.id === selectedEvent.id && candidate.event.marketConditionId === selectedEvent.marketConditionId) : selected;
@@ -113,7 +121,11 @@ try {
     try { response = await fetch(`https://api.telegram.org/bot${token}/${method}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body), signal: AbortSignal.timeout(20_000) }); }
     catch { throw new Error(`Telegram ${method} transport failed`); }
     const data = await response.json();
-    if (!response.ok || !data.ok) throw new Error(`Telegram ${method} rejected (${data.error_code ?? response.status})`);
+    if (!response.ok || !data.ok) {
+      const code = data.error_code ?? response.status;
+      const error = Object.assign(new Error(`Telegram ${method} rejected (${code})`), { definiteRejection:code>=400&&code<500&&code!==408 });
+      throw error;
+    }
     return data.result;
   }
   const bot = await call("getMe", {});
@@ -122,7 +134,12 @@ try {
   const member = await call("getChatMember", { chat_id: channel.id, user_id: bot.id });
   if (chat.id !== channel.id || chat.username !== channel.username || chat.type !== "channel" || member.status !== "administrator" || !member.can_post_messages) throw new Error("OddsFront channel posting rights are missing");
   await atomic(stateFile, { ...state, pending: { articleId: current.article.id, attemptedAt: new Date().toISOString() } });
-  const message = await call("sendMessage", payload);
+  let message;
+  try { message = await call("sendMessage", payload); }
+  catch(error) {
+    if (error && typeof error === "object" && "definiteRejection" in error && error.definiteRejection) await atomic(stateFile,state);
+    throw error;
+  }
   if (!message.message_id || message.chat?.id !== channel.id) throw new Error("Unexpected Telegram send receipt");
   const receipt = { status: "published", locale, channelId: channel.id, articleId: current.article.id, eventId: current.event?.id ?? null, marketConditionId: current.event?.marketConditionId ?? null, sentAt: new Date().toISOString(), messageId: message.message_id, url: `https://t.me/${channel.username}/${message.message_id}`, previewBelow: message.link_preview_options?.show_above_text !== true };
   await atomic(path.join(output, `${stamp}-receipt.json`), receipt);
