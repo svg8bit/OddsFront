@@ -1,3 +1,4 @@
+import countryNames from "./country-names.json";
 import { LOCALES, type Locale, type NewsArticle } from "./types.ts";
 
 export const LANGUAGE_NAMES: Record<Locale, string> = { en: "English", zh: "中文", ko: "한국어", vi: "Tiếng Việt", de: "Deutsch", es: "Español", "pt-BR": "Português (Brasil)", fr: "Français", ru: "Русский", uk: "Українська", fa: "فارسی", he: "עברית" };
@@ -19,6 +20,7 @@ export function regionFromLanguages(languages: readonly string[]) {
   return "ALL";
 }
 export function countryName(code: string, locale: Locale) {
-  try { return new Intl.DisplayNames([locale], { type: "region" }).of(code) ?? code; } catch { return code; }
+  // Use the same label on the server and browser, regardless of their ICU versions.
+  return (countryNames[locale] as Record<string, string>)[code] ?? code;
 }
 export function articleText(article: NewsArticle, locale: Locale) { return article.translations[locale] ?? article; }

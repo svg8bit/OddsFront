@@ -39,7 +39,6 @@ function StoryArt({ article, featured = false, headingLevel = "h2" }: { article:
     {mediaSource && coverState !== "failed" ? <Image className={styles.partnerCover} src={`/api/news-image/${encodeURIComponent(article.slug)}`} alt="" fill sizes={featured?"(max-width: 760px) 100vw, 50vw":"(max-width: 760px) 100vw, 33vw"} loading={featured?"eager":"lazy"} fetchPriority={featured?"high":"auto"} onLoad={()=>setCoverState("loaded")} onError={()=>setCoverState("failed")}/> : null}
     <div className={styles.artShade} aria-hidden="true"/>
     <div className={styles.coverContent}>
-      <div className={styles.coverBrand}><Image src="/brand/oddsfront-mark-v1.svg" alt="" width={36} height={27}/><strong>OddsFront</strong></div>
       <div className={styles.coverStory}><Heading className={styles.coverTitle}>{text.title}</Heading></div>
     </div>
   </div>;
@@ -56,11 +55,11 @@ function StoryCard({ article, featured = false }: { article: NewsArticle; featur
 }
 
 export function NewsOverview({ initialArticles, initialUpdatedAt, activeCountry, archive = false }: { initialArticles: NewsArticle[]; initialUpdatedAt: string; activeCountry?: string; archive?: boolean }) {
-  const { locale, region, country, t } = useLocale();
+  const { locale, country, t } = useLocale();
   const [articles,setArticles] = useState(initialArticles);
   const newestEdition=useRef(Date.parse(initialUpdatedAt));
   const [query,setQuery] = useState(""); const [limit,setLimit] = useState(13);
-  const selected = activeCountry ?? (articles.some(article => article.countries.includes(region)) ? region : "ALL");
+  const selected = activeCountry ?? "ALL";
   useEffect(() => {
     const controller = new AbortController(); let pending=false;
     const refresh = () => { if (document.visibilityState === "hidden" || pending) return; pending=true; void fetch("/api/news",{cache:"no-store",signal:controller.signal}).then(response=>response.ok?response.json():null).then(data=>{if(Array.isArray(data?.articles)&&Date.parse(data.updatedAt)>=newestEdition.current&&!controller.signal.aborted){newestEdition.current=Date.parse(data.updatedAt);setArticles(data.articles);}}).catch(()=>{}).finally(()=>{pending=false;}); };

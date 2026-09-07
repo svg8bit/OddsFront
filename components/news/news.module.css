@@ -18,3 +18,16 @@
 .marketImage{aspect-ratio:1;flex:0 0 42px}.marketMetrics{display:grid;grid-template-columns:78px minmax(0,1fr);gap:14px;align-items:center;border-block:1px solid #243349;padding:12px 0}.currentProbability{display:flex;flex-direction:column;gap:4px;color:#1dddac}.currentProbability span,.marketTrend span{font-size:9px;font-weight:650}.currentProbability strong{font-size:27px;font-weight:620}.marketTrend{min-width:0;border-inline-start:1px solid #243349;padding-inline-start:13px}.marketTrend>div{display:flex;align-items:center;justify-content:space-between;gap:8px;color:#8497b2}.marketTrend strong{color:#2ad9a6;font-size:10px;white-space:nowrap}.marketTrend strong[data-direction="down"]{color:#ff667d}.marketTrend small{color:#8497b2;font-size:8px}.sparkline{display:block;width:100%;height:43px;margin-top:2px;overflow:visible}.sparklineLine{fill:none;stroke:#7778ff;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round;vector-effect:non-scaling-stroke}.sparklineArea{fill:rgba(105,108,241,.15);stroke:none}.sparklineEmpty{display:grid;height:43px;place-items:center;color:#667790}
 @media(max-width:760px){.featuredCard{grid-template-columns:1fr}.featuredCard .art,.card .art{min-height:300px;aspect-ratio:auto}.coverContent,.featuredArt .coverContent{inset:18px}.coverTitle,.card .coverTitle,.featuredCard .coverTitle,.featuredArt .coverTitle{font-size:clamp(25px,7.4vw,34px);line-height:1.12}.article>.art{min-height:390px;margin-bottom:18px}.articleLead>p{font-size:15px;line-height:1.6}}
 .featuredArt{aspect-ratio:auto}
+
+/* Covers grow with translated headlines instead of clipping an absolute layer. */
+.art{display:flex;aspect-ratio:auto}
+.coverContent{position:relative;inset:auto;flex:1;min-height:inherit;padding:20px 22px}
+.featuredArt .coverContent{inset:auto;padding:24px 27px}
+.coverStory{margin-top:auto}
+.filters{scrollbar-width:none}
+.filters::-webkit-scrollbar{display:none}
+@media(max-width:760px){.coverContent,.featuredArt .coverContent{inset:auto;padding:18px}}
+
+.card .coverTitle{font-size:clamp(10.5px,1.05vw,15.5px);letter-spacing:-.3px;line-height:1.25}
+.featuredCard .coverTitle{font-size:clamp(12.5px,1.25vw,18px)}
+@media(max-width:760px){.card .coverTitle,.featuredCard .coverTitle{font-size:clamp(12.5px,3.7vw,17px)}}

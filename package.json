@@ -31,7 +31,9 @@
     "news:translate": "/root/OddsFront/.local/translation-venv/bin/python scripts/news/translate.py",
     "news:indexnow": "node scripts/news/indexnow.mjs",
     "test:news": "playwright test tests/news-publication.spec.ts tests/news-interface.spec.ts",
-    "generate:localized-map-assets": "node scripts/generate-localized-map-assets.mjs"
+    "generate:localized-map-assets": "node scripts/generate-localized-map-assets.mjs",
+    "news:edition": "node scripts/news/run-edition.mjs",
+    "news:telegram": "node scripts/news/telegram.ts"
   },
   "dependencies": {
     "@vercel/analytics": "2.0.1",

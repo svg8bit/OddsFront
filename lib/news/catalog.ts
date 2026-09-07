@@ -3,7 +3,7 @@ import { cache } from "react";
 import seed from "./catalog.seed.json";
 import type { NewsArticle, NewsCatalog } from "./types";
 
-export const getNewsCatalog = cache(async (): Promise<NewsCatalog> => {
+export const getNewsCatalog = cache(async (fresh = false): Promise<NewsCatalog> => {
   const rawUrl = process.env.ODDSFRONT_MARKET_FEED_URL;
   const token = process.env.ODDSFRONT_MARKET_FEED_TOKEN;
   if (rawUrl && token) {
@@ -11,7 +11,8 @@ export const getNewsCatalog = cache(async (): Promise<NewsCatalog> => {
       const url = new URL(rawUrl);
       if (url.protocol !== "https:" || url.username || url.password) throw new Error("Invalid feed URL");
       url.pathname = "/v1/news"; url.search = ""; url.hash = "";
-      const response = await fetch(url, { headers: { Authorization: `Bearer ${token}` }, next: { revalidate: 60 }, signal: AbortSignal.timeout(4000) });
+      // The polling API already has a short CDN cache; avoid stacking stale revalidations.
+      const response = await fetch(url, { headers: { Authorization: `Bearer ${token}` }, ...(fresh ? { cache: "no-store" as const } : { next: { revalidate: 60 } }), signal: AbortSignal.timeout(4000) });
       if (response.ok) {
         const data = await response.json() as NewsCatalog;
         if (data.version === 1 && Array.isArray(data.articles) && Date.parse(data.updatedAt) >= Date.parse(seed.updatedAt)) return data;
