@@ -89,22 +89,6 @@ export function extractPartnerFeedImage(xml: string, sourceUrl: string): string 
 }
 
 async function sourceImage(sourceUrl: string, signal: AbortSignal) {
-  if (new URL(sourceUrl).hostname === "news.sky.com") {
-    // Domestic, political and economic stories are not necessarily syndicated
-    // to World. Match the exact canonical article in each publisher-owned feed.
-    for (const section of ["world", "uk", "politics", "business"]) {
-      try {
-        const rss = await fetch(`https://feeds.skynews.com/feeds/rss/${section}.xml`, {
-          next: { revalidate: 300 }, signal,
-        });
-        if (rss.ok) {
-          const body = await boundedBody(rss, MAX_HTML_BYTES);
-          const image = body && extractPartnerFeedImage(new TextDecoder().decode(body), sourceUrl);
-          if (image) return image;
-        }
-      } catch { /* Try the next feed, then the publisher's canonical article. */ }
-    }
-  }
   const response = await fetch(sourceUrl, {
     headers: { Accept: "text/html,application/xhtml+xml", "User-Agent": "OddsFront/1.0 (+https://oddsfront.com/news)" },
     next: { revalidate: 21_600 }, signal,
@@ -126,13 +110,43 @@ async function imageBody(imageUrl: string, signal: AbortSignal) {
   return body ? { body, contentType, imageUrl } : null;
 }
 
+async function skyFeedCover(sourceUrl: string, parentSignal: AbortSignal) {
+  const controller = new AbortController();
+  // Reserve the rest of the overall ten-second budget for canonical HTML and
+  // its image. An unrelated slow feed cannot consume the fallback's deadline.
+  const signal = AbortSignal.any([parentSignal, controller.signal, AbortSignal.timeout(3_000)]);
+  const images = new Map<string, ReturnType<typeof imageBody>>();
+  const attempts = ["world", "uk", "politics", "business"].map(async section => {
+    const rss = await fetch(`https://feeds.skynews.com/feeds/rss/${section}.xml`, {
+      next: { revalidate: 300 }, signal,
+    });
+    if (!rss.ok) throw new Error("Publisher feed unavailable");
+    const body = await boundedBody(rss, MAX_HTML_BYTES);
+    const url = body && extractPartnerFeedImage(new TextDecoder().decode(body), sourceUrl);
+    if (!url) throw new Error("Exact article is absent from this feed");
+    // The same enclosure can occur in several sections. Download it once and
+    // count only a validated image response as a successful discovery.
+    if (!images.has(url)) images.set(url, imageBody(url, signal));
+    const photo = await images.get(url);
+    if (!photo) throw new Error("Feed photograph is unavailable");
+    return photo;
+  });
+  try { return await Promise.any(attempts); }
+  catch { return null; }
+  finally { controller.abort(); }
+}
+
 export async function fetchPartnerCover(sourceUrl: string, savedImageUrl?: string) {
   if (!isNewsPublisher(sourceUrl)) return null;
   const signal = AbortSignal.timeout(10_000);
   try {
     if (savedImageUrl) {
-      const saved = await imageBody(savedImageUrl, signal);
+      const saved = await imageBody(savedImageUrl, AbortSignal.any([signal, AbortSignal.timeout(2_000)])).catch(() => null);
       if (saved) return saved;
+    }
+    if (new URL(sourceUrl).hostname === "news.sky.com") {
+      const photo = await skyFeedCover(sourceUrl, signal);
+      if (photo) return photo;
     }
     const imageUrl = await sourceImage(sourceUrl, signal);
     return imageUrl ? await imageBody(imageUrl, signal) : null;
