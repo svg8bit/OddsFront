@@ -7,11 +7,17 @@
 <h1 align="center">OddsFront</h1>
 
 <p align="center">
-  A live, read-only map of conflict and geopolitics prediction markets.
+  World news with a live, read-only map of geopolitics prediction markets.
 </p>
 
 <p align="center">
   <a href="https://oddsfront.com"><strong>Open the live map</strong></a>
+  ·
+  <a href="https://oddsfront.com/news">Read the news</a>
+  ·
+  <a href="https://t.me/oddsfront">Telegram EN</a>
+  ·
+  <a href="https://t.me/oddsfront_ru">Telegram RU</a>
   ·
   <a href="https://github.com/svg8bit/OddsFront/actions/workflows/ci.yml">CI</a>
   ·
@@ -24,6 +30,15 @@ OddsFront turns active Polymarket geopolitics markets into a browsable world
 map. It automatically discovers qualifying events, places them on reviewed or
 country-level anchors, sizes markers by observed volume, and surfaces material
 odds moves in a lightweight activity rail.
+
+The [newsroom](https://oddsfront.com/news) publishes source-linked reporting
+across strikes, invasions, ceasefires, diplomacy, politics, energy, security
+and humanitarian developments. Stories connect to relevant prediction markets
+when a verified match is available. Browse by topic, follow the
+[English Telegram channel](https://t.me/oddsfront) or
+[Russian Telegram channel](https://t.me/oddsfront_ru), or subscribe with a feed
+reader to [English RSS](https://oddsfront.com/news/rss.xml) or
+[Russian RSS](https://oddsfront.com/ru/news/rss.xml).
 
 ## Highlights
 

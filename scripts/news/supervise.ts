@@ -2,6 +2,7 @@ import { mkdir,readFile,writeFile,rename } from "node:fs/promises";
 import { execFileSync,spawnSync } from "node:child_process";
 import path from "node:path";
 import { PUBLICATION_JOBS,publicationHealthPlan,type PublicationJob,type PublicationHealth } from "../../lib/news/supervision.ts";
+import { shouldRunRepairAgent } from "../../lib/news/repair-agent.ts";
 
 const root="/root/OddsFront";
 const directory=path.join(root,".local/news");
@@ -53,4 +54,10 @@ if(issueUrl && !plan.incidents.length) {
 }
 await atomic(ledgerFile,{checkedAt:new Date(now).toISOString(),failures,lastAction,issueUrl});
 await atomic(path.join(output,"latest.json"),{checkedAt:new Date(now).toISOString(),snapshots,...plan,results,issueUrl});
+const agent=await read(path.join(output,"agent/state.json"));
+const agentStatus=systemctl("show","oddsfront-publishing-repair.service","--property=ActiveState","--value").stdout.trim();
+if(shouldRunRepairAgent({incidents:plan.incidents,failures,running:agentStatus==="active"||agentStatus==="activating",lastStartedAt:agent.lastStartedAt},now)) {
+  const started=systemctl("start","--no-block","oddsfront-publishing-repair.service");
+  console.log(JSON.stringify({status:"agent-repair-requested",accepted:started.status===0}));
+}
 if(plan.incidents.length||results.length)console.log(JSON.stringify({status:plan.incidents.length?"recovering":"recovered",incidents:plan.incidents,results,issueUrl}));
