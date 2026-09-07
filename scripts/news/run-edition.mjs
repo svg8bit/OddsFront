@@ -2,11 +2,12 @@ import { readFile, mkdir, writeFile, rename } from "node:fs/promises";
 import { spawnSync } from "node:child_process";
 import path from "node:path";
 import { writeNewsCatalog } from "../../lib/news/storage.ts";
+import { prepareEditionCovers } from "../../lib/news/edition-covers.ts";
 
 const directory = process.env.ODDSFRONT_NEWS_DIRECTORY || "/root/OddsFront/.local/news";
 await mkdir(directory, { recursive: true, mode: 0o700 });
 if (!process.env.ODDSFRONT_EDITION_LOCKED) {
-  const run = spawnSync("flock", ["-w", "300", path.join(directory, "edition.lock"), process.execPath, ...process.argv.slice(1)], { stdio: "inherit", env: { ...process.env, ODDSFRONT_EDITION_LOCKED: "1" } });
+  const run = spawnSync("flock", ["-w", "300", path.join(directory, "edition.lock"), process.execPath, ...process.execArgv, ...process.argv.slice(1)], { stdio: "inherit", env: { ...process.env, ODDSFRONT_EDITION_LOCKED: "1" } });
   process.exit(run.status ?? 1);
 }
 const publicDirectory = process.env.ODDSFRONT_NEWS_PUBLIC_DIRECTORY || (process.env.ODDSFRONT_NEWS_DIRECTORY ? path.join(directory, "public") : "/opt/oddsfront-market-feed/news");
@@ -45,6 +46,20 @@ await atomic(path.join(pendingDirectory, "catalog.json"), staged);
 const startedAt = new Date().toISOString();
 const rounds = [];
 let prepared = (await stagedCatalog()).articles.filter(article => !previous.has(article.id));
+async function checkCovers() {
+  if (prepared.length < 9) return;
+  const { accepted, rejected } = await prepareEditionCovers(prepared);
+  const staged = await stagedCatalog();
+  await atomic(path.join(pendingDirectory, "catalog.json"), {
+    ...staged, articles: [...accepted, ...staged.articles.filter(article => previous.has(article.id))],
+  });
+  if (rejected.length) {
+    const file = path.join(pendingDirectory, "cover-rejections.json");
+    await atomic(file, [...await read(file, []), ...rejected]);
+  }
+  prepared = accepted;
+}
+await checkCovers();
 // Research may return a partial result. Persist it privately and keep filling
 // the same edition; never expose five stories as a successful nine-story run.
 for (let attempt = 1; attempt <= 6 && prepared.length < 9; attempt++) {
@@ -52,6 +67,7 @@ for (let attempt = 1; attempt <= 6 && prepared.length < 9; attempt++) {
     ODDSFRONT_NEWS_DIRECTORY: pendingDirectory, ODDSFRONT_NEWS_PUBLIC_DIRECTORY: path.join(pendingDirectory, "public"),
     ODDSFRONT_NEWS_BATCH_SIZE: String(Math.min(3, 9 - prepared.length)) }, timeout: 11 * 60_000 });
   prepared = (await stagedCatalog()).articles.filter(article => !previous.has(article.id));
+  await checkCovers();
   rounds.push({ attempt, exitCode: run.status, prepared: prepared.length });
 }
 await mkdir(path.join(directory, "editions"), { recursive: true, mode: 0o700 });
@@ -69,7 +85,7 @@ const ids = new Set(published.map(article => article.id));
 const current = await catalog();
 const next = { ...current, updatedAt: publishedAt, articles: [...published, ...current.articles.filter(article => !ids.has(article.id))] };
 await writeNewsCatalog(directory, publicDirectory, next, published);
-const receipt = { startedAt, finishedAt: new Date().toISOString(), requested: 9, published: published.map(article => article.slug), rounds, status: "complete" };
+const receipt = { startedAt, finishedAt: new Date().toISOString(), requested: 9, published: published.map(article => article.slug), photographicCovers: published.filter(article => article.cover).length, fallbackCovers: published.filter(article => !article.cover).length, rounds, status: "complete" };
 await atomic(target, receipt);
 await atomic(stateFile, { lastPublishedAt: Date.parse(publishedAt), articleIds: [...ids], receipt: target });
 // Keep research evidence; only the disposable staged catalogs are removed.

@@ -10,7 +10,7 @@ can read only that export, with its existing bearer authentication. Caddy adds
 `/v1/news` and `/v1/news/articles/<slug>` on the existing feed host. No new port,
 public write API, shared environment, or cross-product credential is used.
 Vercel reads the edition with the existing OddsFront feed variables, revalidates
-in 60 seconds, and keeps the verified bundled edition during an outage. Browser
+in 30 seconds, and retains the last successful live response during an outage. Browser
 news refreshes retain the newer edition on failed or older responses. Article
 publication requires neither a commit nor a deployment. `/news/archive`, country
 routes, RSS and the sitemap derive from the same catalog.
@@ -62,7 +62,13 @@ and market actions are required; News alerts show no odds.
 Partner cover images are fetched from the source page's Open Graph metadata and
 proxied through a fixed host and MIME allowlist. Source provenance stays in the
 private receipt and structured data; cover UI contains no technical source label.
-The existing OddsFront art is used when an image is unavailable.
+Sky News RSS enclosures are matched to the exact article URL when discovering
+its photograph. Verified image URLs are saved with articles so subsequent RSS
+rotation does not remove their covers. Publisher title/logo-only share cards
+(including Meduza's `imgly` cards) use OddsFront artwork instead.
+Every nine-story edition must contain at least six verified photographic covers,
+with at most three OddsFront fallbacks. Excess stories without usable images
+are retained as private rejections and replaced during the next research round.
 
 ## Writer and translation costs
 

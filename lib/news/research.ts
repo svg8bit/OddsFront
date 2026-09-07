@@ -44,6 +44,7 @@ Use live web search and inspect canonical sources. Complete this bounded researc
 ${NEWS_SOURCES.map(source => `${source.name}: ${source.url}`).join("\n")}
 
 Editorial requirements:
+- Prefer article pages with a real editorial photograph. Every nine-story edition needs at least six usable photographic covers; publisher logo/title-only share cards do not count. When filling a previously rejected cover slot, choose another well-sourced story with an accessible photograph.
 - News first: what happened, who is involved, when and where, why it matters, confirmed context, what to watch next. Markets are secondary context.
 - Prefer material from the last 48 hours; never older than 72 hours for the main news source. Preserve actual source publication dates, never replace them with today's date. Find recent individual articles, not homepages or category indexes.
 - Each story needs at least two independent publishers including a configured news outlet and at least one primary institutional source: UN, FAO, UNHCR, OHCHR, IAEA, ICRC, NATO, EU, an official government or foreign ministry page. Do not treat two copies of one wire story as independent. A primary source may verify clearly identified relevant background; it need not repeat a breaking headline. Attribute new claims to the source that actually supports them, and do not use background material to claim independent confirmation of a new attack.

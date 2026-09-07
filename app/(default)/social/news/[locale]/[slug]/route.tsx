@@ -87,7 +87,7 @@ export async function GET(
   }
   const text = articleText(article, locale);
   const source = article.sources.find((candidate) => candidate.kind === "media");
-  const cover = source ? await fetchPartnerCover(source.url) : null;
+  const cover = source ? await fetchPartnerCover(article.cover?.sourceUrl || source.url, article.cover?.imageUrl) : null;
   let coverImage: Buffer | null = null;
   if (cover) {
     try {

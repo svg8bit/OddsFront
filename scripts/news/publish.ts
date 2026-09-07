@@ -20,12 +20,14 @@ if (!process.env.ODDSFRONT_EDITION_LOCKED) {
 {
   let catalog: NewsCatalog = { version: 1, updatedAt: "1970-01-01T00:00:00.000Z", articles: [], marketTranslations: {} };
   try { catalog = JSON.parse(await readFile(catalogPath, "utf8")); } catch (error) { if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error; }
+  let coverRejected: NewsArticle[] = [];
+  try { coverRejected = JSON.parse(await readFile(path.join(directory, "cover-rejections.json"), "utf8")); } catch (error) { if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error; }
   const requested = Number(process.env.ODDSFRONT_NEWS_BATCH_SIZE || "9");
   const maxArticles = Number.isFinite(requested) ? Math.min(9, Math.max(1, Math.floor(requested))) : 9;
   const startedAt = new Date().toISOString();
   const raw = process.env.ODDSFRONT_NEWS_DRAFT_FILE
     ? await readFile(process.env.ODDSFRONT_NEWS_DRAFT_FILE, "utf8")
-    : await executeSubscriptionCodex({ prompt: researchPrompt(catalog.articles, maxArticles), schema: NEWS_BATCH_SCHEMA,
+    : await executeSubscriptionCodex({ prompt: researchPrompt([...coverRejected, ...catalog.articles], maxArticles), schema: NEWS_BATCH_SCHEMA,
       env: Object.fromEntries(["PATH", "USER", "LOGNAME", "LANG", "LC_ALL", "HTTPS_PROXY", "HTTP_PROXY", "NO_PROXY"].map(key => [key, process.env[key]])),
       timeoutMs: 600_000 });
   const parsed = JSON.parse(raw) as { articles: NewsDraft[]; research?: NewsResearchReport };
@@ -35,7 +37,7 @@ if (!process.env.ODDSFRONT_EDITION_LOCKED) {
   const rejected: { title: string; reasons: string[] }[] = [];
   for (const draft of researchErrors.length ? [] : parsed.articles.slice(0, maxArticles * 3)) {
     if (published.length === maxArticles) break;
-    const reasons = validateNewsDraft(draft, [...published, ...catalog.articles]);
+    const reasons = validateNewsDraft(draft, [...published, ...catalog.articles, ...coverRejected]);
     if (reasons.length) { rejected.push({ title: draft.title, reasons }); continue; }
     const now = new Date().toISOString();
     const slug = articleSlug(draft.title);

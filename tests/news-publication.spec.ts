@@ -147,7 +147,13 @@ test("editions retain partial research privately, resume to exactly nine and enf
   const articles = titles.map((title, i) => { const item = draft(); item.title = title; item.sources[0].url += `-${i}`; item.sources[1].url += `-${i}`; return item; });
   try {
     const input = join(directory, "draft.json");
-    const run = () => spawnSync(process.execPath, ["scripts/news/run-edition.mjs"], { encoding: "utf8", env: { ...process.env, ODDSFRONT_NEWS_DIRECTORY: directory, ODDSFRONT_NEWS_DRAFT_FILE: input } });
+    const mock = join(directory, "development-cover-fetch.mjs");
+    await writeFile(mock, `globalThis.fetch = async url => {
+      const image = String(url).startsWith('https://images.axios.com/');
+      const response = new Response(image ? new Uint8Array([137,80,78,71]) : '<meta property="og:image" content="https://images.axios.com/development-fixture.png">', { headers: { 'content-type': image ? 'image/png' : 'text/html' } });
+      Object.defineProperty(response, 'url', { value: String(url) }); return response;
+    };`);
+    const run = () => spawnSync(process.execPath, ["--import", mock, "scripts/news/run-edition.mjs"], { encoding: "utf8", env: { ...process.env, ODDSFRONT_NEWS_DIRECTORY: directory, ODDSFRONT_NEWS_DRAFT_FILE: input } });
     await writeFile(input, JSON.stringify({ articles: articles.slice(0, 3) }));
     const partial = run(); expect(partial.status, partial.stderr).toBe(1);
     await expect(readFile(join(directory, "public/catalog.json"))).rejects.toThrow();
