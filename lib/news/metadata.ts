@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { ODDSFRONT_URL } from "@/lib/oddsfront-site";
+import { ODDSFRONT_URL, SOCIAL_PREVIEW_PATH } from "@/lib/oddsfront-site";
 import { articleText, countryName } from "./locale.ts";
 import { message } from "./messages.ts";
 import { articleLocales, languageAlternates, newsArticlePath, newsCountryPath, newsPath } from "./routing.ts";
@@ -19,8 +19,11 @@ export function newsMetadata(locale: Locale, country?: string): Metadata {
   return {
     title, description,
     alternates: { canonical, languages: languageAlternates(englishPath), ...(country ? {} : { types: { "application/rss+xml": "/news/rss.xml" } }) },
-    openGraph: { title, description, type: "website", url: canonical, locale: OPEN_GRAPH_LOCALES[locale], siteName: "OddsFront" },
-    twitter: { card: "summary_large_image", title, description },
+    openGraph: {
+      title, description, type: "website", url: canonical, locale: OPEN_GRAPH_LOCALES[locale], siteName: "OddsFront",
+      images: [{ url: SOCIAL_PREVIEW_PATH, width: 1200, height: 630, alt: "OddsFront", type: "image/png" }],
+    },
+    twitter: { card: "summary_large_image", title, description, images: [{ url: SOCIAL_PREVIEW_PATH, alt: "OddsFront" }] },
     other: { "content-language": locale },
   };
 }
