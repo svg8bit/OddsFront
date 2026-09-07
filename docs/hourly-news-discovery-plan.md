@@ -36,5 +36,9 @@ login, and the publisher bot is not a member of the official Russian support
 chat, so no bot settings were changed and no support-chat message was claimed.
 
 The supervisor provides bounded timer/service recovery and persistent GitHub
-incident reporting. This environment has no callable automation/thread-dispatch
-API to wake a conversational agent for arbitrary code repairs.
+incident reporting. A persistent incident also uses the supported local
+`codex queue` command to notify the existing authorized OddsFront task. A private
+task configuration, dispatch lock, fresh-health requirement and six-hour cooldown
+bound notifications. The existing task follows the normal protected PR/release
+workflow. Queue acceptance is recorded separately from actual recovery.
+Third-party authentication and human challenges remain external blockers.

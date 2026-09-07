@@ -18,9 +18,31 @@ interrupted. A successful no-op scheduler check is not counted as publication.
 After three consecutive unhealthy checks, the supervisor opens one incident in
 `svg8bit/OddsFront`. It closes that incident after the timestamps recover. It
 stays quiet while healthy. Private state and action receipts are in
-`.local/news/monitor`. This is bounded service recovery and incident reporting;
-it does not promise arbitrary autonomous code changes or silently bypass a
-third-party authentication failure.
+`.local/news/monitor`.
+
+Install `ops/oddsfront-publishing-repair.service` and create a root-owned, mode
+0600 `.local/news/monitor/dispatch.json` containing `enabled: true` and the
+existing authorized OddsFront task UUID in `threadId`. Keep the actual task ID
+out of Git. The local Codex daemon must be available under the same VPS user.
+After three consecutive unhealthy checks, the service uses the supported
+`codex queue --thread ... --message ...` command to notify that existing task.
+The task retains the owner's authorization and project history. This does not
+create a separate agent, invoke a model on every timer tick, or reset a goal.
+
+The dispatch lock prevents concurrent sends, and a six-hour cooldown bounds
+repeat notifications, including unconfirmed outcomes. A health snapshot older
+than ten minutes cannot trigger a message. The dispatcher has a 90-second
+service limit and restricted filesystem access; it does not inherit API keys.
+Its receipt records the exact acknowledged message and destination. Queue
+acceptance proves neither task execution nor completed repair. The supervisor
+keeps checking actual publication timestamps independently.
+
+The maintenance message asks the existing task to verify that the incident still
+exists, use the normal project checks and protected release workflow, and retry
+only overdue idle publishers. It preserves source, novelty, cover, translation,
+account identity and duplicate guards. Recovered incidents need no action.
+Authentication, human challenges and unavailable third-party services remain
+external conditions; the dispatcher does not bypass them.
 
 An unknown send outcome is never cleared or resent automatically. Verify its
 external receipt before reconciling the ledger. Explicit provider rejections
@@ -37,3 +59,8 @@ Keep this file private and never alter publication history to pause a job.
 
 Run `node scripts/news/supervise.ts --check` to inspect the recovery plan without
 starting services, sending messages, or creating issues.
+`node scripts/news/repair-agent.ts --check` inspects dispatch eligibility without
+queueing a message or consuming the incident cooldown. Private receipts are
+under `.local/news/monitor/agent`. A manual integration message must be clearly
+labelled as a delivery test and must not request publication or fabricate an
+incident in production state.

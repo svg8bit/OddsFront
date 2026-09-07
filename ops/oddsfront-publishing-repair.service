@@ -1,0 +1,27 @@
+[Unit]
+Description=Notify the existing Codex task about a persistent OddsFront publication incident
+After=network-online.target
+Wants=network-online.target
+ConditionPathExists=/root/OddsFront/scripts/news/repair-agent.ts
+ConditionPathExists=/root/OddsFront/.local/news/monitor/dispatch.json
+
+[Service]
+Type=oneshot
+WorkingDirectory=/root/OddsFront
+ExecStart=/usr/local/bin/node scripts/news/repair-agent.ts
+Environment=PATH=/usr/local/bin:/usr/bin:/bin
+Nice=15
+CPUQuota=25%
+MemoryMax=256M
+TasksMax=64
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/root/OddsFront/.local/news /root/.codex
+ReadOnlyPaths=/root/.codex/config.toml /root/.codex/hooks /root/.codex/skills /root/.codex/plugins
+InaccessiblePaths=-/opt/arctrenches -/opt/arctrenches-legacy-6c13c07 -/root/DropsAnalytics -/root/DropsAnalytics-worktrees -/opt/sunder -/root/.ssh
+UMask=0077
+KillMode=control-group
+TimeoutStartSec=90s
+TimeoutStopSec=15s
