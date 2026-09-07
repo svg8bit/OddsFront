@@ -74,11 +74,13 @@ unknown send result, inspect the channel before clearing the pending ledger.
 ## X publication
 
 `node scripts/news/x.ts` prepares the same editorial choice for `@alotofbit`.
-`--send` publishes only the newspaper emoji, unchanged English headline and
-canonical article URL; the article's large Twitter card supplies its branded
-cover. No odds or Telegram buttons are copied into the X text.
+`--send` publishes the newspaper emoji and unchanged English headline with an
+attached OddsFront cover. The post text has no article URL. The publisher fetches
+the article's versioned English social PNG, verifies its 1200 by 630 dimensions,
+uploads it as `tweet_image`, and attaches the returned media ID. An unavailable
+cover blocks the post. No odds or Telegram buttons are copied into the X text.
 
-The private `/root/OddsFront/.local/x-credentials.env` must contain the four
+The private `/root/OddsFront/.local/x-auth/credentials.env` must contain the four
 account-specific OAuth 1.0a keys: `X_API_KEY`, `X_API_SECRET`, `X_ACCESS_TOKEN`,
 and `X_ACCESS_TOKEN_SECRET`, with mode `0600`. Verify the account with
 `GET /2/users/me` before enabling `ops/oddsfront-x.timer`. Credentials for any
@@ -87,5 +89,6 @@ other account must never be substituted. The user authorized copying only the
 
 X has its own lock, two-hour interval, article deduplication, pending-outcome
 guard and receipts under `.local/news/x`. Every successful send verifies the
-post's author ID. Both timers check every five minutes; they publish at most
+post's author ID, headline and attached photo, and rejects external links.
+Both timers check every five minutes; they publish at most
 once in a two-hour period and wait for fresh news. No external post is simulated.
