@@ -1045,6 +1045,7 @@ test("groups co-located alliance events behind popup pager arrows", async ({
 test("shows daily and weekly movement leaders in both directions", async ({
   page,
 }) => {
+  await page.clock.install();
   const fixture = getConflictPreviewFixtureFeed();
   const updatedAt = new Date().toISOString();
   const liveFeed = {
@@ -1097,20 +1098,20 @@ test("shows daily and weekly movement leaders in both directions", async ({
   expect(await rail.evaluate((element) => element.closest("main") === null)).toBe(
     true,
   );
-  await expect(rail).toHaveAttribute("data-activity-count", "3");
+  await expect(rail).toHaveAttribute("data-activity-count", "2");
   await expect(rail).toContainText("-20.0%");
-  await expect(rail.locator('[data-activity-kind="odds-rise"]')).toHaveCount(2);
+  await expect(rail.locator('[data-activity-kind="odds-rise"]')).toHaveCount(1);
   await expect(rail).not.toContainText("Odds");
-  await expect(rail.locator('time[data-time-kind="updated"]')).toHaveCount(3);
+  await expect(rail.locator('time[data-time-kind="updated"]')).toHaveCount(2);
   await expect(rail.locator("article").first()).toHaveAttribute("data-activity-window", "24H");
   await expect(rail).not.toContainText(" pp");
   await expect(rail).not.toContainText("Volume");
   await expect(rail).not.toContainText("1h");
-  await expect(rail.locator('[data-activity-source="rolling"]')).toHaveCount(3);
+  await expect(rail.locator('[data-activity-source="rolling"]')).toHaveCount(2);
   const oddsMetrics = rail.locator(
     '[data-activity-kind^="odds-"] [data-activity-metric]',
   );
-  await expect(oddsMetrics).toHaveCount(3);
+  await expect(oddsMetrics).toHaveCount(2);
   for (const metric of await oddsMetrics.all()) {
     await expect(metric).toHaveText(/^YES \d+%$/);
     await expect(metric).toHaveCSS("white-space", "nowrap");
@@ -1166,6 +1167,15 @@ test("shows daily and weekly movement leaders in both directions", async ({
   await expect(rail).not.toContainText(liveFeed.events[4]!.title);
   await expect(rail.locator('[data-activity-window="7D"]')).not.toHaveCount(0);
   await expect(rail.locator('[data-activity-window="24H"]')).not.toHaveCount(0);
+  const before = await rail.locator("article").evaluateAll(cards => cards.map(card => card.getAttribute("data-event-id")));
+  // Simulate a real fifteen-minute stay while upstream quotes remain fresh.
+  await page.clock.fastForward(15 * 60_000 + 5_000);
+  liveFeed.updatedAt = await page.evaluate(() => new Date().toISOString());
+  await page.evaluate(() => window.dispatchEvent(new Event("online")));
+  await expect(rail).toHaveAttribute("data-feed-updated-at", liveFeed.updatedAt);
+  await expect(rail.locator("article")).toHaveCount(1);
+  const after = await rail.locator("article").evaluateAll(cards => cards.map(card => card.getAttribute("data-event-id")));
+  expect(after.every(id => !before.includes(id))).toBe(true);
 });
 
 test("batches trade-watch coverage across every eligible $100K market", async ({
@@ -1339,6 +1349,13 @@ test("shows confirmed price moves with referral-safe buys from $200K", async ({
       priceChange7d: index === 1 ? -0.19 : index === 2 ? 0.25 : null,
     })),
   };
+  // Keep two additional eligible markets for the next fifteen-minute page.
+  liveFeed.events.push(...[20, 21].map(index => ({
+    ...liveFeed.events[2]!, id: `polymarket-${8_000 + index}`,
+    title: `Development-only reserved rotation market ${index}`,
+    marketUrl: `https://polymarket.com/event/activity-test-${index}`,
+    marketConditionId: mockConditionId(8_000 + index),
+  })));
   const activityMarketIdQueries: string[][] = [];
   let conflictFeedRequestCount = 0;
   const validTradeOccurredAt = new Date(Date.now() - 60_000).toISOString();

@@ -1,8 +1,9 @@
 # OddsFront Telegram news
 
-Destination: `@oddsfront`, channel ID `-1004406802006`. The user explicitly
-authorized the existing `@DropsAnalyticsAIbot` for this channel. Its identity,
-channel identity and posting permission are checked before every send.
+Destinations: English `@oddsfront` (`-1004406802006`) and Russian
+`@oddsfront_ru` (`-1004118165561`). The user explicitly authorized the existing
+`@DropsAnalyticsAIbot` for both channels. Its identity, exact channel ID,
+username and posting permission are checked before every send.
 
 Configure the protected `/root/OddsFront/.local/telegram.env` (mode `0600`) with
 `ODDSFRONT_TELEGRAM_BOT_TOKEN`, or a read-only credential reference using
@@ -16,6 +17,33 @@ import, duplicate or modify the source project's environment or runtime data.
 headline and article URL from one published article; market title, current YES
 odds, referral URL and DropsBot button all come from one fresh market
 condition. The branded article preview is explicitly placed below the text.
+
+`node scripts/news/telegram.ts --locale=ru --send` publishes to the Russian
+channel. It reuses the article, editorial selection and exact market condition
+from the English channel's successful receipt, then refreshes the current odds.
+The title, market question, YES label and tracking button are Russian. The link
+uses `/ru/news/...`; its public metadata and Russian social cover must be ready
+before sending. There is no silent English fallback.
+
+Russian headlines, descriptions and candidate market questions are translated
+against the English source by the existing subscription editor, once per unique
+text. This is an automated editorial translation, not a human review. The cache
+is private in `russian-editor-cache.json`. Counts and dates must be preserved;
+body paragraphs continue to use the labelled offline translator. Russian runs
+first in the translation follow-up; other languages do not delay its export.
+`ODDSFRONT_TRANSLATION_LANGUAGES=ru` limits a manual translation run to Russian.
+
+Install `ops/oddsfront-telegram-ru.service` and `.timer`. Its independent ledger
+and lock live in `.local/news/telegram-ru`. Initialize `state.json` with
+`lastSentAt: 0`, `sentArticles: []` and `startAfterPublishedAt` equal to the
+latest existing edition's publication timestamp to start with the next edition.
+This activation boundary is not a claimed historical send. The Russian timer
+checks every five minutes and has its own two-hour interval and pending-outcome
+guard. Its preparation step retries missing Russian translations after a failed
+follow-up, skipping a busy edition lock; it never reruns news research.
+A delayed RU translation cannot resend EN or X, and retries cannot post
+another story from the same nine. The resulting edition is nine site articles,
+one English Telegram post, one Russian Telegram post and one English X post.
 
 Only stories published in the last three hours and market observations younger
 than ten minutes are candidates. The latest nine fresh articles form the selection pool. Actual strikes, attacks,

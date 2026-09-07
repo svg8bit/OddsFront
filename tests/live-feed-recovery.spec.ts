@@ -10,7 +10,8 @@ function liveFeed(timestamp: number): ConflictPreviewFeed {
     dataMode: "live",
     refreshSeconds: 60,
     updatedAt: new Date(timestamp).toISOString(),
-    events: fixture.events.slice(0, 3).map((event, index) => ({
+    // Two pages of three: expiry must be able to reveal different markets.
+    events: fixture.events.slice(0, 6).map((event, index) => ({
       ...event,
       id: `polymarket-${880000 + index}`,
       marketConditionId: `0x${(880000 + index).toString(16).padStart(64, "0")}`,

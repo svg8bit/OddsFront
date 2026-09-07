@@ -81,9 +81,12 @@ out blocked requests and ignores older snapshots. Visible tabs poll roughly
 once per minute. The activity rail shows the live Gamma day/week changes for
 active individual markets with at least $100K volume: at least five percentage
 points over 24 hours or twenty over seven days. It includes both periods and
-directions when eligible markets exist, and rotates current leaders every
-fifteen minutes. A price refresh updates the value without extending that
-display cycle. The timestamp is labelled Updated, not a new event occurrence.
+directions when eligible markets exist, and rotates distinct sets of markets
+every fifteen minutes. Up to three cards are shown, with another set reserved
+for the next cycle; expired cards cannot immediately return under new IDs.
+A lone eligible market rests for a cycle after expiry. A price refresh updates
+the value without extending that display cycle. The timestamp is labelled
+Updated, not a new event occurrence.
 Stale feeds and expired markets cannot produce notices. This requires no
 additional CLOB history requests from Vercel. Large trades and strict
 breaking-news matches retain their actual occurrence times and fifteen-minute

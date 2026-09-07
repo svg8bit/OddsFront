@@ -5,6 +5,11 @@ import { isPolymarketActivityEventCurrent } from "../polymarket-activity-query.t
 import { buildDropsBotTrackUrl, toPolymarketReferralUrl } from "../polymarket-links.ts";
 
 export const TELEGRAM_CHANNEL_ID = -1004406802006;
+export const TELEGRAM_CHANNELS = {
+  en: { id: TELEGRAM_CHANNEL_ID, username: "oddsfront", directory: "telegram" },
+  ru: { id: -1004118165561, username: "oddsfront_ru", directory: "telegram-ru" },
+} as const;
+export type TelegramLocale = keyof typeof TELEGRAM_CHANNELS;
 export const TELEGRAM_INTERVAL_MS = 2 * 60 * 60_000;
 export interface TelegramSelection { articleId: string | null; eventId: string | null; confidence: number; reason: string; }
 export interface TelegramCandidate { article: NewsArticle; event: ConflictPreviewEvent; }
@@ -61,16 +66,26 @@ function escapeHtml(text: string): string {
   return text.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;");
 }
 
-export function telegramPayload({ article, event }: { article: NewsArticle; event: ConflictPreviewEvent | null }) {
+export function russianTelegramArticle(articles: NewsArticle[], selectedArticleId: string | undefined, sent: readonly string[], startAfterPublishedAt?: string, now = Date.now()) {
+  const article = freshEditionArticles(articles, sent, now).find(item => item.id === selectedArticleId);
+  if (!article || (startAfterPublishedAt && Date.parse(article.publishedAt) <= Date.parse(startAfterPublishedAt))) return null;
+  const translation = article.translations?.ru;
+  return translation?.editorReviewed && /[А-Яа-яЁё]/.test(translation.title) && /[А-Яа-яЁё]/.test(translation.description) ? article : null;
+}
+
+export function telegramPayload({ article, event }: { article: NewsArticle; event: ConflictPreviewEvent | null }, locale: TelegramLocale = "en", marketTranslations: Record<string, string> = {}) {
   const market = event ? toPolymarketReferralUrl(event.marketUrl) : null;
   if (event && (!market || !Number.isFinite(event.yesOdds) || event.yesOdds < 0 || event.yesOdds > 100)) throw new Error("Invalid live Telegram market");
-  const articleUrl = `https://oddsfront.com${newsArticlePath(article, "en")}`;
+  const title = locale === "en" ? article.title : article.translations?.ru?.title;
+  const marketTitle = event ? (locale === "en" ? event.title : marketTranslations[event.title]) : null;
+  if (!title || (locale === "ru" && (!article.translations?.ru?.editorReviewed || !/[А-Яа-яЁё]/.test(title) || (event && (!marketTitle || !/[А-Яа-яЁё]/.test(marketTitle)))))) throw new Error("Reviewed Russian publication text is not ready");
+  const articleUrl = `https://oddsfront.com${newsArticlePath(article, locale)}`;
   const track = event ? buildDropsBotTrackUrl(event.marketUrl) : null;
   return {
-    chat_id: TELEGRAM_CHANNEL_ID,
-    text: `🗞 <a href="${escapeHtml(articleUrl)}">${escapeHtml(article.title)}</a>${event && market ? `\n\n${escapeHtml(event.title)}\n- <b><a href="${escapeHtml(market)}">Yes</a> ${event.yesOdds}%</b>` : ""}`,
+    chat_id: TELEGRAM_CHANNELS[locale].id,
+    text: `🗞 <a href="${escapeHtml(articleUrl)}">${escapeHtml(title)}</a>${event && market ? `\n\n${escapeHtml(marketTitle!)}\n- <b><a href="${escapeHtml(market)}">${locale === "ru" ? "Да" : "Yes"}</a> ${event.yesOdds}%</b>` : ""}`,
     parse_mode: "HTML",
     link_preview_options: { is_disabled: false, url: articleUrl, prefer_large_media: true, show_above_text: false },
-    ...(track ? { reply_markup: { inline_keyboard: [[{ text: "Track in DropsBot", url: track }]] } } : {}),
+    ...(track ? { reply_markup: { inline_keyboard: [[{ text: locale === "ru" ? "Отслеживать в DropsBot" : "Track in DropsBot", url: track }]] } } : {}),
   };
 }

@@ -1,7 +1,7 @@
 export const LOCALES = ["en", "zh", "ko", "vi", "de", "es", "pt-BR", "fr", "ru", "uk", "fa", "he"] as const;
 export type Locale = typeof LOCALES[number];
 export type ArticleBlock = { type: "paragraph" | "heading"; text: string };
-export type ArticleText = { title: string; description: string; body: ArticleBlock[] };
+export type ArticleText = { title: string; description: string; body: ArticleBlock[]; editorReviewed?: boolean };
 export type NewsAlertKind = "strike" | "ceasefire";
 export interface NewsAlertDraft {
   eligible: boolean;

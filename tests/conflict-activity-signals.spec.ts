@@ -15,10 +15,10 @@ const feed = { ...fixture, dataMode: "live" as const, updatedAt: new Date(now).t
 
 test("restores both day and week leaders without requiring a sudden intraday move", () => {
   const signals = buildRollingActivitySignals(feed, now, now);
-  expect(signals).toHaveLength(3);
+  expect(signals).toHaveLength(2);
   expect(new Set(signals.map(item => item.windowLabel))).toEqual(new Set(["24H", "7D"]));
   expect(new Set(signals.map(item => item.kind))).toEqual(new Set(["odds-rise", "odds-drop"]));
-  expect(new Set(signals.map(item => item.eventId)).size).toBe(3);
+  expect(new Set(signals.map(item => item.eventId)).size).toBe(2);
   expect(signals.every(item => item.observedAt === now && item.expiresAt === now + ACTIVITY_DISPLAY_TTL_MS)).toBe(true);
 });
 
@@ -30,9 +30,28 @@ test("refreshed values do not extend display expiry and the next cycle creates c
   expect(refreshed.map(item => item.expiresAt)).toEqual(first.map(item => item.expiresAt));
   const newCycle = now + ACTIVITY_DISPLAY_TTL_MS;
   const rotated = buildRollingActivitySignals({ ...feed, updatedAt: new Date(newCycle).toISOString() }, newCycle, now);
-  expect(rotated).toHaveLength(3);
+  expect(rotated).toHaveLength(1);
   expect(rotated.every(item => !first.some(previous => previous.id === item.id))).toBe(true);
+  expect(rotated.every(item => !first.some(previous => previous.eventId === item.eventId))).toBe(true);
   expect(rotated.every(item => item.expiresAt === newCycle + ACTIVITY_DISPLAY_TTL_MS)).toBe(true);
+});
+
+test("visible markets really rotate for an hour instead of renewing the same cards", () => {
+  let previous = new Set<string>();
+  for (let cycle = 0; cycle < 5; cycle++) {
+    const timestamp = now + cycle * ACTIVITY_DISPLAY_TTL_MS;
+    const signals = buildRollingActivitySignals({ ...feed, updatedAt: new Date(timestamp).toISOString() }, timestamp, now);
+    expect(signals.length).toBeGreaterThan(0);
+    expect(signals.every(signal => !previous.has(signal.eventId))).toBe(true);
+    previous = new Set(signals.map(signal => signal.eventId));
+  }
+});
+
+test("a lone eligible market expires instead of reappearing immediately", () => {
+  const single = { ...feed, events: [event] };
+  expect(buildRollingActivitySignals(single, now, now)).toHaveLength(1);
+  const timestamp = now + ACTIVITY_DISPLAY_TTL_MS;
+  expect(buildRollingActivitySignals({ ...single, updatedAt: new Date(timestamp).toISOString() }, timestamp, now)).toEqual([]);
 });
 
 test("excludes stale feeds, expired markets, low market volume and invalid changes", () => {
