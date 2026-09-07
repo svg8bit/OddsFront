@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { mkdir, readFile, rename, writeFile, chmod } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { spawnSync } from "node:child_process";
 import path from "node:path";
 import { executeSubscriptionCodex } from "../../lib/news/writer.ts";
@@ -7,7 +7,7 @@ import { NEWS_BATCH_SCHEMA, researchPrompt, researchProblems } from "../../lib/n
 import type { NewsResearchReport } from "../../lib/news/research.ts";
 import { articleSlug, validateNewsDraft, verifiedNewsAlert } from "../../lib/news/validation.ts";
 import type { NewsArticle, NewsCatalog, NewsDraft } from "../../lib/news/types.ts";
-import { articleSummary } from "../../lib/news/publication.ts";
+import { writeNewsCatalog } from "../../lib/news/storage.ts";
 
 const directory = process.env.ODDSFRONT_NEWS_DIRECTORY || "/root/OddsFront/.local/news";
 const catalogPath = path.join(directory, "catalog.json");
@@ -33,7 +33,8 @@ if (!process.env.ODDSFRONT_EDITION_LOCKED) {
   const researchErrors = process.env.ODDSFRONT_NEWS_DRAFT_FILE && !parsed.research ? [] : researchProblems(parsed.research);
   const published: NewsArticle[] = [];
   const rejected: { title: string; reasons: string[] }[] = [];
-  for (const draft of researchErrors.length ? [] : parsed.articles.slice(0, maxArticles)) {
+  for (const draft of researchErrors.length ? [] : parsed.articles.slice(0, maxArticles * 3)) {
+    if (published.length === maxArticles) break;
     const reasons = validateNewsDraft(draft, [...published, ...catalog.articles]);
     if (reasons.length) { rejected.push({ title: draft.title, reasons }); continue; }
     const now = new Date().toISOString();
@@ -49,15 +50,7 @@ if (!process.env.ODDSFRONT_EDITION_LOCKED) {
   if (researchErrors.length) throw new Error(`News research incomplete: ${researchErrors.join("; ")}`);
   if (!published.length) { console.log(JSON.stringify({...receipt,status:"No verified new stories; retained existing edition"})); process.exit(0); }
   const next = { ...catalog, updatedAt: receipt.finishedAt, articles: [...published, ...catalog.articles] };
-  const temporary = `${catalogPath}.${process.pid}.tmp`;
-  await writeFile(temporary, JSON.stringify(next), { mode: 0o600 });
-  await rename(temporary, catalogPath);
   const publicDirectory=process.env.ODDSFRONT_NEWS_PUBLIC_DIRECTORY || (process.env.ODDSFRONT_NEWS_DIRECTORY ? path.join(directory,"public") : "/opt/oddsfront-market-feed/news");
-  await mkdir(path.join(publicDirectory,"articles"),{recursive:true});
-  await chmod(publicDirectory,0o755);await chmod(path.join(publicDirectory,"articles"),0o755);
-  for(const article of published){const file=path.join(publicDirectory,"articles",`${article.slug}.json`);await writeFile(`${file}.tmp`,JSON.stringify(article),{mode:0o644});await rename(`${file}.tmp`,file);}
-  const indexPath=path.join(publicDirectory,"catalog.json");
-  await writeFile(`${indexPath}.tmp`,JSON.stringify({...next,articles:next.articles.map(articleSummary)}),{mode:0o644});
-  await rename(`${indexPath}.tmp`,indexPath);
+  await writeNewsCatalog(directory, publicDirectory, next, published);
   console.log(JSON.stringify(receipt));
 }

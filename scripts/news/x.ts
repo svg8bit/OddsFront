@@ -22,7 +22,7 @@ try {
   let state: State = { lastSentAt: 0, sentArticles: [] };
   try { state = JSON.parse(await readFile(stateFile, "utf8")); } catch (error) { if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error; }
   if (state.pending) throw new Error("Previous X send has an unknown outcome; reconcile before retrying");
-  if (Date.now() - state.lastSentAt < X_NEWS_INTERVAL_MS) { console.log(JSON.stringify({ status: "interval-not-due" })); process.exit(0); }
+  if (!process.argv.includes("--force") && Date.now() - state.lastSentAt < X_NEWS_INTERVAL_MS) { console.log(JSON.stringify({ status: "interval-not-due" })); process.exit(0); }
   const catalog = JSON.parse(await readFile(path.join(directory, "catalog.json"), "utf8")) as NewsCatalog;
   let telegram: { sentArticles: string[] } = { sentArticles: [] };
   try { telegram = JSON.parse(await readFile(path.join(directory, "telegram/state.json"), "utf8")); } catch (error) { if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error; }

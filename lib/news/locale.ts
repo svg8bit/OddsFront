@@ -23,4 +23,4 @@ export function countryName(code: string, locale: Locale) {
   // Use the same label on the server and browser, regardless of their ICU versions.
   return (countryNames[locale] as Record<string, string>)[code] ?? code;
 }
-export function articleText(article: NewsArticle, locale: Locale) { return article.translations[locale] ?? article; }
+export function articleText(article: NewsArticle, locale: Locale) { return article.translations?.[locale] ?? article; }

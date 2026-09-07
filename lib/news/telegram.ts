@@ -14,9 +14,14 @@ export function newsPublicationPriority(article: NewsArticle): number {
 }
 
 export function freshEditionArticles(articles: NewsArticle[], sent: readonly string[], now = Date.now()): NewsArticle[] {
-  return articles.filter(article => !sent.includes(article.id) && Number.isFinite(Date.parse(article.publishedAt)) &&
+  const fresh = articles.filter(article => Number.isFinite(Date.parse(article.publishedAt)) &&
     Date.parse(article.publishedAt) <= now && now - Date.parse(article.publishedAt) <= 3 * 60 * 60_000)
-    .toSorted((a, b) => Date.parse(b.publishedAt) - Date.parse(a.publishedAt)).slice(0, 9)
+    .toSorted((a, b) => Date.parse(b.publishedAt) - Date.parse(a.publishedAt));
+  // Complete editions share one publication timestamp. While the next edition
+  // is being researched, never send a second story from the preceding nine.
+  const edition = fresh.filter(article => article.publishedAt === fresh[0]?.publishedAt);
+  if (edition.length >= 9 && edition.some(article => sent.includes(article.id))) return [];
+  return (edition.length >= 9 ? edition : fresh).filter(article => !sent.includes(article.id)).slice(0, 9)
     .toSorted((a, b) => newsPublicationPriority(b) - newsPublicationPriority(a));
 }
 

@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { approvedTelegramCandidate, telegramCandidates, telegramPayload, TELEGRAM_CHANNEL_ID } from "../lib/news/telegram";
+import { approvedTelegramCandidate, freshEditionArticles, telegramCandidates, telegramPayload, TELEGRAM_CHANNEL_ID } from "../lib/news/telegram";
 import { getConflictPreviewFixtureFeed } from "../features/global-conflict-map/preview/fixture";
 import type { NewsArticle } from "../lib/news/types";
 import seed from "../lib/news/catalog.seed.json";
@@ -11,6 +11,15 @@ function fixture() {
   const event = { ...feed.events[0]!, id: "polymarket-123456", dataOrigin: "polymarket" as const, title: "Russia x Ukraine ceasefire by December 31?", countryCodes: ["RU", "UA"], marketUrl: "https://polymarket.com/event/russia-x-ukraine-ceasefire-agreement-by", marketConditionId: `0x${"1".repeat(64)}`, volume: 2_000_000, marketVolume: 2_000_000, yesOdds: 25, updatedAt: new Date(now).toISOString(), endDate: new Date(now + 86_400_000).toISOString() };
   return { article, event, feed: { ...feed, dataMode: "live" as const, updatedAt: event.updatedAt, events: [event] }, now };
 }
+
+test("only one story is posted per completed edition even when the next research cycle is late", () => {
+  const { article, now } = fixture();
+  const edition = Array.from({ length: 9 }, (_, i) => ({ ...article, id: `qa-edition-${i}` }));
+  expect(freshEditionArticles(edition, [], now)).toHaveLength(9);
+  expect(freshEditionArticles(edition, [edition[3]!.id], now + 2 * 3_600_000)).toEqual([]);
+  const next = edition.map((item, i) => ({ ...item, id: `qa-next-edition-${i}`, publishedAt: new Date(now + 2 * 3_600_000).toISOString() }));
+  expect(freshEditionArticles([...next, ...edition], [edition[3]!.id], now + 2 * 3_600_000)).toHaveLength(9);
+});
 
 test("Telegram excludes expired news, stale markets and articles already sent", () => {
   const { article, event, feed, now } = fixture();

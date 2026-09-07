@@ -10,6 +10,14 @@ const PARTNER_IMAGE_HOSTS = new Set([
   "ichef.bbci.co.uk",
   "images.axios.com",
   "www.aljazeera.com",
+  "i.guim.co.uk",
+  "static.euronews.com",
+  "images.euronews.com",
+  "e3.365dm.com",
+  "e3.365dm.com.akamaized.net",
+  "meduza.io",
+  "tvrain.tv",
+  "static.tvrain.tv",
 ]);
 const ALLOWED_IMAGE_TYPES = new Set([
   "image/avif",

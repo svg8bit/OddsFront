@@ -1,28 +1,50 @@
 import type { ConflictPreviewFeed } from "@/features/global-conflict-map/preview/types";
-import { PRICE_MOVE_MIN_POINTS, PRICE_MOVE_WINDOW_MS } from "@/lib/conflict-price-moves";
 import { isPolymarketActivityEventCurrent, POLYMARKET_ACTIVITY_EVENT_MIN_VOLUME } from "@/lib/polymarket-activity-query";
 
+export const ACTIVITY_DISPLAY_TTL_MS = 15 * 60_000;
 export interface RollingActivitySignal {
   id: string;
   kind: "odds-rise" | "odds-drop";
   eventId: string;
   value: number;
-  windowLabel: "15m";
+  windowLabel: "24H" | "7D";
   observedAt: number;
+  expiresAt: number;
 }
 
-export function buildRollingActivitySignals(feed: ConflictPreviewFeed, now = Date.now()): RollingActivitySignal[] {
+// Measurement period and screen lifetime are independent. These are current
+// day/week changes, not claims that a sudden move happened in fifteen minutes.
+export function buildRollingActivitySignals(feed: ConflictPreviewFeed, now = Date.now(), cycleStartedAt = now): RollingActivitySignal[] {
   const feedTime = Date.parse(feed.updatedAt);
   if (feed.dataMode !== "live" || !Number.isFinite(feedTime) || feedTime > now + 60_000 || now - feedTime > 10 * 60_000) return [];
-  return feed.events.flatMap((event): RollingActivitySignal[] => {
-    const move = event.recentPriceMove;
-    const occurredAt = Date.parse(move?.occurredAt ?? "");
-    if (!isPolymarketActivityEventCurrent(event, now) ||
-      (event.marketVolume ?? event.volume) < POLYMARKET_ACTIVITY_EVENT_MIN_VOLUME ||
-      !move || !Number.isFinite(move.changePoints) || Math.abs(move.changePoints) < PRICE_MOVE_MIN_POINTS ||
-      !Number.isFinite(occurredAt) || occurredAt > now || now - occurredAt >= PRICE_MOVE_WINDOW_MS) return [];
-    const kind = move.changePoints > 0 ? "odds-rise" : "odds-drop";
-    return [{ id: `recent-15m-${event.id}-${kind}-${occurredAt}`, kind, eventId: event.id,
-      value: Math.abs(move.changePoints), windowLabel: "15m", observedAt: occurredAt }];
-  }).toSorted((a, b) => b.observedAt - a.observedAt || b.value - a.value || a.eventId.localeCompare(b.eventId)).slice(0, 3);
+  const cycle = cycleStartedAt + Math.max(0, Math.floor((now - cycleStartedAt) / ACTIVITY_DISPLAY_TTL_MS)) * ACTIVITY_DISPLAY_TTL_MS;
+  const candidates = feed.events.flatMap((event): RollingActivitySignal[] => {
+    if (!isPolymarketActivityEventCurrent(event, now) || (event.marketVolume ?? event.volume) < POLYMARKET_ACTIVITY_EVENT_MIN_VOLUME) return [];
+    return ([['24H', event.priceChange24h], ['7D', event.priceChange7d]] as const).flatMap(([windowLabel, change]): RollingActivitySignal[] => {
+      if (change === null || !Number.isFinite(change) || Math.abs(change) < (windowLabel === "24H" ? .05 : .2) || Math.abs(change) > 1) return [];
+      const kind = change > 0 ? "odds-rise" : "odds-drop";
+      return [{ id: `rolling-${windowLabel}-${event.id}-${kind}-${cycle}`, kind, eventId: event.id,
+        value: Math.round(Math.abs(change) * 1_000) / 10, windowLabel, observedAt: feedTime,
+        expiresAt: cycle + ACTIVITY_DISPLAY_TTL_MS }];
+    });
+  }).toSorted((a, b) => b.value - a.value || a.eventId.localeCompare(b.eventId));
+  const selected: RollingActivitySignal[] = [];
+  const used = new Set<string>();
+  const add = (candidate: RollingActivitySignal | undefined) => {
+    if (candidate && !used.has(candidate.eventId)) { selected.push(candidate); used.add(candidate.eventId); }
+  };
+  // Rotate current leaders each display cycle, keeping both periods and
+  // directions whenever enough distinct eligible markets are available.
+  const rotation = Math.floor(cycle / ACTIVITY_DISPLAY_TTL_MS);
+  for (const window of ["24H", "7D"] as const) {
+    const group = candidates.filter(item => item.windowLabel === window && !used.has(item.eventId));
+    const opposite = group.filter(item => !selected.length || item.kind !== selected[0]!.kind);
+    const pool = opposite.length ? opposite : group;
+    if (pool.length) add(pool[rotation % Math.min(3, pool.length)]);
+  }
+  for (const candidate of candidates) {
+    if (selected.length === 3) break;
+    add(candidate);
+  }
+  return selected;
 }
