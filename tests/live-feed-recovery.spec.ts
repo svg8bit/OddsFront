@@ -21,6 +21,7 @@ function liveFeed(timestamp: number): ConflictPreviewFeed {
       volume: 2_000_000,
       volume24h: 100_000,
       priceChange24h: 0.12 + index * 0.05,
+      recentPriceMove: { changePoints: 12 + index * 5, occurredAt: new Date(timestamp).toISOString(), fromProbability: .5, toProbability: .62 + index * .05 },
       priceChange7d: 0,
     })),
   };
@@ -91,7 +92,7 @@ test("refreshes on mobile restore and preserves good data on old or failed respo
   await expect(layer).toHaveAttribute("data-activity-feed-updated-at", payload.updatedAt);
 });
 
-test("fresh observations renew all rolling alerts without remounting, then stale data expires", async ({ page }) => {
+test("refreshing an unchanged price cannot renew an alert and expired movements stay hidden", async ({ page }) => {
   await isolateActivity(page);
   const now = Date.now();
   await page.clock.install({ time: now });
@@ -105,7 +106,7 @@ test("fresh observations renew all rolling alerts without remounting, then stale
   const id = await card.getAttribute("data-notice-id");
   await card.evaluate((element) => element.setAttribute("data-qa-preserved", "true"));
 
-  payload = liveFeed(now + 9 * 60_000);
+  payload = { ...liveFeed(now + 9 * 60_000), events: payload.events };
   await page.clock.setSystemTime(now + 9 * 60_000);
   await page.evaluate(() => window.dispatchEvent(new Event("focus")));
   await expect(rail).toHaveAttribute("data-feed-updated-at", payload.updatedAt);
@@ -115,7 +116,7 @@ test("fresh observations renew all rolling alerts without remounting, then stale
 
   await rail.getByRole("button", { name: "Dismiss activity notification" }).first().click();
   await expect(rail).toHaveAttribute("data-activity-count", "2");
-  payload = liveFeed(now + 11 * 60_000);
+  payload = { ...liveFeed(now + 11 * 60_000), events: payload.events };
   await page.clock.setSystemTime(now + 11 * 60_000);
   await page.evaluate(() => window.dispatchEvent(new Event("focus")));
   await expect(rail).toHaveAttribute("data-feed-updated-at", payload.updatedAt);

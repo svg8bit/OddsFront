@@ -1,0 +1,11 @@
+[Unit]
+Description=Check for the next two-hour OddsFront X publication
+
+[Timer]
+OnCalendar=*-*-* *:0/5:00
+AccuracySec=30s
+Persistent=true
+Unit=oddsfront-x.service
+
+[Install]
+WantedBy=timers.target

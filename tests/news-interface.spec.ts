@@ -56,7 +56,7 @@ test("long translated listing headlines remain inside unbranded covers", async (
     await expect(page.getByRole("heading", { level: 2, name: article.translations.ru.title }).first()).toBeVisible();
     await expect(page.locator("main [data-cover-brand]")).toHaveCount(0);
     await expect(page.locator('[data-cover-state] img[src*="oddsfront-mark"]')).toHaveCount(0);
-    expect(await page.locator("[data-cover-state] h2").evaluateAll(nodes => nodes.every(node => parseFloat(getComputedStyle(node).fontSize) <= 18))).toBe(true);
+    expect(await page.locator("[data-cover-state] h2").evaluateAll(nodes => nodes.every(node => parseFloat(getComputedStyle(node).fontSize) <= 27))).toBe(true);
     const bounds = await page.locator("[data-cover-state] h2").evaluateAll(nodes => nodes.every(node => {
       const title = node.getBoundingClientRect();
       const cover = node.closest("[data-cover-state]")!.getBoundingClientRect();

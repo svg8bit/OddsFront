@@ -395,10 +395,6 @@ export function ConflictMapPreview({
     updatePopupAnchorPoint();
   }, [mapReady, measurePopup, updateMarkerPositions, updatePopupAnchorPoint]);
 
-  useEffect(() => {
-    if (mapReady) updateHotspotSource();
-  }, [mapReady, updateHotspotSource]);
-
   const applySelectedCountryState = useCallback(() => {
     const map = mapRef.current?.getMap();
     if (!map?.getSource("countries")) return;
@@ -449,12 +445,22 @@ export function ConflictMapPreview({
   }, [events]);
 
   useEffect(() => {
-    if (mapReady) applySelectedCountryState();
-  }, [applySelectedCountryState, mapReady]);
-
-  useEffect(() => {
-    if (mapReady) applyEventCountryState();
-  }, [applyEventCountryState, mapReady]);
+    if (!mapReady) return;
+    const map = mapRef.current?.getMap();
+    if (!map) return;
+    const restoreEventLayers = () => {
+      updateHotspotSource();
+      applyEventCountryState();
+      applySelectedCountryState();
+      updateMarkerPositions();
+    };
+    // Locale changes replace the style's initially empty event source. A style
+    // diff may finish synchronously; a glyph change may load a new style later.
+    map.on("style.load", restoreEventLayers);
+    restoreEventLayers();
+    return () => { map.off("style.load", restoreEventLayers); };
+  }, [mapReady, previewMapStyle, updateHotspotSource, applyEventCountryState,
+    applySelectedCountryState, updateMarkerPositions]);
 
   const selectEvent = useCallback(
     (event: ConflictPreviewEvent, moveCamera = false) => {

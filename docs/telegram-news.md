@@ -18,9 +18,11 @@ odds, referral URL and DropsBot button all come from one fresh market
 condition. The branded article preview is explicitly placed below the text.
 
 Only stories published in the last three hours and market observations younger
-than ten minutes are candidates. An editorial check requires a strong specific
-news/market relationship and a working tracking link. A common country alone is insufficient. If there is
-no suitable match, the job records a skipped edition. Market prices are fetched
+than ten minutes are candidates. The latest nine fresh articles form the selection pool. Actual strikes, attacks,
+invasions and ceasefires take priority; otherwise the editor chooses the best
+general story. A market is attached only for a strong specific relationship,
+with its real tracking link. A common country alone is insufficient. Without a
+relevant market, a news-only post retains the article preview. Market prices are fetched
 again after selection. The channel ledger prevents duplicate articles and more
 than one post within two hours. An ambiguous send outcome remains pending and
 requires reconciliation rather than risking a duplicate.
@@ -38,3 +40,22 @@ Private evidence is under `.local/news/editions` and `.local/news/telegram`.
 Before changing units, retain their existing files as a rollback. After a send,
 check the returned channel/message IDs and the public Telegram post. For an
 unknown send result, inspect the channel before clearing the pending ledger.
+
+## X publication
+
+`node scripts/news/x.ts` prepares the same editorial choice for `@alotofbit`.
+`--send` publishes only the newspaper emoji, unchanged English headline and
+canonical article URL; the article's large Twitter card supplies its branded
+cover. No odds or Telegram buttons are copied into the X text.
+
+The private `/root/OddsFront/.local/x-credentials.env` must contain the four
+account-specific OAuth 1.0a keys: `X_API_KEY`, `X_API_SECRET`, `X_ACCESS_TOKEN`,
+and `X_ACCESS_TOKEN_SECRET`, with mode `0600`. Verify the account with
+`GET /2/users/me` before enabling `ops/oddsfront-x.timer`. Credentials for any
+other account must never be substituted. The user authorized copying only the
+`@alotofbit` connection from the second VPS into this isolated file.
+
+X has its own lock, two-hour interval, article deduplication, pending-outcome
+guard and receipts under `.local/news/x`. Every successful send verifies the
+post's author ID. Both timers check every five minutes; they publish at most
+once in a two-hour period and wait for fresh news. No external post is simulated.

@@ -42,3 +42,18 @@ test("Telegram links, YES odds and tracking come from the selected condition wit
   expect(payload.link_preview_options.url).toContain("https://oddsfront.com/news/ua/");
   expect(payload.reply_markup?.inline_keyboard[0]?.[0]?.url).toContain("TRACKpm_russia-x-ukraine-ceasefire-agreement-by");
 });
+
+test("social publication prioritizes attacks in the latest nine and supports news without a forced market", async () => {
+  const { freshEditionArticles, telegramSelectionPrompt } = await import("../lib/news/telegram");
+  const { article, now } = fixture();
+  const general = { ...article, id: "general-fixture", title: "Election results announced", topics: ["elections"] };
+  const strike = { ...article, id: "strike-fixture", title: "Drones strike a border crossing", topics: ["strikes"] };
+  const edition = freshEditionArticles([general, strike], [], now);
+  expect(edition[0]?.id).toBe(strike.id);
+  expect(telegramSelectionPrompt([], edition)).toContain("Return eventId null");
+  const payload = telegramPayload({ article: general, event: null });
+  expect(payload.text).toContain(general.title);
+  expect(payload.text).not.toContain("Yes");
+  expect(payload.reply_markup).toBeUndefined();
+  expect(payload.link_preview_options.show_above_text).toBe(false);
+});

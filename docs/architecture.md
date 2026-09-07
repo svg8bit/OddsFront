@@ -78,10 +78,14 @@ The lightweight loader owns one event-feed subscription independently of the
 deferred map bundle. It refreshes immediately on entry, pageshow, focus,
 visibility restoration and reconnect, deduplicates in-flight requests, times
 out blocked requests and ignores older snapshots. Visible tabs poll roughly
-once per minute. The activity rail derives rolling movers from each snapshot
-instead of treating them as disposable toast events. Qualifying daily moves
-take priority over weekly fallbacks. Cards display the market observation's
-update time; a fresh transport response cannot renew an old market observation.
+once per minute. The activity rail uses confirmed CLOB price changes of at least
+five percentage points within fifteen minutes. The server batches histories for
+up to 200 active individual markets with at least $100K volume, caches them for
+sixty seconds and bounds each parallel request to two seconds. Invalid, gapped
+or stale history produces no movement. A notice expires fifteen minutes after
+the actual changed sample; unchanged prices and renewed Gamma timestamps
+cannot refresh its age. Large trades and strict breaking-news matches retain
+their own occurrence times and gates.
 
 ## Security boundary
 
