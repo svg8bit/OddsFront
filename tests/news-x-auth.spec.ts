@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, readdir, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { xCredentials, xRequest } from "../lib/news/x-client";
@@ -60,6 +60,28 @@ test("X rejects a failed refresh without sending a post or replacing stored cred
     globalThis.fetch = async input => { calls.push(String(input)); return Response.json({ error: "development-invalid-grant" }, { status: 400 }); };
     await expect(xRequest(await xCredentials(file), "POST", "/2/tweets", { text: "development fixture" })).rejects.toThrow("X OAuth2 refresh rejected (400)");
     expect(calls).toEqual(["https://api.x.com/2/oauth2/token"]);
+    expect(await readFile(file, "utf8")).toBe(before);
+    expect(await readdir(directory)).toEqual(["x.env"]);
+  } finally { globalThis.fetch = originalFetch; await rm(directory, { recursive: true, force: true }); }
+});
+
+test("X does not consume a refresh token when its replacement cannot be stored", async () => {
+  const directory = await mkdtemp(path.join(tmpdir(), "oddsfront-development-x-"));
+  const file = path.join(directory, "x.env");
+  const originalFetch = globalThis.fetch;
+  try {
+    const before = fixture(Date.now() - 1_000);
+    await writeFile(file, before, { mode: 0o600 });
+    const credentials = await xCredentials(file);
+    if (!("oauth2" in credentials)) throw new Error("Expected development OAuth2 fixture");
+    credentials.file = path.join(directory, "unavailable-storage", "x.env");
+    const calls: string[] = [];
+    globalThis.fetch = async input => {
+      calls.push(String(input));
+      return Response.json({ access_token: "development-new-access", refresh_token: "development-new-refresh", expires_in: 7_200 });
+    };
+    await expect(xRequest(credentials, "POST", "/2/tweets", { text: "development fixture" })).rejects.toThrow();
+    expect(calls).toEqual([]);
     expect(await readFile(file, "utf8")).toBe(before);
   } finally { globalThis.fetch = originalFetch; await rm(directory, { recursive: true, force: true }); }
 });

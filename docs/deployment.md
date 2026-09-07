@@ -51,16 +51,28 @@ After deployment, verify:
 ## Rollback
 
 The VPS X publisher reads only its private named credential file
-(`/root/OddsFront/.local/x-credentials.env`, mode `0600`). It accepts the four
+(`/root/OddsFront/.local/x-auth/credentials.env`, mode `0600`, directory `0700`). It accepts the four
 `X_API_*` / `X_ACCESS_TOKEN*` OAuth1 values, or OAuth2 values
 `X_OAUTH2_CLIENT_ID`, `X_OAUTH2_CLIENT_SECRET`, `X_OAUTH2_ACCESS_TOKEN`,
 `X_OAUTH2_REFRESH_TOKEN` and `X_OAUTH2_EXPIRES_AT` (Unix milliseconds).
 OAuth2 tokens refresh before expiry and rotate atomically in that file while
-the publisher holds its lock. Keep these credentials off Vercel and Git.
+the publisher holds its lock. The X unit grants write access to this dedicated
+directory so it can replace credentials without opening other runtime files.
+Writable private storage is reserved before the refresh request; a read-only
+mount therefore cannot consume the token before discovering the storage error.
+Keep these credentials off Vercel and Git.
 Every post still verifies `@alotofbit` before sending and retains the existing
 two-hour interval, pending-send guard and verified publication receipts.
 When rolling back to an OAuth1-only publisher, retain the OAuth2 credential
 file privately and pause the X publisher until compatible code is restored.
+
+For the credential-directory migration, back up and checksum the existing X
+unit and credential file privately, create the new directory with mode `0700`,
+and move only the OddsFront X credential file into it. Install the updated unit,
+reload systemd, and verify the real service can renew the connection and publish.
+Older manual commands can set `ODDSFRONT_X_CREDENTIAL_ENV` explicitly. A refresh
+token already invalidated by an earlier failed save requires a recovered valid
+connection or account reauthorization; changing permissions cannot restore it.
 
 News readership additionally uses the existing OddsFront feed service. Install
 `ops/market-feed/news_readership.py` alongside `oddsfront_market_feed.py`, and

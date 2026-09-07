@@ -32,7 +32,7 @@ try {
   const stamp = new Date().toISOString().replace(/[:.]/g, "-");
   await atomic(path.join(output, `${stamp}-draft.json`), { account: X_NEWS_ACCOUNT, articleId: article.id, payload });
   if (!process.argv.includes("--send")) { console.log(JSON.stringify({ status: "draft", account: X_NEWS_ACCOUNT, payload })); process.exit(0); }
-  const credentialFile = process.env.ODDSFRONT_X_CREDENTIAL_ENV || "/root/OddsFront/.local/x-credentials.env";
+  const credentialFile = process.env.ODDSFRONT_X_CREDENTIAL_ENV || "/root/OddsFront/.local/x-auth/credentials.env";
   const credentials = await xCredentials(credentialFile);
   const identity = await xRequest(credentials, "GET", "/2/users/me");
   if (identity.data?.username?.toLowerCase() !== X_NEWS_ACCOUNT || !identity.data?.id) throw new Error("X credentials do not belong to @alotofbit");

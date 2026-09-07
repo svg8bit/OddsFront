@@ -2,7 +2,7 @@
 Description=Publish the selected OddsFront news to @alotofbit on X
 After=network-online.target oddsfront-telegram.service
 Wants=network-online.target
-ConditionPathExists=/root/OddsFront/.local/x-credentials.env
+ConditionPathExists=/root/OddsFront/.local/x-auth/credentials.env
 
 [Service]
 Type=oneshot
@@ -10,6 +10,7 @@ WorkingDirectory=/root/OddsFront
 ExecStart=/usr/local/bin/node scripts/news/x.ts --send
 Environment=NODE_ENV=production
 Environment=PATH=/usr/local/bin:/usr/bin:/bin
+Environment=ODDSFRONT_X_CREDENTIAL_ENV=/root/OddsFront/.local/x-auth/credentials.env
 Nice=10
 CPUQuota=50%
 MemoryMax=256M
@@ -18,7 +19,7 @@ PrivateTmp=true
 NoNewPrivileges=true
 ProtectSystem=strict
 ProtectHome=read-only
-ReadWritePaths=/root/OddsFront/.local/news
+ReadWritePaths=/root/OddsFront/.local/news /root/OddsFront/.local/x-auth
 InaccessiblePaths=-/opt/arctrenches -/root/DropsAnalytics -/root/DropsAnalytics-worktrees -/opt/sunder -/root/.ssh
 UMask=0077
 TimeoutStartSec=2min
