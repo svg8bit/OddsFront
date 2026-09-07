@@ -18,3 +18,9 @@ test("the requested publishers are accepted without allowing impersonating hosts
     expect(isNewsPublisher(`https://${host}.evil.example/news/example`)).toBe(false);
   }
 });
+
+test("a restored feed cannot roll the catalog back behind the bundled edition", async () => {
+  const old = { ...seed, updatedAt: "2020-01-01T00:00:00Z" };
+  await expect(readLiveNewsCatalog("https://feed.example", "qa-only", async () => Response.json(old), seed.updatedAt)).rejects.toThrow("Live news feed unavailable");
+  expect((await readLiveNewsCatalog("https://feed.example", "qa-only", async () => Response.json(seed), seed.updatedAt)).updatedAt).toBe(seed.updatedAt);
+});

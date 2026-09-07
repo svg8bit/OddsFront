@@ -92,11 +92,11 @@ await atomic(stateFile, { lastPublishedAt: Date.parse(publishedAt), articleIds: 
 await rename(pendingDirectory, path.join(directory, "editions", `${startedAt.replace(/[:.]/g, "-")}-research`));
 console.log(JSON.stringify(receipt));
 if (process.argv.includes("--with-followups")) {
-  for (const [command, args] of [
-    ["/root/OddsFront/.local/translation-venv/bin/python", ["scripts/news/translate.py"]],
-    [process.execPath, ["scripts/news/indexnow.mjs"]],
+  for (const [command, args, timeout] of [
+    ["/root/OddsFront/.local/translation-venv/bin/python", ["scripts/news/translate.py"], 45 * 60_000],
+    [process.execPath, ["scripts/news/indexnow.mjs"], 60_000],
   ]) {
-    const result = spawnSync(command, args, { stdio: "inherit", env: process.env, timeout: 20 * 60_000 });
+    const result = spawnSync(command, args, { stdio: "inherit", env: process.env, timeout });
     if (result.status !== 0) console.error(JSON.stringify({ status: "followup-failed", command: path.basename(command), exitCode: result.status }));
   }
 }

@@ -22,4 +22,4 @@ ProtectHome=read-only
 ReadWritePaths=/root/OddsFront/.local/news /opt/oddsfront-market-feed/news /root/.codex
 InaccessiblePaths=-/opt/arctrenches -/opt/arctrenches-legacy-6c13c07 -/root/DropsAnalytics -/root/DropsAnalytics-worktrees -/opt/sunder -/root/.ssh -/etc/oddsfront-market-feed.env
 UMask=0077
-TimeoutStartSec=100min
+TimeoutStartSec=150min

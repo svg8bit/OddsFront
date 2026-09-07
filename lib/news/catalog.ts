@@ -11,7 +11,7 @@ const getLiveCatalog = unstable_cache(async () => {
   if (!rawUrl || !token) throw new Error("Live news feed is not configured");
   // Only successful live results enter the persistent cache. A failed refresh
   // leaves its last good catalog intact instead of caching the one-story seed.
-  return readLiveNewsCatalog(rawUrl, token);
+  return readLiveNewsCatalog(rawUrl, token, fetch, seed.updatedAt);
 }, ["oddsfront-live-news-catalog-v2"], { revalidate: 30 });
 
 export const getNewsCatalog = cache(async (): Promise<NewsCatalog> => {
