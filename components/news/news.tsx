@@ -26,7 +26,7 @@ export function NewsChrome({ children }: { children: React.ReactNode }) {
   </div>;
 }
 
-function StoryArt({ article, featured = false, branded = true, headingLevel = "h2" }: { article: NewsArticle; featured?: boolean; branded?: boolean; headingLevel?: "h1" | "h2" }) {
+function StoryArt({ article, featured = false, headingLevel = "h2" }: { article: NewsArticle; featured?: boolean; headingLevel?: "h1" | "h2" }) {
   const { locale } = useLocale();
   const text = articleText(article, locale);
   const Heading = headingLevel;
@@ -39,7 +39,6 @@ function StoryArt({ article, featured = false, branded = true, headingLevel = "h
     {mediaSource && coverState !== "failed" ? <Image className={styles.partnerCover} src={`/api/news-image/${encodeURIComponent(article.slug)}`} alt="" fill sizes={featured?"(max-width: 760px) 100vw, 50vw":"(max-width: 760px) 100vw, 33vw"} loading={featured?"eager":"lazy"} fetchPriority={featured?"high":"auto"} onLoad={()=>setCoverState("loaded")} onError={()=>setCoverState("failed")}/> : null}
     <div className={styles.artShade} aria-hidden="true"/>
     <div className={styles.coverContent}>
-      {branded ? <div className={styles.coverBrand} data-cover-brand><Image src="/brand/oddsfront-mark-v1.svg" alt="" width={36} height={27}/><strong>OddsFront</strong></div> : null}
       <div className={styles.coverStory}><Heading className={styles.coverTitle}>{text.title}</Heading></div>
     </div>
   </div>;
@@ -48,7 +47,7 @@ function StoryArt({ article, featured = false, branded = true, headingLevel = "h
 function StoryCard({ article, featured = false }: { article: NewsArticle; featured?: boolean }) {
   const { locale, t, country } = useLocale(); const text = articleText(article,locale);
   return <Link className={`${styles.card} ${featured ? styles.featuredCard : ""}`} href={availableNewsArticlePath(article, locale)} prefetch={false}>
-    <StoryArt key={article.slug} article={article} featured={featured} branded={false}/>
+    <StoryArt key={article.slug} article={article} featured={featured}/>
     <div className={styles.cardBody}><span className={styles.eyebrow}>{article.countries.slice(0,2).map(country).join(" / ") || t("news")}</span>
       <p>{text.description}</p><div className={styles.cardMeta}><time dateTime={article.publishedAt}>{new Intl.DateTimeFormat(locale,{month:"short",day:"numeric",hour:"2-digit",minute:"2-digit"}).format(new Date(article.publishedAt))}</time><span>{article.readingMinutes ?? Math.max(1,Math.ceil(article.body.map(block=>block.text).join(" ").split(/\s+/).length/220))} {t("minute")}</span><ArrowRight size={17}/></div>
     </div>

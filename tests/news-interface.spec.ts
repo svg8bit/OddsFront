@@ -55,6 +55,8 @@ test("long translated listing headlines remain inside unbranded covers", async (
     await page.goto("/ru/news/world");
     await expect(page.getByRole("heading", { level: 2, name: article.translations.ru.title }).first()).toBeVisible();
     await expect(page.locator("main [data-cover-brand]")).toHaveCount(0);
+    await expect(page.locator('[data-cover-state] img[src*="oddsfront-mark"]')).toHaveCount(0);
+    expect(await page.locator("[data-cover-state] h2").evaluateAll(nodes => nodes.every(node => parseFloat(getComputedStyle(node).fontSize) <= 18))).toBe(true);
     const bounds = await page.locator("[data-cover-state] h2").evaluateAll(nodes => nodes.every(node => {
       const title = node.getBoundingClientRect();
       const cover = node.closest("[data-cover-state]")!.getBoundingClientRect();
@@ -67,7 +69,7 @@ test("long translated listing headlines remain inside unbranded covers", async (
   }
 });
 
-test("all localized article paths, branded covers, mobile and RTL layouts remain readable",async({browser})=>{
+test("all localized article paths, unbranded covers, mobile and RTL layouts remain readable",async({browser})=>{
   const article=seed.articles[0];const path=`/news/${article.countries[0].toLowerCase()}/${article.slug}`;
   const context=await browser.newContext({viewport:{width:390,height:844},isMobile:true,hasTouch:true});
   try{
@@ -79,7 +81,8 @@ test("all localized article paths, branded covers, mobile and RTL layouts remain
       await expect(page.locator("article h1")).not.toBeEmpty();
       const expectedTitle=language==="en"?article.title:article.translations[language].title;
       await expect(page.locator("article h1")).toHaveText(expectedTitle);
-      await expect(page.locator("article").getByText("OddsFront",{exact:true}).first()).toBeVisible();
+      await expect(page.locator('[data-cover-state] img[src*="oddsfront-mark"]')).toHaveCount(0);
+      await expect(page.locator("article").getByText("OddsFront",{exact:true})).toHaveCount(0);
       expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
       if(language!=="en")await expect(page.locator(`a[href="${path}"]`)).toBeVisible();
     }
