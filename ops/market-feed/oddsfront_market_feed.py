@@ -15,6 +15,8 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any
+from pathlib import Path
+from news_readership import Readership
 
 
 DROPSTAB_BASE = "https://dropstab.com"
@@ -244,6 +246,8 @@ class FeedState:
 
 
 STATE = FeedState()
+NEWS_ROOT = Path(os.environ.get("ODDSFRONT_NEWS_ROOT", "/opt/oddsfront-market-feed/news"))
+READERSHIP = Readership(Path(os.environ.get("ODDSFRONT_READERSHIP_DB", "/var/lib/oddsfront-market-feed/news-views.sqlite3")))
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -270,7 +274,7 @@ class Handler(BaseHTTPRequestHandler):
         if self.path == "/v1/news" or self.path.startswith("/v1/news/articles/"):
             from pathlib import Path
             import re
-            news_root = Path("/opt/oddsfront-market-feed/news")
+            news_root = NEWS_ROOT
             if self.path == "/v1/news":
                 target = news_root / "catalog.json"
             else:
@@ -280,7 +284,17 @@ class Handler(BaseHTTPRequestHandler):
                     return
                 target = news_root / "articles" / f"{slug}.json"
             try:
-                self._send_json(200, target.read_bytes())
+                body = target.read_bytes()
+                if self.path == "/v1/news":
+                    catalog = json.loads(body)
+                    try:
+                        counts = READERSHIP.counts()
+                    except Exception:  # Readership failure must not interrupt the news feed.
+                        counts = {}
+                    for article in catalog.get("articles", []):
+                        article["views7d"] = counts.get(article["slug"], 0)
+                    body = json.dumps(catalog, separators=(",", ":")).encode("utf-8")
+                self._send_json(200, body)
             except FileNotFoundError:
                 self._send_json(404, b'{"error":"not_found"}')
             except OSError:
@@ -294,6 +308,33 @@ class Handler(BaseHTTPRequestHandler):
             self._send_json(status, body)
             return
         self._send_json(404, b'{"error":"not_found"}')
+
+    def do_POST(self) -> None:  # noqa: N802 - BaseHTTPRequestHandler contract
+        if not self._authorized():
+            self._send_json(401, b'{"error":"unauthorized"}')
+            return
+        match = re.fullmatch(r"/v1/news/articles/([a-z0-9]+(?:-[a-z0-9]+)*)/view", self.path)
+        if not match or len(match[1]) > 100:
+            self._send_json(404, b'{"error":"not_found"}')
+            return
+        if not (NEWS_ROOT / "articles" / f"{match[1]}.json").is_file():
+            self._send_json(404, b'{"error":"not_found"}')
+            return
+        try:
+            length = int(self.headers.get("Content-Length", "0"))
+            if not 0 < length <= 512:
+                raise ValueError("Invalid request length")
+            payload = json.loads(self.rfile.read(length))
+            if not isinstance(payload, dict) or not isinstance(payload.get("reader"), str) or not isinstance(payload.get("network"), str):
+                raise ValueError("Invalid request")
+            counted = READERSHIP.record(match[1], payload["reader"], payload["network"])
+            self._send_json(200, json.dumps({"counted": counted}).encode("utf-8"))
+        except (ValueError, TypeError):
+            self._send_json(400, b'{"error":"invalid_request"}')
+        except OverflowError:
+            self._send_json(429, b'{"error":"rate_limited"}')
+        except Exception:
+            self._send_json(503, b'{"error":"readership_unavailable"}')
 
     def log_message(self, format: str, *args: Any) -> None:
         print(f"{self.address_string()} {format % args}", flush=True)

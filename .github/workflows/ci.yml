@@ -40,6 +40,9 @@ jobs:
       - name: Validate map asset budgets
         run: npm run check:map-assets
 
+      - name: Validate anonymous news readership
+        run: npm run test:readership
+
       - name: Type-check
         run: npm run typecheck
 

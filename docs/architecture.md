@@ -89,7 +89,9 @@ their own occurrence times and gates.
 
 ## Security boundary
 
-The application has no account, wallet, signing, custody, or write API. Optional
+The application has no account, wallet, signing or custody API. An anonymous
+news-readership endpoint records visible article reads for the popularity rail.
+Optional
 credentials use server-only environment variables without a `NEXT_PUBLIC_`
 prefix. React escapes upstream text, links pass strict validators, and response
 headers restrict framing, browser capabilities, resource origins, and MIME
@@ -100,3 +102,20 @@ sniffing.
 See `news-operations.md` for the isolated runtime publisher, editorial gates,
 read-only delivery, offline translations and recovery. News pages do not preload
 the map engine; only related live event data is shared with the map.
+
+The news rail ranks real article reads in the preceding seven days, across all
+languages. It stays empty until reads have been collected, without fabricated
+initial counts. A read requires five seconds with the article tab visible.
+Session storage prevents repeat submissions, and the backend additionally
+deduplicates each article/session per UTC day. Prefetches, bot previews and
+background tabs do not count. The backend stores only HMAC digests, article
+slugs and timestamps; raw session IDs and IP addresses are never persisted.
+Expired readership rows are deleted after seven days. A separate anonymous
+network digest bounds new reads to 30 per minute and expires after two minutes.
+
+The public same-origin POST validates its body and relays to the existing
+authenticated feed path `/v1/news/articles/{slug}/view`. SQLite state lives in
+the feed service's private `StateDirectory`, outside the repository and news
+publisher's exported catalog. `/v1/news` attaches current `views7d` counts;
+editorial publication times remain unchanged. A counter failure never prevents
+the article or market feed from loading.
