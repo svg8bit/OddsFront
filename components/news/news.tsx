@@ -14,13 +14,14 @@ import { buildDropsBotTrackUrl, toPolymarketReferralUrl } from "@/lib/polymarket
 import { CountryFlag } from "@/features/global-conflict-map/preview/country-flag";
 import { availableNewsArticlePath, newsArticlePath, newsCountryPath, newsPath } from "@/lib/news/routing";
 import styles from "./news.module.css";
+import { useArticleReadership } from "./use-article-readership";
 
 export function articlePath(article: NewsArticle) { return newsArticlePath(article, "en"); }
 
 export function NewsChrome({ children }: { children: React.ReactNode }) {
   const { t, locale } = useLocale();
   return <div className={styles.page} dir={localeDirection(locale)}>
-    <header className={styles.header}><Link className={styles.wordmark} href={newsPath(locale)} prefetch={false}>OddsFront<span> / {t("news")}</span></Link><SiteNavigation mode="news"/></header>
+    <header className={styles.header}><div className={styles.headerInner}><Link className={styles.wordmark} href={newsPath(locale)} prefetch={false} dir="ltr"><Image className={styles.brandMark} src="/brand/oddsfront-mark-v1.svg" alt="" width={30} height={23} unoptimized/><strong>OddsFront</strong><span> / {t("news")}</span></Link><SiteNavigation mode="news"/></div></header>
     <main className={styles.content}>{children}</main>
     <footer className={styles.footer}><span>© {new Date().getUTCFullYear()} OddsFront</span><a href="https://t.me/oddsfront" target="_blank" rel="noreferrer"><Send size={13}/>Telegram</a></footer>
   </div>;
@@ -69,11 +70,12 @@ export function NewsOverview({ initialArticles, initialUpdatedAt, activeCountry,
   const countries=[...new Set(articles.flatMap(article=>article.countries))].sort((a,b)=>country(a).localeCompare(country(b),locale));
   const filtered=articles.filter(article=>(selected==="ALL"||article.countries.includes(selected))&&`${articleText(article,locale).title} ${articleText(article,locale).description}`.toLowerCase().includes(query.toLowerCase()));
   const featured=filtered[0];
+  const popular=articles.filter(article=>Number.isSafeInteger(article.views7d)&&(article.views7d??0)>0).toSorted((left,right)=>(right.views7d??0)-(left.views7d??0)||Date.parse(right.publishedAt)-Date.parse(left.publishedAt)||left.id.localeCompare(right.id)).slice(0,5);
   return <NewsChrome>
     <section className={styles.intro}><div><h1>{archive?t("archive"):selected==="ALL"?t("latest"):country(selected)}</h1><p>{t("description")}</p></div><label className={styles.search}><Search size={16}/><input type="search" aria-label={t("search")} placeholder={t("search")} value={query} onChange={event=>setQuery(event.target.value)}/></label></section>
     <nav className={styles.filters} aria-label={t("countryNews")}><Link href={newsCountryPath("world",locale)} aria-current={selected==="ALL"?"page":undefined} prefetch={false}>{t("all")}</Link>{countries.map(code=><Link key={code} href={newsCountryPath(code,locale)} aria-current={selected===code?"page":undefined} prefetch={false}><CountryFlag code={code}/>{country(code)}</Link>)}</nav>
     <div className={styles.overviewGrid}><section aria-label={t("latest")}>{featured?<StoryCard article={featured} featured/>:<div className={styles.empty}>{query?t("noResults"):t("empty")}</div>}<div className={styles.cardGrid}>{filtered.slice(1,limit).map(article=><StoryCard key={article.id} article={article}/>)}</div>{filtered.length>limit?<button className={styles.loadMore} onClick={()=>setLimit(limit+12)}>{t("loadMore")}</button>:null}</section>
-      <aside className={styles.latestRail}><span className={styles.eyebrow}>{t("latest")}</span>{articles.slice(0,5).map((article,index)=><Link key={article.id} href={availableNewsArticlePath(article,locale)} prefetch={false}><span>{String(index+1).padStart(2,"0")}</span><div><h3>{articleText(article,locale).title}</h3><time dateTime={article.publishedAt}>{new Intl.DateTimeFormat(locale,{month:"short",day:"numeric"}).format(new Date(article.publishedAt))}</time></div></Link>)}</aside>
+      <aside className={styles.latestRail} aria-label={t("popular")}><span className={styles.eyebrow}>{t("popular")}</span>{popular.length?popular.map((article,index)=><Link key={article.id} href={availableNewsArticlePath(article,locale)} prefetch={false}><span>{String(index+1).padStart(2,"0")}</span><div><h3>{articleText(article,locale).title}</h3><time dateTime={article.publishedAt}>{new Intl.DateTimeFormat(locale,{month:"short",day:"numeric"}).format(new Date(article.publishedAt))}</time></div></Link>):<p className={styles.popularEmpty}>{t("popularEmpty")}</p>}</aside>
     </div>
   </NewsChrome>;
 }
@@ -101,6 +103,7 @@ function LiveMarketCard({ event, fresh, history = [] }: { event: ConflictPreview
 }
 
 export function NewsArticleView({ article, initialFeed }: { article: NewsArticle; initialFeed: ConflictPreviewFeed }) {
+  useArticleReadership(article.slug);
   const { locale,t }=useLocale(); const text=articleText(article,locale); const feed=useLiveConflictFeed(initialFeed,false); const events=relatedMarkets(article,feed.events);
   const [histories,setHistories]=useState<Record<string,HistoryPoint[]>>({});
   const eventIds=events.map(event=>event.id).join(",");

@@ -39,6 +39,8 @@ export interface NewsArticle extends ArticleText {
   updatedAt: string;
   author: string;
   readingMinutes?: number;
+  /** Anonymous article reads in the preceding seven days, across all locales. */
+  views7d?: number;
   countries: string[];
   topics: string[];
   alert?: NewsAlert | null;

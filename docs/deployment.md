@@ -50,6 +50,18 @@ After deployment, verify:
 
 ## Rollback
 
-There is no database migration or client state migration. Redeploy the previous
+News readership additionally uses the existing OddsFront feed service. Install
+`ops/market-feed/news_readership.py` alongside `oddsfront_market_feed.py`, and
+install `ops/oddsfront-readership.conf` as a drop-in for
+`oddsfront-market-feed.service`. `StateDirectory=oddsfront-market-feed` gives its
+dynamic service user one private writable directory; no new listener or Caddy
+route is needed. Back up the existing service code and drop-in before changing
+them, validate with `npm run test:readership`, reload systemd and restart only
+that feed service. Verify authenticated catalog reads and anonymous endpoint
+rejection; production QA must not create synthetic readership rows.
+
+There is no client state migration. Redeploy the previous
 reviewed commit, then smoke-test the same routes and headers. Optional feed
 credentials can be removed independently; the public fallbacks remain intact.
+The readership database may be retained during rollback; previous application
+versions ignore its additive catalog fields.
