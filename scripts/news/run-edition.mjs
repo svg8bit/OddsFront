@@ -111,7 +111,7 @@ await rename(pendingDirectory, path.join(directory, "editions", `${startedAt.rep
 console.log(JSON.stringify(receipt));
 if (process.argv.includes("--with-followups")) {
   for (const [command, args, timeout] of [
-    ["/root/OddsFront/.local/translation-venv/bin/python", ["scripts/news/translate.py"], 45 * 60_000],
+    ["/root/OddsFront/.local/translation-venv/bin/python", ["scripts/news/translate.py"], 55 * 60_000],
     [process.execPath, ["scripts/news/indexnow.mjs"], 60_000],
   ]) {
     const result = spawnSync(command, args, { stdio: "inherit", env: process.env, timeout });

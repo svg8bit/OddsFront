@@ -42,3 +42,15 @@ task configuration, dispatch lock, fresh-health requirement and six-hour cooldow
 bound notifications. The existing task follows the normal protected PR/release
 workflow. Queue acceptance is recorded separately from actual recovery.
 Third-party authentication and human challenges remain external blockers.
+
+Follow-up reliability work aligns social publishing to clock hours and requires
+a reviewed Russian preview before the common EN/RU/X selection is committed.
+The completed RU bootstrap cutoff no longer blocks later hourly stories.
+Completed offline translation texts are checkpointed across worker timeouts.
+
+The two observed disputed-resolution broadcasts were removed with confirmed
+Telegram API receipts. A narrowly matched channel moderation timer removes
+future messages of the same type after detection, while the native Drops setting
+question remains with official support. Clarifications and normal odds/news
+messages are not classified as disputes. No native profile setting change is
+claimed.

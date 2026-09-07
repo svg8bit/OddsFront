@@ -2,7 +2,8 @@ import { mkdir, readFile, writeFile, rename, stat, readdir } from "node:fs/promi
 import { spawnSync } from "node:child_process";
 import path from "node:path";
 import { executeSubscriptionCodex } from "../../lib/news/writer.ts";
-import { approvedTelegramCandidate, freshEditionArticles, russianTelegramArticle, telegramCandidates, telegramPayload, telegramSelectionPrompt, TELEGRAM_SELECTION_SCHEMA, TELEGRAM_INTERVAL_MS, TELEGRAM_CHANNELS } from "../../lib/news/telegram.ts";
+import { approvedTelegramCandidate, freshEditionArticles, russianTelegramArticle, russianNewsReady, telegramCandidates, telegramPayload, telegramSelectionPrompt, TELEGRAM_SELECTION_SCHEMA, TELEGRAM_CHANNELS } from "../../lib/news/telegram.ts";
+import { hourlyPublicationDue } from "../../lib/news/hourly-publication.ts";
 import type { TelegramSelection, TelegramLocale, TelegramCandidate } from "../../lib/news/telegram.ts";
 import type { NewsCatalog } from "../../lib/news/types.ts";
 import type { ConflictPreviewFeed } from "../../features/global-conflict-map/preview/types.ts";
@@ -49,9 +50,11 @@ try {
   let state: State = { lastSentAt: 0, sentArticles: [] };
   try { state = JSON.parse(await readFile(stateFile, "utf8")); } catch (error) { if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error; }
   if (state.pending) throw new Error("Previous send has an unknown outcome; reconcile it before retrying");
-  if (!process.argv.includes("--force") && Date.now() - state.lastSentAt < TELEGRAM_INTERVAL_MS) { console.log(JSON.stringify({ status: "interval-not-due" })); process.exit(0); }
+  if (!process.argv.includes("--force") && !hourlyPublicationDue(state.lastSentAt)) { console.log(JSON.stringify({ status: "interval-not-due" })); process.exit(0); }
   const catalog = JSON.parse(await readFile(path.join(directory, "catalog.json"), "utf8")) as NewsCatalog;
-  let articles = freshEditionArticles(catalog.articles, state.sentArticles);
+  // The common EN/RU/X selection must have a reviewed Russian preview before
+  // English delivery commits the choice for all three publishers.
+  let articles = freshEditionArticles(locale === "en" ? catalog.articles.filter(russianNewsReady) : catalog.articles, state.sentArticles);
   if (!articles.length) { console.log(JSON.stringify({ status: "no-fresh-article" })); process.exit(0); }
   let selection: TelegramSelection;
   let candidates: TelegramCandidate[];

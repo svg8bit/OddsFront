@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { approvedTelegramCandidate, freshEditionArticles, russianTelegramArticle, telegramCandidates, telegramPayload, TELEGRAM_CHANNEL_ID, TELEGRAM_CHANNELS } from "../lib/news/telegram";
+import { approvedTelegramCandidate, freshEditionArticles, russianTelegramArticle, russianNewsReady, telegramCandidates, telegramPayload, TELEGRAM_CHANNEL_ID, TELEGRAM_CHANNELS } from "../lib/news/telegram";
 import { validateRussianEditorialTranslation } from "../lib/news/russian-editorial";
 import { getConflictPreviewFixtureFeed } from "../features/global-conflict-map/preview/fixture";
 import type { NewsArticle } from "../lib/news/types";
@@ -97,6 +97,9 @@ test("Russian channel waits for the English choice and reviewed translation, ski
   expect(russianTelegramArticle(edition, choice.id, [], new Date(now - 3_600_000).toISOString(), now)?.id).toBe(choice.id);
   expect(russianTelegramArticle(edition, choice.id, [choice.id], undefined, now)).toBeNull();
   expect(russianTelegramArticle(edition, edition[3]!.id, [choice.id], undefined, now)?.id).toBe(edition[3]!.id);
+  expect(russianTelegramArticle(edition, edition[3]!.id, [choice.id], choice.publishedAt, now)?.id).toBe(edition[3]!.id);
+  expect(russianNewsReady(article)).toBe(false);
+  expect(russianNewsReady(russian)).toBe(true);
 });
 
 test("Russian editorial checks reject untranslated text and changed dates or counts", () => {

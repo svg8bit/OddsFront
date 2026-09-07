@@ -1,0 +1,24 @@
+[Unit]
+Description=Remove recognized disputed-resolution broadcasts from the two OddsFront channels
+After=network-online.target
+Wants=network-online.target
+ConditionPathExists=/root/OddsFront/.local/telegram.env
+
+[Service]
+Type=oneshot
+WorkingDirectory=/root/OddsFront
+ExecStart=/usr/bin/python3 scripts/news/moderate-telegram.py --apply
+EnvironmentFile=/root/OddsFront/.local/telegram.env
+Nice=15
+CPUQuota=10%
+MemoryMax=128M
+TasksMax=32
+PrivateTmp=true
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/root/OddsFront/.local/news
+InaccessiblePaths=-/opt/arctrenches -/opt/arctrenches-legacy-6c13c07 -/root/DropsAnalytics-worktrees -/opt/sunder -/root/.ssh
+UMask=0077
+TimeoutStartSec=90s
+

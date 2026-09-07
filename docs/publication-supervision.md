@@ -8,6 +8,16 @@ unsent site stories. Where possible, the next selection changes both country
 and editorial topic. RU and X reuse the actual EN selection and retain their
 own interval, receipt and duplicate guards.
 
+Social eligibility follows UTC clock hours, so editorial work and the
+five-minute timer poll do not accumulate schedule drift. Missed hours do not
+create a burst of backlog posts. The common selection requires reviewed Russian
+headline/description text before English delivery; the RU bootstrap date cutoff
+applies only until that channel has its first successful publication.
+
+Offline translation retains completed texts after every batch. Interrupted
+workers resume these cached texts and never save incomplete paragraphs. The
+follow-up has a 55-minute bound, leaving time before the next preparation window.
+
 Install `ops/oddsfront-publishing-monitor.service` and `.timer` alongside the
 four publishing timers. Back up existing units before updating them. The monitor
 runs on the VPS every five minutes, using persisted publication timestamps rather
@@ -64,3 +74,22 @@ queueing a message or consuming the incident cooldown. Private receipts are
 under `.local/news/monitor/agent`. A manual integration message must be clearly
 labelled as a delivery test and must not request publication or fabricate an
 incident in production state.
+
+## Disputed-resolution broadcasts
+
+`oddsfront-channel-moderation.service` and `.timer` inspect the two public
+OddsFront Telegram channels each minute. The filter removes only the current
+Drops `Polymarket Resolution Disputed` format, requiring both its exact alert
+header and disputed-status sentence, the exact channel/post identity, and a
+verified recent timestamp. Normal news, odds alerts and clarification messages
+are retained. The publisher bot identity and deletion permissions are checked
+before any deletion. Successful API confirmations are recorded privately in
+`.local/news/channel-moderation`.
+
+This is channel moderation after detection, not a change to the user's Drops
+profile or a guarantee that a notification never appears. Public-feed delays
+and Telegram availability affect detection. It does not call `getUpdates`,
+replace a webhook or require a Telegram user-session login. It reuses only the
+publisher's existing authorized named bot key. Back up any existing unit files
+before installation, then enable the timer. `python3
+scripts/news/moderate-telegram.py --check` performs a read-only eligibility check.

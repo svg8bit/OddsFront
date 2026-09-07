@@ -105,6 +105,7 @@ def main():
                             pieces.append(tokens)
                             owners.append(text)
             translated = {text: [] for text in pending}
+            expected_pieces = Counter(owners)
             for start in range(0, len(pieces), 16):
                 batch = pieces[start:start+16]
                 results = translator.translate_batch(batch, target_prefix=[[f"__{target}__"] for _ in batch], beam_size=2, max_batch_size=512, batch_type="tokens", max_decoding_length=320, max_input_length=512, no_repeat_ngram_size=4)
@@ -114,6 +115,12 @@ def main():
                     if not value:
                         raise ValueError(f"Empty translation for {language}")
                     translated[owners[start + index]].append(value)
+                    owner = owners[start + index]
+                    if len(translated[owner]) == expected_pieces[owner]:
+                        cache[key(language, owner)] = " ".join(translated[owner])
+                # Keep completed texts across a bounded worker timeout. A
+                # partially translated paragraph never enters the cache.
+                atomic_json(cache_path, cache)
             for text, values in translated.items():
                 cache[key(language, text)] = " ".join(values)
             def translated_text(text):
