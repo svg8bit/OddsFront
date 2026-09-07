@@ -12,6 +12,8 @@ import type { NewsArticle, NewsDraft, NewsCatalog } from "../lib/news/types";
 import seed from "../lib/news/catalog.seed.json";
 import { getConflictPreviewFixtureFeed } from "../features/global-conflict-map/preview/fixture";
 import { availableNewsArticlePath, switchNewsLocalePath } from "../lib/news/routing";
+import { researchProblems } from "../lib/news/research";
+import { NEWS_SOURCES } from "../lib/news/sources";
 
 function draft():NewsDraft {
   return {publishable:true,rejectionReason:"",alert:{eligible:false,kind:"none",actorCountries:[],targetCountries:[]},title:"Test fixture: regional diplomatic review",description:"Development-only publication validation fixture.",countries:["UA"],topics:["diplomacy"],
@@ -29,6 +31,22 @@ test("publication rejects unsupported sources, malformed data, copied prose and 
   const injected=structuredClone(valid);injected.sources[0].url="https://www.bbc.com@evil.example/story";expect(validateNewsDraft(injected,[]).length).toBeGreaterThan(0);
 });
 
+test("accepts verified calendar dates without inventing source publication times",()=>{
+  const article=draft();
+  article.sources[0].publishedAt="2026-09-07";
+  article.sources[1].publishedAt="2026-09-04";
+  article.sources[1].url="https://www.fao.org/newsroom/detail/development-fixture/en";
+  expect(validateNewsDraft(article,[],new Date("2026-09-07T12:00:00Z"))).toEqual([]);
+});
+
+test("distinguishes incomplete discovery from checked news that cannot be published",()=>{
+  const report={summary:"Checked current candidates; primary evidence was unavailable.",sources:NEWS_SOURCES.map(source=>({publisher:source.name,url:source.url,status:"checked" as const,candidatesReviewed:2,reason:"Current sources inspected"})),rejectedCandidates:[]};
+  expect(researchProblems(report)).toEqual([]);
+  expect(researchProblems({...report,sources:report.sources.slice(1)})).toContain("Research did not cover Reuters");
+  expect(researchProblems({...report,sources:report.sources.map(source=>({...source,status:"unavailable",candidatesReviewed:0}))})).toContain("Research inspected no current candidates");
+  expect(researchProblems(undefined)).toContain("Missing news research report");
+});
+
 test("news alert gate requires a confirmed major event and an exact high-volume market direction",()=>{
   const now = new Date("2026-09-06T18:00:00.000Z");
   const candidate = structuredClone(draft());
@@ -39,6 +57,11 @@ test("news alert gate requires a confirmed major event and an exact high-volume 
   candidate.factChecks[0] = {claim:"The United States attacked Iran after the operation began overnight.",sourceIds:["media","official"]};
   const alert = verifiedNewsAlert(candidate);
   expect(alert).toEqual({kind:"strike",actorCountries:["US"],targetCountries:["IR"]});
+  const abbreviated=structuredClone(candidate);
+  abbreviated.title="US strikes Iran after attacks begin overnight";
+  abbreviated.description="US forces attacked Iranian military sites.";
+  abbreviated.factChecks[0].claim="US forces attacked Iran after the operation began overnight.";
+  expect(verifiedNewsAlert(abbreviated)).toEqual(alert);
 
   const article: NewsArticle = {
     ...candidate,

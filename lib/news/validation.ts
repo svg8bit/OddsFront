@@ -16,7 +16,7 @@ export function isDuplicateTitle(title: string, existing: Pick<NewsArticle, "tit
 }
 
 const ALERT_COUNTRY_ALIASES: Readonly<Record<string, readonly string[]>> = {
-  US: ["united states", "u s", "american"],
+  US: ["united states", "u s", "us", "american"],
   RU: ["russia", "russian"],
   UA: ["ukraine", "ukrainian"],
   IL: ["israel", "israeli"],

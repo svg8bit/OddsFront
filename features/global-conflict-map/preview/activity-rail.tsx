@@ -175,8 +175,8 @@ function tradeNotice(
 
 function noticeLabel(notice: ActivityNotice): string {
   if (notice.kind === "news") return "News";
-  if (notice.kind === "odds-rise") return `Odds +${notice.value.toFixed(1)}%`;
-  if (notice.kind === "odds-drop") return `Odds -${notice.value.toFixed(1)}%`;
+  if (notice.kind === "odds-rise") return `+${notice.value.toFixed(1)}%`;
+  if (notice.kind === "odds-drop") return `-${notice.value.toFixed(1)}%`;
   return `Large BUY ${formatMoney(notice.value)}`;
 }
 
@@ -202,7 +202,8 @@ function selectVisibleNotices(notices: ActivityNotice[]): ActivityNotice[] {
   );
   const news = newestFirst.filter((notice) => notice.kind === "news");
   const trades = newestFirst.filter((notice) => notice.kind === "large-buy");
-  const rollingMovers = newestFirst.filter(
+  // Preserve the daily-first market ranking supplied by buildRollingActivitySignals.
+  const rollingMovers = notices.filter(
     (notice) =>
       notice.source === "rolling" &&
       (notice.kind === "odds-rise" || notice.kind === "odds-drop"),
@@ -731,8 +732,8 @@ export function ActivityRail({
                 </span>
                 <strong>{news || locale === "en" ? noticeLabel(notice) : noticeLabel(notice).replace("Large BUY",marketLabel(locale,"Large BUY")).replace("Odds",marketLabel(locale,"Odds"))}</strong>
                 {notice.windowLabel ? <span>{notice.windowLabel}</span> : null}
-                <time dateTime={new Date(notice.occurredAt).toISOString()}>
-                  {locale === "en" ? relativeTime(notice.occurredAt, clock) : new Intl.RelativeTimeFormat(locale,{numeric:"auto",style:"narrow"}).format(-Math.max(0,Math.floor((clock-notice.occurredAt)/60_000)),"minute")}
+                <time dateTime={new Date(notice.occurredAt).toISOString()} data-time-kind={notice.source === "rolling" ? "updated" : "occurred"}>
+                  {notice.source === "rolling" ? `${t("updated")} ${new Intl.DateTimeFormat(locale,{hour:"2-digit",minute:"2-digit"}).format(notice.occurredAt)}` : locale === "en" ? relativeTime(notice.occurredAt, clock) : new Intl.RelativeTimeFormat(locale,{numeric:"auto",style:"narrow"}).format(-Math.max(0,Math.floor((clock-notice.occurredAt)/60_000)),"minute")}
                 </time>
                 <button
                   type="button"

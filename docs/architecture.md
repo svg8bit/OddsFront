@@ -79,7 +79,9 @@ deferred map bundle. It refreshes immediately on entry, pageshow, focus,
 visibility restoration and reconnect, deduplicates in-flight requests, times
 out blocked requests and ignores older snapshots. Visible tabs poll roughly
 once per minute. The activity rail derives rolling movers from each snapshot
-instead of treating them as disposable toast events.
+instead of treating them as disposable toast events. Qualifying daily moves
+take priority over weekly fallbacks. Cards display the market observation's
+update time; a fresh transport response cannot renew an old market observation.
 
 ## Security boundary
 
