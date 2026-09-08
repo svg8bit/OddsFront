@@ -13,7 +13,7 @@ import type { NewsArticle, NewsDraft, NewsCatalog } from "../lib/news/types";
 import seed from "../lib/news/catalog.seed.json";
 import { getConflictPreviewFixtureFeed } from "../features/global-conflict-map/preview/fixture";
 import { availableNewsArticlePath, switchNewsLocalePath } from "../lib/news/routing";
-import { researchProblems } from "../lib/news/research";
+import { researchProblems, researchExclusions, researchPrompt } from "../lib/news/research";
 import { NEWS_SOURCES } from "../lib/news/sources";
 
 function draft():NewsDraft {
@@ -46,6 +46,21 @@ test("distinguishes incomplete discovery from checked news that cannot be publis
   expect(researchProblems({...report,sources:report.sources.slice(1)})).toContain("Research did not cover Reuters");
   expect(researchProblems({...report,sources:report.sources.map(source=>({...source,status:"unavailable",candidatesReviewed:0}))})).toContain("Research inspected no current candidates");
   expect(researchProblems(undefined)).toContain("Missing news research report");
+});
+
+test("research excludes every catalog story beyond eighty without repeating institutional background", () => {
+  const articles = Array.from({length:125}, (_, index) => ({...seed.articles[0], title:`Development exclusion ${index}`, sources:[
+    {...seed.articles[0].sources[0], kind:"media" as const, url:`https://www.bbc.com/news/development-${index}`},
+    {...seed.articles[0].sources[0], kind:"official" as const, url:"https://www.un.org/development-background"},
+  ]})) as NewsArticle[];
+  const index = researchExclusions(articles);
+  expect(index).toHaveLength(125);
+  expect(index[124]).toEqual({title:"Development exclusion 124",sources:["https://www.bbc.com/news/development-124"]});
+  const feedback = [{title:"Development rejected candidate",reasons:["Already published story"],mediaSources:["https://www.bbc.com/news/development-rejected"]}];
+  const prompt = researchPrompt(articles,1,new Date(),feedback);
+  expect(prompt).toContain(JSON.stringify(index));
+  expect(prompt).toContain(JSON.stringify(feedback));
+  expect(prompt).not.toContain("https://www.un.org/development-background");
 });
 
 test("news alert gate requires a confirmed major event and an exact high-volume market direction",()=>{
@@ -159,6 +174,13 @@ test("editions retain partial research privately, resume to exactly nine and enf
     const partial = run(); expect(partial.status, partial.stderr).toBe(1);
     await expect(readFile(join(directory, "public/catalog.json"))).rejects.toThrow();
     const staged = JSON.parse(await readFile(join(directory, "pending-edition/catalog.json"), "utf8")); expect(staged.articles).toHaveLength(3);
+    const feedback = JSON.parse(await readFile(join(directory,"pending-edition/research-feedback.json"),"utf8"));
+    expect(feedback.some((item:{reasons:string[]})=>item.reasons.includes("Already published story"))).toBe(true);
+    const pendingPath = join(directory,"pending-edition/edition.json");
+    const pending = JSON.parse(await readFile(pendingPath,"utf8"));
+    expect(pending.retryAfter).toBeGreaterThan(Date.now());
+    expect(run().stdout).toContain("research-cooldown");
+    await writeFile(pendingPath,JSON.stringify({...pending,retryAfter:Date.now()-1}));
     await writeFile(input, JSON.stringify({ articles: articles.slice(3) }));
     const complete = run(); expect(complete.status, complete.stderr).toBe(0);
     const before = await readFile(join(directory, "public/catalog.json"), "utf8");

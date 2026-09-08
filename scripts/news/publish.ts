@@ -1,10 +1,10 @@
 import { createHash } from "node:crypto";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile, rename } from "node:fs/promises";
 import { spawnSync } from "node:child_process";
 import path from "node:path";
 import { executeSubscriptionCodex } from "../../lib/news/writer.ts";
 import { NEWS_BATCH_SCHEMA, researchPrompt, researchProblems } from "../../lib/news/research.ts";
-import type { NewsResearchReport } from "../../lib/news/research.ts";
+import type { NewsResearchReport, NewsResearchRejection } from "../../lib/news/research.ts";
 import { articleSlug, validateNewsDraft, verifiedNewsAlert } from "../../lib/news/validation.ts";
 import type { NewsArticle, NewsCatalog, NewsDraft } from "../../lib/news/types.ts";
 import { writeNewsCatalog } from "../../lib/news/storage.ts";
@@ -22,12 +22,15 @@ if (!process.env.ODDSFRONT_EDITION_LOCKED) {
   try { catalog = JSON.parse(await readFile(catalogPath, "utf8")); } catch (error) { if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error; }
   let coverRejected: NewsArticle[] = [];
   try { coverRejected = JSON.parse(await readFile(path.join(directory, "cover-rejections.json"), "utf8")); } catch (error) { if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error; }
+  const feedbackPath = path.join(directory, "research-feedback.json");
+  let feedback: NewsResearchRejection[] = [];
+  try { feedback = JSON.parse(await readFile(feedbackPath, "utf8")); } catch (error) { if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error; }
   const requested = Number(process.env.ODDSFRONT_NEWS_BATCH_SIZE || "9");
   const maxArticles = Number.isFinite(requested) ? Math.min(9, Math.max(1, Math.floor(requested))) : 9;
   const startedAt = new Date().toISOString();
   const raw = process.env.ODDSFRONT_NEWS_DRAFT_FILE
     ? await readFile(process.env.ODDSFRONT_NEWS_DRAFT_FILE, "utf8")
-    : await executeSubscriptionCodex({ prompt: researchPrompt([...coverRejected, ...catalog.articles], maxArticles), schema: NEWS_BATCH_SCHEMA,
+    : await executeSubscriptionCodex({ prompt: researchPrompt([...coverRejected, ...catalog.articles], maxArticles, new Date(), feedback), schema: NEWS_BATCH_SCHEMA,
       env: Object.fromEntries(["PATH", "USER", "LOGNAME", "LANG", "LC_ALL", "HTTPS_PROXY", "HTTP_PROXY", "NO_PROXY"].map(key => [key, process.env[key]])),
       timeoutMs: 600_000 });
   const parsed = JSON.parse(raw) as { articles: NewsDraft[]; research?: NewsResearchReport };
@@ -49,6 +52,11 @@ if (!process.env.ODDSFRONT_EDITION_LOCKED) {
   const receipt = { startedAt, finishedAt: new Date().toISOString(), requested: maxArticles, published: published.map(article => article.slug), rejected, research: parsed.research, researchErrors };
   await mkdir(path.join(directory, "receipts"), { recursive: true });
   await writeFile(path.join(directory, "receipts", `${startedAt.replace(/[:.]/g,"-")}.json`), JSON.stringify({ receipt, evidence: parsed }, null, 2), { mode: 0o600 });
+  const failures = rejected.map(item => ({ ...item, mediaSources: (parsed.articles.find(draft => draft?.title === item.title)?.sources ?? []).filter(source => source?.kind === "media" && typeof source.url === "string").map(source => source.url) }));
+  const updatedTitles = new Set(failures.map(item => item.title));
+  feedback = [...feedback.filter(item => !updatedTitles.has(item.title)), ...failures].slice(-24);
+  await writeFile(`${feedbackPath}.tmp`, JSON.stringify(feedback), { mode: 0o600 });
+  await rename(`${feedbackPath}.tmp`, feedbackPath);
   if (researchErrors.length) throw new Error(`News research incomplete: ${researchErrors.join("; ")}`);
   if (!published.length) { console.log(JSON.stringify({...receipt,status:"No verified new stories; retained existing edition"})); process.exit(0); }
   const next = { ...catalog, updatedAt: receipt.finishedAt, articles: [...published, ...catalog.articles] };
