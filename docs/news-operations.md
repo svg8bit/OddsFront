@@ -214,3 +214,20 @@ feed code/config if required, validate Caddy, reload/restart the dedicated
 OddsFront services, and confirm the original market endpoint and service health.
 Vercel rollback is independent: restore the previous verified OddsFront main
 commit/deployment. Never remove publication history to roll back application UI.
+
+### Publisher discovery before editorial research
+
+Public RSS from BBC, the Guardian, Euronews, Sky News, Meduza, Axios and
+Al Jazeera supplies bounded current article leads before each editor round.
+Feed requests have a six-second deadline, three concurrent requests and a
+1.5 MB body limit. Cache raw discovery privately for ten minutes, but filter it
+against the entire current published, withdrawn and staged history on every
+round. Publisher rotation prevents one large feed monopolizing the prompt.
+
+RSS provides candidate URLs, publisher timestamps and possible photo links;
+it does not replace reading the linked article or verifying primary evidence,
+source-use limits, novelty and actual cover availability. The editor still
+records coverage for all configured publishers, including outlets without RSS.
+Available feed discovery avoids repeated category-page probing. Site coverage
+includes the existing politics, energy, security, humanitarian and world-affairs
+categories; a market match is unnecessary for an ordinary website article.
