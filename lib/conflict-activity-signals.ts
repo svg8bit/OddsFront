@@ -14,7 +14,7 @@ export interface RollingActivitySignal {
 
 // Measurement period and screen lifetime are independent. These are current
 // day/week changes, not claims that a sudden move happened in fifteen minutes.
-export function buildRollingActivitySignals(feed: ConflictPreviewFeed, now = Date.now(), cycleStartedAt = now): RollingActivitySignal[] {
+export function buildRollingActivitySignals(feed: ConflictPreviewFeed, now = Date.now(), cycleStartedAt = 0): RollingActivitySignal[] {
   const feedTime = Date.parse(feed.updatedAt);
   if (feed.dataMode !== "live" || !Number.isFinite(feedTime) || feedTime > now + 60_000 || now - feedTime > 10 * 60_000) return [];
   const cycle = cycleStartedAt + Math.max(0, Math.floor((now - cycleStartedAt) / ACTIVITY_DISPLAY_TTL_MS)) * ACTIVITY_DISPLAY_TTL_MS;
@@ -44,7 +44,11 @@ export function buildRollingActivitySignals(feed: ConflictPreviewFeed, now = Dat
     if (candidate && !used.has(candidate.eventId)) { selected.push(candidate); used.add(candidate.eventId); }
   };
   // Keep both periods and directions when the current page supports them.
-  for (const window of ["24H", "7D"] as const) {
+  // Alternate the preferred period on each full market rotation. Otherwise a
+  // one-market page always consumes its only slot with 24H and never shows 7D.
+  const rotation = Math.floor((cycle - cycleStartedAt) / ACTIVITY_DISPLAY_TTL_MS / pageCount);
+  const windows = rotation % 2 === 0 ? ["24H", "7D"] as const : ["7D", "24H"] as const;
+  for (const window of windows) {
     const group = currentCandidates.filter(item => item.windowLabel === window && !used.has(item.eventId));
     const opposite = group.filter(item => !selected.length || item.kind !== selected[0]!.kind);
     const pool = opposite.length ? opposite : group;

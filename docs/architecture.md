@@ -84,7 +84,10 @@ points over 24 hours or twenty over seven days. It includes both periods and
 directions when eligible markets exist, and rotates distinct sets of markets
 every fifteen minutes. Up to three cards are shown, with another set reserved
 for the next cycle; expired cards cannot immediately return under new IDs.
-A lone eligible market rests for a cycle after expiry. A price refresh updates
+A lone eligible market rests for a cycle after expiry. Rotation uses fixed UTC
+quarter-hours, so reloading or remounting the rail cannot renew the first page.
+Small pages alternate daily and weekly signals across full market rotations.
+A price refresh updates
 the value without extending that display cycle. The timestamp is labelled
 Updated, not a new event occurrence.
 Stale feeds and expired markets cannot produce notices. This requires no

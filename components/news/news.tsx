@@ -24,7 +24,7 @@ export function NewsChrome({ children }: { children: React.ReactNode }) {
   return <div className={styles.page} dir={localeDirection(locale)}>
     <header className={styles.header}><div className={styles.headerInner}><Link className={styles.wordmark} href={newsPath(locale)} prefetch={false} dir="ltr"><Image className={styles.brandMark} src="/brand/oddsfront-mark-v1.svg" alt="" width={30} height={23} unoptimized/><strong>OddsFront</strong><span> / {t("news")}</span></Link><SiteNavigation mode="news"/></div></header>
     <main className={styles.content}>{children}</main>
-    <footer className={styles.footer}><span>© {new Date().getUTCFullYear()} OddsFront</span><Link href="/news/about" prefetch={false}>{t("about")}</Link><a href={newsPath(locale,"/rss.xml")}>{t("feed")}</a><a href="https://t.me/oddsfront" target="_blank" rel="noreferrer"><Send size={13}/>Telegram EN</a><a href="https://t.me/oddsfront_ru" target="_blank" rel="noreferrer"><Send size={13}/>Telegram RU</a></footer>
+    <footer className={styles.footer}><span>© {new Date().getUTCFullYear()} OddsFront</span><a href="https://t.me/oddsfront" target="_blank" rel="noreferrer"><Send size={13}/>Telegram EN</a><a href="https://t.me/oddsfront_ru" target="_blank" rel="noreferrer"><Send size={13}/>Telegram RU</a></footer>
   </div>;
 }
 

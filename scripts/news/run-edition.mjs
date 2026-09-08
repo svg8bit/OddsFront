@@ -50,6 +50,10 @@ if (!pending) {
   await atomic(path.join(pendingDirectory, "catalog.json"), current);
   await atomic(pendingFile, pending);
 }
+if (!process.argv.includes("--force") && pending.retryAfter > Date.now()) {
+  console.log(JSON.stringify({ status: "research-cooldown", nextResearchAt: new Date(pending.retryAfter).toISOString() }));
+  process.exit(0);
+}
 const previous = new Set(pending.baseIds);
 const stagedCatalog = () => read(path.join(pendingDirectory, "catalog.json"), emptyCatalog);
 const fresh = article => article.sources.some(source => source.kind === "media" && Date.parse(source.publishedAt) >= Date.now() - 72 * 60 * 60_000);
@@ -75,13 +79,23 @@ async function checkCovers() {
 await checkCovers();
 // Research may return a partial result. Persist it privately and keep filling
 // the same edition; never expose five stories as a successful nine-story run.
+let stalledRounds = 0;
 for (let attempt = 1; attempt <= 6 && prepared.length < 9; attempt++) {
+  const before = prepared.length;
   const run = spawnSync(process.execPath, ["scripts/news/publish.ts"], { stdio: "inherit", env: { ...process.env,
     ODDSFRONT_NEWS_DIRECTORY: pendingDirectory, ODDSFRONT_NEWS_PUBLIC_DIRECTORY: path.join(pendingDirectory, "public"),
     ODDSFRONT_NEWS_BATCH_SIZE: String(Math.min(3, 9 - prepared.length)) }, timeout: 11 * 60_000 });
   prepared = (await stagedCatalog()).articles.filter(article => !previous.has(article.id));
   await checkCovers();
   rounds.push({ attempt, exitCode: run.status, prepared: prepared.length });
+  stalledRounds = prepared.length > before ? 0 : stalledRounds + 1;
+  if (stalledRounds >= 2) {
+    // A timer or monitor retry must not create an unbounded subscription loop
+    // when discovery cannot add a usable story. Retain the partial edition.
+    pending = { ...pending, retryAfter: Date.now() + 30 * 60_000 };
+    await atomic(pendingFile, pending);
+    break;
+  }
 }
 await mkdir(path.join(directory, "editions"), { recursive: true, mode: 0o700 });
 const target = path.join(directory, "editions", `${startedAt.replace(/[:.]/g, "-")}.json`);

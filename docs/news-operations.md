@@ -1,5 +1,13 @@
 # OddsFront News operations
 
+Research uses a complete compact exclusion index of published, staged and
+cover-rejected stories, including their media URLs. Institutional background is
+omitted from that index because it can legitimately support a different event.
+The latest 24 validation rejections are retained privately between attempts.
+After two consecutive rounds add no usable article, the same private edition
+waits 30 minutes before further model calls. Timer and monitor retries respect
+this cooldown; the nine-story and cover requirements remain unchanged.
+
 ## Runtime boundary
 
 The UI runs in the dedicated OddsFront Vercel project. An isolated publisher on

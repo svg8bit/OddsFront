@@ -248,7 +248,7 @@ function selectVisibleNotices(notices: ActivityNotice[]): ActivityNotice[] {
 function buildRollingNotices(
   feed: ConflictPreviewFeed,
   now = Date.now(),
-  cycleStartedAt = now,
+  cycleStartedAt = 0,
 ): ActivityNotice[] {
   const eventsById = new Map(feed.events.map((event) => [event.id, event]));
   return buildRollingActivitySignals(feed, now, cycleStartedAt)
@@ -334,7 +334,6 @@ export function ActivityRail({
   // This rail mounts after hydration: use wall time, never an old ISR timestamp
   // as "now", which made expired server-rendered cards flash and disappear.
   const [clock, setClock] = useState(() => Date.now());
-  const [cycleStartedAt] = useState(() => Date.now());
   const [newsIndex, setNewsIndex] = useState<{
     articles: NewsArticle[];
     receivedAt: number;
@@ -438,8 +437,8 @@ export function ActivityRail({
   );
   // Updated day/week odds do not extend the fifteen-minute display cycle.
   const rollingNotices = useMemo(
-    () => fixtureMode ? [] : buildRollingNotices(feed, Math.max(clock, feedClock), cycleStartedAt),
-    [clock, feed, feedClock, fixtureMode, cycleStartedAt],
+    () => fixtureMode ? [] : buildRollingNotices(feed, Math.max(clock, feedClock)),
+    [clock, feed, feedClock, fixtureMode],
   );
   useEffect(() => {
     if (fixtureMode || newsIndex.receivedAt === 0) return;

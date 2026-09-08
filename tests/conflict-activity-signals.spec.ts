@@ -54,6 +54,27 @@ test("a lone eligible market expires instead of reappearing immediately", () => 
   expect(buildRollingActivitySignals({ ...single, updatedAt: new Date(timestamp).toISOString() }, timestamp, now)).toEqual([]);
 });
 
+test("remounting or refreshing cannot restart the first page or extend its lifetime", () => {
+  const first = buildRollingActivitySignals(feed, now + 60_000);
+  const refresh = now + 9 * 60_000;
+  const remounted = buildRollingActivitySignals({...feed,updatedAt:new Date(refresh).toISOString()},refresh);
+  expect(remounted.map(item=>item.id)).toEqual(first.map(item=>item.id));
+  expect(remounted.map(item=>item.expiresAt)).toEqual(first.map(item=>item.expiresAt));
+  const later = now + ACTIVITY_DISPLAY_TTL_MS;
+  const rotated = buildRollingActivitySignals({...feed,updatedAt:new Date(later).toISOString()},later);
+  expect(rotated.every(item=>!first.some(previous=>previous.eventId===item.eventId))).toBe(true);
+});
+
+test("small pages alternate daily and weekly signals across rotations", () => {
+  const pair = {...feed,events:feed.events.slice(0,2)};
+  const first = buildRollingActivitySignals(pair,now,now);
+  const later = now + 2 * ACTIVITY_DISPLAY_TTL_MS;
+  const returned = buildRollingActivitySignals({...pair,updatedAt:new Date(later).toISOString()},later,now);
+  expect(returned.map(item=>item.eventId)).toEqual(first.map(item=>item.eventId));
+  expect(first[0].windowLabel).toBe("24H");
+  expect(returned[0].windowLabel).toBe("7D");
+});
+
 test("excludes stale feeds, expired markets, low market volume and invalid changes", () => {
   expect(buildRollingActivitySignals({ ...feed, updatedAt: new Date(now - 3_600_000).toISOString() }, now)).toEqual([]);
   expect(buildRollingActivitySignals({ ...feed, dataMode: "fallback" }, now)).toEqual([]);
