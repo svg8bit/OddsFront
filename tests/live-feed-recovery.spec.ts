@@ -117,6 +117,9 @@ test("refreshing prices preserves a display cycle and a lost feed expires the al
 
   await rail.getByRole("button", { name: "Dismiss activity notification" }).first().click();
   await expect(rail).toHaveAttribute("data-activity-count", "2");
+  await page.reload();
+  await expect(rail).toHaveAttribute("data-activity-count", "2");
+  await expect(rail.locator(`[data-notice-id="${id}"]`)).toHaveCount(0);
   payload = { ...liveFeed(now + 11 * 60_000), events: payload.events };
   await page.clock.setSystemTime(now + 11 * 60_000);
   await page.evaluate(() => window.dispatchEvent(new Event("focus")));
@@ -126,6 +129,49 @@ test("refreshing prices preserves a display cycle and a lost feed expires the al
   status = 503;
   await page.clock.fastForward(11 * 60_000);
   await expect(rail).toHaveCount(0);
+});
+
+test("a future feed timestamp cannot move the alert clock forward", async ({ page }) => {
+  await isolateActivity(page);
+  const now = Date.now();
+  let payload = liveFeed(now);
+  await page.route("**/api/global-conflict-events", route => route.fulfill({ json: payload }));
+  await page.goto("/global-conflict-map-preview");
+  const layer = page.locator("[data-activity-feed-updated-at]");
+  const currentTimestamp = payload.updatedAt;
+  await expect(layer).toHaveAttribute("data-activity-feed-updated-at", currentTimestamp);
+  const cards = page.locator('[data-activity-source="rolling"]');
+  await expect(cards).toHaveCount(3);
+  const expiry = await cards.first().getAttribute("data-expires-at");
+  payload = liveFeed(now + 60 * 60_000);
+  const response = page.waitForResponse("**/api/global-conflict-events");
+  await page.evaluate(() => window.dispatchEvent(new Event("focus")));
+  await response;
+  await expect(layer).toHaveAttribute("data-activity-feed-updated-at", currentTimestamp);
+  await expect(cards.first()).toHaveAttribute("data-expires-at", expiry!);
+});
+
+test("trade cards reject future receipts and expire within fifteen minutes even if the API advertises longer", async ({ page }) => {
+  await isolateActivity(page);
+  const now = Date.now();
+  await page.clock.install({ time: now });
+  const payload = liveFeed(now);
+  await page.route("**/api/global-conflict-events", route => route.fulfill({ json: payload }));
+  const items = [now - 60_000, now + 60 * 60_000, now - 16 * 60_000].map((timestamp, index) => ({
+    id: `qa-receipt-${index}`, kind: "large-buy", title: `Development-only trade ${index}`, outcome: "YES", outcomeOdds: 50,
+    marketConditionId: payload.events[index].marketConditionId, notional: 250_000,
+    occurredAt: new Date(timestamp).toISOString(), marketUrl: payload.events[index].marketUrl,
+  }));
+  await page.route("**/api/global-conflict-activity?**", route => route.fulfill({ json: {
+    dataMode: "live", updatedAt: new Date(now).toISOString(), expiresAfterSeconds: 1800, items,
+  } }));
+  await page.goto("/global-conflict-map-preview");
+  const trades = page.locator('[data-activity-source="trade"]');
+  await expect(trades).toHaveCount(1);
+  await expect(trades).toHaveAttribute("data-notice-id", "trade-qa-receipt-0");
+  await expect(trades).toHaveAttribute("data-expires-at", new Date(now + 14 * 60_000).toISOString());
+  await page.clock.fastForward(14 * 60_000 + 5_000);
+  await expect(trades).toHaveCount(0);
 });
 
 test("confirmed news appears alongside market alerts and expires after fifteen minutes", async ({ page }) => {

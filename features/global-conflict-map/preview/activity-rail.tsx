@@ -23,9 +23,11 @@ import type {
   ConflictTradeActivity,
 } from "@/features/global-conflict-map/preview/types";
 import {
+  ACTIVITY_DISMISSAL_STORAGE_KEY,
+  activeActivityDismissals,
   getInitialActivityClock,
 } from "@/lib/activity-notice-lifecycle";
-import { buildRollingActivitySignals } from "@/lib/conflict-activity-signals";
+import { ACTIVITY_DISPLAY_TTL_MS, buildRollingActivitySignals } from "@/lib/conflict-activity-signals";
 import { formatMarketTitle } from "@/lib/market-title";
 import { articleText } from "@/lib/news/locale";
 import type { NewsMarketAlert } from "@/lib/news/alert-matching";
@@ -132,15 +134,20 @@ function tradeNotice(
   eventsByUrl: ReadonlyMap<string, ConflictPreviewEvent>,
 ): ActivityNotice | null {
   const occurredAt = Date.parse(item.occurredAt);
+  const now = Date.now();
   if (
     item.kind !== "large-buy" ||
     !Number.isFinite(occurredAt) ||
+    occurredAt > now + 60_000 ||
+    !Number.isFinite(item.notional) ||
+    !Number.isFinite(expiresAfterSeconds) ||
+    expiresAfterSeconds <= 0 ||
     item.notional < POLYMARKET_LARGE_TRADE_USD
   ) {
     return null;
   }
-  const expiresAt = occurredAt + expiresAfterSeconds * 1_000;
-  if (expiresAt <= Date.now()) return null;
+  const expiresAt = occurredAt + Math.min(expiresAfterSeconds * 1_000, ACTIVITY_DISPLAY_TTL_MS);
+  if (expiresAt <= now) return null;
   const marketUrl = toPolymarketReferralUrl(item.marketUrl);
   if (!marketUrl) return null;
   const event = eventsByUrl.get(marketUrl) ?? null;
@@ -172,10 +179,11 @@ function tradeNotice(
   };
 }
 
-function noticeLabel(notice: ActivityNotice): string {
+function noticeLabel(notice: ActivityNotice, locale = "en"): string {
   if (notice.kind === "news") return "News";
-  if (notice.kind === "odds-rise") return `+${notice.value.toFixed(1)}%`;
-  if (notice.kind === "odds-drop") return `-${notice.value.toFixed(1)}%`;
+  const unit = locale === "ru" ? "п.п." : "pp";
+  if (notice.kind === "odds-rise") return `+${notice.value.toFixed(1)} ${unit}`;
+  if (notice.kind === "odds-drop") return `-${notice.value.toFixed(1)} ${unit}`;
   return `Large BUY ${formatMoney(notice.value)}`;
 }
 
@@ -201,7 +209,7 @@ function selectVisibleNotices(notices: ActivityNotice[]): ActivityNotice[] {
   );
   const news = newestFirst.filter((notice) => notice.kind === "news");
   const trades = newestFirst.filter((notice) => notice.kind === "large-buy");
-  // Keep confirmed price movements ordered by their actual occurrence.
+  // Preserve the day/week selection order; these are rolling comparisons.
   const rollingMovers = notices.filter(
     (notice) =>
       notice.source === "rolling" &&
@@ -329,7 +337,15 @@ export function ActivityRail({
   const [notices, setNotices] = useState<ActivityNotice[]>([]);
   const seenNoticeIds = useRef(new Set(notices.map((notice) => notice.id)));
   const [dismissedNoticeIds, setDismissedNoticeIds] = useState<Set<string>>(
-    () => new Set(),
+    () => {
+      try {
+        return new Set(Object.keys(activeActivityDismissals(
+          JSON.parse(sessionStorage.getItem(ACTIVITY_DISMISSAL_STORAGE_KEY) || "{}"), Date.now(),
+        )));
+      } catch {
+        return new Set();
+      }
+    },
   );
   // This rail mounts after hydration: use wall time, never an old ISR timestamp
   // as "now", which made expired server-rendered cards flash and disappear.
@@ -437,8 +453,8 @@ export function ActivityRail({
   );
   // Updated day/week odds do not extend the fifteen-minute display cycle.
   const rollingNotices = useMemo(
-    () => fixtureMode ? [] : buildRollingNotices(feed, Math.max(clock, feedClock)),
-    [clock, feed, feedClock, fixtureMode],
+    () => fixtureMode ? [] : buildRollingNotices(feed, clock),
+    [clock, feed, fixtureMode],
   );
   useEffect(() => {
     if (fixtureMode || newsIndex.receivedAt === 0) return;
@@ -728,7 +744,7 @@ export function ActivityRail({
                     <ArrowDownRight size={15} />
                   )}
                 </span>
-                <strong>{news || locale === "en" ? noticeLabel(notice) : noticeLabel(notice).replace("Large BUY",marketLabel(locale,"Large BUY")).replace("Odds",marketLabel(locale,"Odds"))}</strong>
+                <strong>{news ? t("news") : noticeLabel(notice, locale).replace("Large BUY",marketLabel(locale,"Large BUY"))}</strong>
                 {notice.windowLabel ? <span>{notice.windowLabel}</span> : null}
                 <time dateTime={new Date(notice.occurredAt).toISOString()} data-time-kind={notice.source === "rolling" ? "updated" : "occurred"}>
                   {notice.source === "rolling" ? `${t("updated")} ${new Intl.DateTimeFormat(locale,{hour:"2-digit",minute:"2-digit"}).format(notice.occurredAt)}` : locale === "en" ? relativeTime(notice.occurredAt, clock) : new Intl.RelativeTimeFormat(locale,{numeric:"auto",style:"narrow"}).format(-Math.max(0,Math.floor((clock-notice.occurredAt)/60_000)),"minute")}
@@ -738,6 +754,11 @@ export function ActivityRail({
                   className={styles.activityDismiss}
                   aria-label={t("dismiss")}
                   onClick={() => {
+                    try {
+                      const saved = activeActivityDismissals(JSON.parse(sessionStorage.getItem(ACTIVITY_DISMISSAL_STORAGE_KEY) || "{}"), Date.now());
+                      saved[notice.id] = notice.expiresAt;
+                      sessionStorage.setItem(ACTIVITY_DISMISSAL_STORAGE_KEY, JSON.stringify(activeActivityDismissals(saved, Date.now())));
+                    } catch { /* In-memory dismissals still work when storage is unavailable. */ }
                     setDismissedNoticeIds((current) => {
                       const next = new Set(current);
                       next.add(notice.id);
