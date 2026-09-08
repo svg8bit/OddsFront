@@ -86,13 +86,13 @@ test("an unusable Sky enclosure retains the canonical article image fallback", a
 });
 
 test("editions retain at most three fallback covers and replace the remainder", async () => {
-  const articles = Array.from({ length: 9 }, (_, i) => ({ ...seed.articles[0], id: String(i), sources: [{ ...seed.articles[0].sources[0], kind: "media", url: `https://www.axios.com/development-${i}` }] })) as NewsArticle[];
+  const articles = Array.from({ length: 20 }, (_, i) => ({ ...seed.articles[0], id: String(i), sources: [{ ...seed.articles[0].sources[0], kind: "media", url: `https://www.axios.com/development-${i}` }] })) as NewsArticle[];
   const photo = { body: new ArrayBuffer(8), contentType: "image/jpeg", imageUrl: "https://images.axios.com/development.jpg" };
-  const five = await prepareEditionCovers(articles, async url => Number(url.at(-1)) < 5 ? photo : null);
-  expect(five.accepted).toHaveLength(8);
-  expect(five.rejected.map(article => article.id)).toEqual(["8"]);
+  const five = await prepareEditionCovers(articles, async url => Number(url.split('-').at(-1)) < 16 ? photo : null);
+  expect(five.accepted).toHaveLength(19);
+  expect(five.rejected.map(article => article.id)).toEqual(["19"]);
   expect(five.accepted.filter(article => !article.cover)).toHaveLength(3);
-  const six = await prepareEditionCovers(articles, async url => Number(url.at(-1)) < 6 ? photo : null);
-  expect(six.accepted).toHaveLength(9);
+  const six = await prepareEditionCovers(articles, async url => Number(url.split('-').at(-1)) < 17 ? photo : null);
+  expect(six.accepted).toHaveLength(20);
   expect(six.rejected).toEqual([]);
 });

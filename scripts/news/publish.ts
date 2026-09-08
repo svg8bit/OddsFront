@@ -1,3 +1,4 @@
+import { NEWS_EDITION_SIZE } from "../../lib/news/edition-policy.ts";
 import { createHash } from "node:crypto";
 import { mkdir, readFile, writeFile, rename } from "node:fs/promises";
 import { spawnSync } from "node:child_process";
@@ -25,8 +26,8 @@ if (!process.env.ODDSFRONT_EDITION_LOCKED) {
   const feedbackPath = path.join(directory, "research-feedback.json");
   let feedback: NewsResearchRejection[] = [];
   try { feedback = JSON.parse(await readFile(feedbackPath, "utf8")); } catch (error) { if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error; }
-  const requested = Number(process.env.ODDSFRONT_NEWS_BATCH_SIZE || "9");
-  const maxArticles = Number.isFinite(requested) ? Math.min(9, Math.max(1, Math.floor(requested))) : 9;
+  const requested = Number(process.env.ODDSFRONT_NEWS_BATCH_SIZE || NEWS_EDITION_SIZE);
+  const maxArticles = Number.isFinite(requested) ? Math.min(NEWS_EDITION_SIZE, Math.max(1, Math.floor(requested))) : NEWS_EDITION_SIZE;
   const startedAt = new Date().toISOString();
   const raw = process.env.ODDSFRONT_NEWS_DRAFT_FILE
     ? await readFile(process.env.ODDSFRONT_NEWS_DRAFT_FILE, "utf8")
@@ -38,7 +39,7 @@ if (!process.env.ODDSFRONT_EDITION_LOCKED) {
   const researchErrors = process.env.ODDSFRONT_NEWS_DRAFT_FILE && !parsed.research ? [] : researchProblems(parsed.research);
   const published: NewsArticle[] = [];
   const rejected: { title: string; reasons: string[] }[] = [];
-  for (const draft of researchErrors.length ? [] : parsed.articles.slice(0, maxArticles * 3)) {
+  for (const draft of researchErrors.length ? [] : parsed.articles.slice(0, NEWS_EDITION_SIZE * 3)) {
     if (published.length === maxArticles) break;
     const reasons = validateNewsDraft(draft, [...published, ...catalog.articles, ...coverRejected]);
     if (reasons.length) { rejected.push({ title: draft.title, reasons }); continue; }

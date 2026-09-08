@@ -1,3 +1,4 @@
+import { NEWS_EDITION_SIZE, NEWS_EDITION_INTERVAL_MS, NEWS_RESEARCH_BATCH_SIZE } from "../../lib/news/edition-policy.ts";
 import { readFile, mkdir, writeFile, rename } from "node:fs/promises";
 import { spawnSync } from "node:child_process";
 import path from "node:path";
@@ -6,7 +7,7 @@ import { prepareEditionCovers } from "../../lib/news/edition-covers.ts";
 import { uniqueEditionArticles } from "../../lib/news/duplicates.ts";
 
 const directory = process.env.ODDSFRONT_NEWS_DIRECTORY || "/root/OddsFront/.local/news";
-const editionIntervalMs = 2 * 60 * 60_000;
+const editionIntervalMs = NEWS_EDITION_INTERVAL_MS;
 const preparationLeadMs = 60 * 60_000;
 await mkdir(directory, { recursive: true, mode: 0o700 });
 if (!process.env.ODDSFRONT_EDITION_LOCKED) {
@@ -64,6 +65,9 @@ await atomic(path.join(pendingDirectory, "catalog.json"), staged);
 const startedAt = new Date().toISOString();
 const rounds = [];
 let prepared = (await stagedCatalog()).articles.filter(article => !previous.has(article.id));
+if (pending.publishedAt && prepared.length !== NEWS_EDITION_SIZE) {
+  throw new Error("Previously exported pending edition has a different size; reconcile that export before preparing a new edition");
+}
 async function checkNovelty() {
   const current = await catalog();
   const staged = await stagedCatalog();
@@ -95,7 +99,7 @@ async function checkNovelty() {
 }
 await checkNovelty();
 async function checkCovers() {
-  if (prepared.length < 9) return;
+  if (prepared.length < NEWS_EDITION_SIZE) return;
   const { accepted, rejected } = await prepareEditionCovers(prepared);
   const staged = await stagedCatalog();
   await atomic(path.join(pendingDirectory, "catalog.json"), {
@@ -109,13 +113,13 @@ async function checkCovers() {
 }
 await checkCovers();
 // Research may return a partial result. Persist it privately and keep filling
-// the same edition; never expose five stories as a successful nine-story run.
+// the same edition; never expose five stories as a successful complete edition.
 let stalledRounds = 0;
-for (let attempt = 1; attempt <= 6 && prepared.length < 9; attempt++) {
+for (let attempt = 1; attempt <= 6 && prepared.length < NEWS_EDITION_SIZE; attempt++) {
   const before = prepared.length;
   const run = spawnSync(process.execPath, ["scripts/news/publish.ts"], { stdio: "inherit", env: { ...process.env,
     ODDSFRONT_NEWS_DIRECTORY: pendingDirectory, ODDSFRONT_NEWS_PUBLIC_DIRECTORY: path.join(pendingDirectory, "public"),
-    ODDSFRONT_NEWS_BATCH_SIZE: String(Math.min(3, 9 - prepared.length)) }, timeout: 11 * 60_000 });
+    ODDSFRONT_NEWS_BATCH_SIZE: String(Math.min(NEWS_RESEARCH_BATCH_SIZE, NEWS_EDITION_SIZE - prepared.length)) }, timeout: 11 * 60_000 });
   prepared = (await stagedCatalog()).articles.filter(article => !previous.has(article.id));
   await checkNovelty();
   await checkCovers();
@@ -131,8 +135,8 @@ for (let attempt = 1; attempt <= 6 && prepared.length < 9; attempt++) {
 }
 await mkdir(path.join(directory, "editions"), { recursive: true, mode: 0o700 });
 const target = path.join(directory, "editions", `${startedAt.replace(/[:.]/g, "-")}.json`);
-if (prepared.length !== 9) {
-  const receipt = { startedAt, finishedAt: new Date().toISOString(), requested: 9, published: [], prepared: prepared.length, rounds, status: "incomplete-retrying" };
+if (prepared.length !== NEWS_EDITION_SIZE) {
+  const receipt = { startedAt, finishedAt: new Date().toISOString(), requested: NEWS_EDITION_SIZE, published: [], prepared: prepared.length, rounds, status: "incomplete-retrying" };
   await atomic(target, receipt);
   console.error(JSON.stringify(receipt));
   process.exit(1);
@@ -140,11 +144,11 @@ if (prepared.length !== 9) {
 // Prepare privately before the deadline, so research time is not added to
 // every two-hour publishing interval. A forced operator edition publishes now.
 const dueAt = process.argv.includes("--force") ? Date.now() : state.lastPublishedAt + editionIntervalMs;
-if (Date.now() < dueAt) console.log(JSON.stringify({status:"edition-ready",articles:9,publishAt:new Date(dueAt).toISOString()}));
+if (Date.now() < dueAt) console.log(JSON.stringify({status:"edition-ready",articles:NEWS_EDITION_SIZE,publishAt:new Date(dueAt).toISOString()}));
 while (Date.now() < dueAt) await new Promise(resolve=>setTimeout(resolve,Math.min(30_000,dueAt-Date.now())));
 await checkNovelty();
-if (prepared.length !== 9) {
-  const receipt = { startedAt, finishedAt: new Date().toISOString(), requested: 9, published: [], prepared: prepared.length, rounds, status: "incomplete-retrying" };
+if (prepared.length !== NEWS_EDITION_SIZE) {
+  const receipt = { startedAt, finishedAt: new Date().toISOString(), requested: NEWS_EDITION_SIZE, published: [], prepared: prepared.length, rounds, status: "incomplete-retrying" };
   await atomic(target, receipt);
   console.error(JSON.stringify(receipt));
   process.exit(1);
@@ -156,7 +160,7 @@ const ids = new Set(published.map(article => article.id));
 const current = await catalog();
 const next = { ...current, updatedAt: publishedAt, articles: [...published, ...current.articles.filter(article => !ids.has(article.id))] };
 await writeNewsCatalog(directory, publicDirectory, next, published);
-const receipt = { startedAt, finishedAt: new Date().toISOString(), requested: 9, published: published.map(article => article.slug), photographicCovers: published.filter(article => article.cover).length, fallbackCovers: published.filter(article => !article.cover).length, rounds, status: "complete" };
+const receipt = { startedAt, finishedAt: new Date().toISOString(), requested: NEWS_EDITION_SIZE, published: published.map(article => article.slug), photographicCovers: published.filter(article => article.cover).length, fallbackCovers: published.filter(article => !article.cover).length, rounds, status: "complete" };
 await atomic(target, receipt);
 await atomic(stateFile, { lastPublishedAt: Date.parse(publishedAt), articleIds: [...ids], receipt: target });
 // Keep research evidence; only the disposable staged catalogs are removed.

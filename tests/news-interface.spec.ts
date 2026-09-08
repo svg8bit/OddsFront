@@ -70,7 +70,7 @@ test("long translated listing headlines remain inside unbranded covers", async (
 });
 
 test("all localized article paths, unbranded covers, mobile and RTL layouts remain readable",async({browser})=>{
-  const article=seed.articles[0];const path=`/news/${article.countries[0].toLowerCase()}/${article.slug}`;
+  const article=seed.articles[0];const path=newsArticlePath(article,"en");
   const context=await browser.newContext({viewport:{width:390,height:844},isMobile:true,hasTouch:true});
   try{
     const page=await context.newPage();const errors:string[]=[];page.on("pageerror",error=>errors.push(error.message));

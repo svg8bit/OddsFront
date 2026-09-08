@@ -1,3 +1,4 @@
+import { NEWS_EDITION_SIZE } from "../../lib/news/edition-policy.ts";
 import { readFile, writeFile, rename } from "node:fs/promises";
 import path from "node:path";
 import { russianEditorialKey, validateRussianEditorialTranslation } from "../../lib/news/russian-editorial.ts";
@@ -7,7 +8,7 @@ import type { NewsCatalog } from "../../lib/news/types.ts";
 
 const directory = process.env.ODDSFRONT_NEWS_DIRECTORY || "/root/OddsFront/.local/news";
 const catalog = JSON.parse(await readFile(path.join(directory, "catalog.json"), "utf8")) as NewsCatalog;
-const articles = catalog.articles.filter(article => !article.withdrawal).toSorted((a, b) => Date.parse(b.publishedAt) - Date.parse(a.publishedAt)).slice(0, 9);
+const articles = catalog.articles.filter(article => !article.withdrawal).toSorted((a, b) => Date.parse(b.publishedAt) - Date.parse(a.publishedAt)).slice(0, NEWS_EDITION_SIZE);
 const texts = new Set(articles.flatMap(article => [article.title, article.description]));
 try {
   const response = await fetch("https://oddsfront.com/api/global-conflict-events", { cache: "no-store", signal: AbortSignal.timeout(15_000) });

@@ -52,7 +52,8 @@ export const ROOT_VIEWPORT: Viewport = {
 export function RootDocument({
   children,
   locale = "en",
-}: Readonly<{ children: React.ReactNode; locale?: Locale }>) {
+  fixedLocale = locale !== "en",
+}: Readonly<{ children: React.ReactNode; locale?: Locale; fixedLocale?: boolean }>) {
   const organization = {
     "@context": "https://schema.org",
     "@graph": [
@@ -70,7 +71,7 @@ export function RootDocument({
       </head>
       <body>
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(organization).replace(/</g, "\\u003c") }} />
-        <LocaleProvider fixedLocale={locale === "en" ? undefined : locale}>{children}</LocaleProvider>
+        <LocaleProvider fixedLocale={fixedLocale ? locale : undefined}>{children}</LocaleProvider>
         {process.env.NODE_ENV === "production" ? <Analytics mode="production" /> : null}
       </body>
     </html>

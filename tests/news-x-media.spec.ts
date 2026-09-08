@@ -17,7 +17,7 @@ test("X uploads the article's branded social image as a photo without publishing
     globalThis.fetch = async (input, init) => {
       const url = String(input);
       if (url === coverUrl) return new Response(new Uint8Array(png), { headers: { "content-type": "image/png" } });
-      if (url.startsWith("https://oddsfront.com/news/")) return new Response(`<meta property="og:image" content="${coverUrl}">`);
+      if (url.startsWith("https://oddsfront.com/en/news/")) return new Response(`<meta property="og:image" content="${coverUrl}">`);
       expect(url).toBe("https://api.x.com/2/media/upload");
       uploaded.push(JSON.parse(String(init?.body)));
       return Response.json({ data: { id: "123456", media_key: "3_123456", expires_after_secs: 86400 } });
@@ -37,7 +37,7 @@ test("X blocks a missing or invalid cover before any upload or post request", as
       globalThis.fetch = async input => {
         const url = String(input);
         if (url === coverUrl) return mode === "unavailable-image" ? new Response("temporarily unavailable", { status: 503 }) : new Response(new Uint8Array(24), { headers: { "content-type": "image/png" } });
-        if (url.startsWith("https://oddsfront.com/news/")) return new Response(mode === "page-mismatch" ? "<html>stale article</html>" : `<meta property="og:image" content="${coverUrl}">`);
+        if (url.startsWith("https://oddsfront.com/en/news/")) return new Response(mode === "page-mismatch" ? "<html>stale article</html>" : `<meta property="og:image" content="${coverUrl}">`);
         externalCalls.push(url);
         return Response.json({});
       };

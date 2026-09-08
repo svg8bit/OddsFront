@@ -1,6 +1,11 @@
 # Publication supervision
 
-The site publishes exactly nine verified articles every two hours. The writer
+Disabled by the owner on 2026-09-08: keep the monitor timer disabled and
+private Codex dispatch `enabled: false`. Publisher timers remain active.
+The configuration below documents the optional supervisor, not permission
+to re-enable it.
+
+The site publishes exactly twenty verified articles every two hours. The writer
 starts preparing the next private edition sixty minutes before it is due and
 releases it at the deadline. Incomplete research remains private and retries.
 Telegram EN, Telegram RU and X each publish hourly, using different recent
