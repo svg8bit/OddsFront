@@ -23,7 +23,7 @@ const MAX_FEED_BYTES = 1_500_000;
 const MAX_SOURCE_AGE_MS = 72 * 60 * 60_000;
 
 function xmlText(value: string) {
-  return value.replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, "$1").replace(/<[^>]*>/g, "").replace(/&(?:amp|quot|apos|lt|gt|#\d+|#x[\da-f]+);/gi, value => {
+  return value.replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, "$1").replace(/&(?:amp|quot|apos|lt|gt|#\d+|#x[\da-f]+);/gi, value => {
     const known: Record<string, string> = { "&amp;": "&", "&quot;": '"', "&apos;": "'", "&lt;": "<", "&gt;": ">" };
     if (known[value.toLowerCase()]) return known[value.toLowerCase()];
     const hex = value.toLowerCase().startsWith("&#x");
@@ -40,7 +40,7 @@ export function parseNewsDiscoveryFeed(xml: string, feed: typeof NEWS_DISCOVERY_
     const title = field("title");
     const url = canonicalStoryUrl(field("link"));
     const timestamp = Date.parse(field("pubDate") || field("dc:date"));
-    if (title.length < 12 || title.length > 300 || !isNewsPublisher(url) || !(feed.articleHosts as readonly string[]).includes(sourceHost(url)) ||
+    if (title.length < 12 || title.length > 300 || /[<>]/.test(title) || !isNewsPublisher(url) || !(feed.articleHosts as readonly string[]).includes(sourceHost(url)) ||
       !Number.isFinite(timestamp) || timestamp > now + 60_000 || now - timestamp > MAX_SOURCE_AGE_MS) continue;
     const photoCandidate = [...item[1].matchAll(/<(?:media:content|media:thumbnail|enclosure)\b[^>]*\burl\s*=\s*["']([^"']+)["'][^>]*>/gi)]
       .some(match => Boolean(normalizePartnerImageUrl(xmlText(match[1]), url)));

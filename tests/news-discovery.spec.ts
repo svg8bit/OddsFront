@@ -18,6 +18,8 @@ test("RSS leads preserve publisher dates and reject foreign, future, stale and c
     item("Development fixture: future timestamp", "https://www.bbc.com/news/future", new Date(now + 120_000).toUTCString()),
     item("Development fixture: old timestamp", "https://www.bbc.com/news/old", "Sun, 01 Jan 2023 10:00:00 GMT"),
     item("Development fixture: missing timestamp", "https://www.bbc.com/news/undated", ""),
+    item("Development fixture: <scr<script>ipt>malicious markup", "https://www.bbc.com/news/markup"),
+    item("Development fixture: &lt;script&gt;encoded markup", "https://www.bbc.com/news/encoded-markup"),
   ].join("")}</channel></rss>`;
   const leads = parseNewsDiscoveryFeed(xml, bbc, now);
   expect(leads).toHaveLength(1);
