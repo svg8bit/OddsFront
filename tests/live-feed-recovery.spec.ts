@@ -95,7 +95,7 @@ test("refreshes on mobile restore and preserves good data on old or failed respo
 
 test("refreshing prices preserves a display cycle and a lost feed expires the alerts", async ({ page }) => {
   await isolateActivity(page);
-  const now = Date.now();
+  const now = Math.floor(Date.now() / 3_600_000) * 3_600_000;
   await page.clock.install({ time: now });
   let payload = liveFeed(now);
   let status = 200;

@@ -1045,9 +1045,10 @@ test("groups co-located alliance events behind popup pager arrows", async ({
 test("shows daily and weekly movement leaders in both directions", async ({
   page,
 }) => {
-  await page.clock.install();
+  const now = Math.floor(Date.now() / 3_600_000) * 3_600_000;
+  await page.clock.install({time:now});
   const fixture = getConflictPreviewFixtureFeed();
-  const updatedAt = new Date().toISOString();
+  const updatedAt = new Date(now).toISOString();
   const liveFeed = {
     ...fixture,
     dataMode: "live" as const,
@@ -1060,7 +1061,7 @@ test("shows daily and weekly movement leaders in both directions", async ({
       evidenceStatus: "country-anchor" as const,
       marketUrl: `https://polymarket.com/event/rolling-test-${index}`,
       updatedAt,
-      endDate: new Date(Date.now() + 7 * 24 * 60 * 60_000).toISOString(),
+      endDate: new Date(now + 7 * 24 * 60 * 60_000).toISOString(),
       marketConditionId: mockConditionId(7_000 + index),
       volume: [8_161_752, 483_019, 17_151_386, 99_999, 8_886_800][index]!,
       volume24h: [1, 2, 0, 20_000, 0][index]!,
@@ -1245,9 +1246,11 @@ test("batches trade-watch coverage across every eligible $100K market", async ({
 test("does not reanimate the same rolling signal after a feed refresh", async ({
   page,
 }) => {
+  const now = Math.floor(Date.now() / 3_600_000) * 3_600_000;
+  await page.clock.install({time:now});
   const fixture = getConflictPreviewFixtureFeed();
-  const firstUpdatedAt = new Date(Date.now() - 2 * 60_000).toISOString();
-  const refreshedAt = new Date().toISOString();
+  const firstUpdatedAt = new Date(now - 2 * 60_000).toISOString();
+  const refreshedAt = new Date(now).toISOString();
   const event = {
     ...fixture.events[0]!,
     id: "polymarket-777001",
@@ -1260,7 +1263,7 @@ test("does not reanimate the same rolling signal after a feed refresh", async ({
     priceChange24h: 0.22,
     recentPriceMove: { changePoints: 22, occurredAt: firstUpdatedAt, fromProbability: .3, toProbability: .52 },
     updatedAt: firstUpdatedAt,
-    endDate: new Date(Date.now() + 7 * 24 * 60 * 60_000).toISOString(),
+    endDate: new Date(now + 7 * 24 * 60 * 60_000).toISOString(),
     marketConditionId: mockConditionId(777_001),
   };
   const firstFeed = {
@@ -1317,14 +1320,19 @@ test("does not reanimate the same rolling signal after a feed refresh", async ({
   await expect.poll(() => feedRequestCount).toBeGreaterThanOrEqual(2);
   await expect(rail).toHaveAttribute("data-feed-updated-at", refreshedAt);
   await expect(rollingCard).toHaveAttribute("data-expires-at", initialExpiry!);
+  await page.reload();
+  await page.evaluate(() => window.dispatchEvent(new Event("online")));
+  await expect(rollingCard).toHaveAttribute("data-expires-at", initialExpiry!);
   expect(await rollingCard.getAttribute("data-expires-at")).toBe(initialExpiry);
 });
 
 test("shows confirmed price moves with referral-safe buys from $200K", async ({
   page,
 }) => {
+  const now = Math.floor(Date.now() / 3_600_000) * 3_600_000;
+  await page.clock.install({time:now});
   const fixture = getConflictPreviewFixtureFeed();
-  const updatedAt = new Date().toISOString();
+  const updatedAt = new Date(now).toISOString();
   const liveFeed = {
     ...fixture,
     dataMode: "live" as const,
@@ -1337,7 +1345,7 @@ test("shows confirmed price moves with referral-safe buys from $200K", async ({
       evidenceStatus: "country-anchor" as const,
       marketUrl: `https://polymarket.com/event/activity-test-${index}`,
       updatedAt,
-      endDate: new Date(Date.now() + 7 * 24 * 60 * 60_000).toISOString(),
+      endDate: new Date(now + 7 * 24 * 60 * 60_000).toISOString(),
       marketConditionId: mockConditionId(8_000 + index),
       countryCodes:
         index === 4 ? ["US", "IR", "OM"] : event.countryCodes,
@@ -1358,7 +1366,7 @@ test("shows confirmed price moves with referral-safe buys from $200K", async ({
   })));
   const activityMarketIdQueries: string[][] = [];
   let conflictFeedRequestCount = 0;
-  const validTradeOccurredAt = new Date(Date.now() - 60_000).toISOString();
+  const validTradeOccurredAt = new Date(now - 60_000).toISOString();
 
   await page.route("**/api/global-conflict-events", async (route) => {
     conflictFeedRequestCount += 1;
@@ -1392,7 +1400,7 @@ test("shows confirmed price moves with referral-safe buys from $200K", async ({
             outcomeOdds: 92,
             marketConditionId: liveFeed.events[3]!.marketConditionId,
             notional: 930_000,
-            occurredAt: new Date(Date.now() - 30_000).toISOString(),
+            occurredAt: new Date(now - 30_000).toISOString(),
             marketUrl: liveFeed.events[3]!.marketUrl,
           },
           {
