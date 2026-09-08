@@ -99,11 +99,14 @@ test("excludes stale feeds, expired markets, low market volume and invalid chang
 });
 
 test("saved dismissals last only through their original expiry and stay bounded", () => {
-  const saved = { active: now + 60_000, expired: now, invalid: "later", indefinite: Infinity, excessive: now + 16 * 60_000 };
+  const saved = { active: now + 60_000, expired: now, invalid: "later", indefinite: Infinity, excessive: now + 17 * 60_000 };
   expect(activeActivityDismissals(saved, now)).toEqual({ active: now + 60_000 });
   expect(activeActivityDismissals(activeActivityDismissals(saved, now), now + 60_000)).toEqual({});
   expect(activeActivityDismissals(null, now)).toEqual({});
   expect(activeActivityDismissals([], now)).toEqual({});
   const many = Object.fromEntries(Array.from({ length: 100 }, (_, index) => [`notice-${index}`, now + 60_000]));
   expect(Object.keys(activeActivityDismissals(many, now))).toHaveLength(96);
+  const skewedTrade = { "trade-clock-skew": now + 16 * 60_000 };
+  expect(activeActivityDismissals(skewedTrade, now)).toEqual(skewedTrade);
+  expect(activeActivityDismissals(skewedTrade, now + 16 * 60_000)).toEqual({});
 });
