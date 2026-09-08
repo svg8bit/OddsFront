@@ -50,7 +50,7 @@ if (!pending) {
   await atomic(path.join(pendingDirectory, "catalog.json"), current);
   await atomic(pendingFile, pending);
 }
-if (pending.retryAfter > Date.now()) {
+if (!process.argv.includes("--force") && pending.retryAfter > Date.now()) {
   console.log(JSON.stringify({ status: "research-cooldown", nextResearchAt: new Date(pending.retryAfter).toISOString() }));
   process.exit(0);
 }

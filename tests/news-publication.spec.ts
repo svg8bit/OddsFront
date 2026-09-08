@@ -169,7 +169,7 @@ test("editions retain partial research privately, resume to exactly nine and enf
       const response = new Response(image ? new Uint8Array([137,80,78,71]) : '<meta property="og:image" content="https://images.axios.com/development-fixture.png">', { headers: { 'content-type': image ? 'image/png' : 'text/html' } });
       Object.defineProperty(response, 'url', { value: String(url) }); return response;
     };`);
-    const run = () => spawnSync(process.execPath, ["--import", mock, "scripts/news/run-edition.mjs"], { encoding: "utf8", env: { ...process.env, ODDSFRONT_NEWS_DIRECTORY: directory, ODDSFRONT_NEWS_DRAFT_FILE: input } });
+    const run = (force = false) => spawnSync(process.execPath, ["--import", mock, "scripts/news/run-edition.mjs", ...(force ? ["--force"] : [])], { encoding: "utf8", env: { ...process.env, ODDSFRONT_NEWS_DIRECTORY: directory, ODDSFRONT_NEWS_DRAFT_FILE: input } });
     await writeFile(input, JSON.stringify({ articles: articles.slice(0, 3) }));
     const partial = run(); expect(partial.status, partial.stderr).toBe(1);
     await expect(readFile(join(directory, "public/catalog.json"))).rejects.toThrow();
@@ -180,9 +180,8 @@ test("editions retain partial research privately, resume to exactly nine and enf
     const pending = JSON.parse(await readFile(pendingPath,"utf8"));
     expect(pending.retryAfter).toBeGreaterThan(Date.now());
     expect(run().stdout).toContain("research-cooldown");
-    await writeFile(pendingPath,JSON.stringify({...pending,retryAfter:Date.now()-1}));
     await writeFile(input, JSON.stringify({ articles: articles.slice(3) }));
-    const complete = run(); expect(complete.status, complete.stderr).toBe(0);
+    const complete = run(true); expect(complete.status, complete.stderr).toBe(0);
     const before = await readFile(join(directory, "public/catalog.json"), "utf8");
     const index = JSON.parse(before); expect(index.articles).toHaveLength(9); expect(new Set(index.articles.map((a: NewsArticle) => a.publishedAt)).size).toBe(1);
     const state = JSON.parse(await readFile(join(directory, "edition-state.json"), "utf8")); expect(state.articleIds).toHaveLength(9);
