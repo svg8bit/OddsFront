@@ -181,7 +181,10 @@ test("confirmed news appears alongside market alerts and expires after fifteen m
   let payload = liveFeed(now);
   payload.events[0] = { ...payload.events[0]!, title: "Will the United States strike Iran by September 30?", countryCodes: ["US", "IR"], marketVolume: 2_000_000 };
   await page.route("**/api/global-conflict-events", route => route.fulfill({ json: payload }));
-  const news = { id: "qa-news-strike", slug: "qa-news-strike", title: "United States strikes Iran after overnight attacks", countries: ["US", "IR"],
+  const news = { translations: {}, sources: [
+    { id: "media", title: "Development fixture", publisher: "Reuters", kind: "media", url: "https://www.reuters.com/world/qa-news-strike", publishedAt: new Date(now - 60_000).toISOString() },
+    { id: "official", title: "Development fixture", publisher: "United Nations", kind: "official", url: "https://www.un.org/qa-news-strike", publishedAt: new Date(now - 60_000).toISOString() },
+  ], id: "qa-news-strike", slug: "qa-news-strike", title: "United States strikes Iran after overnight attacks", countries: ["US", "IR"],
     publishedAt: new Date(now).toISOString(), alert: { kind: "strike", actorCountries: ["US"], targetCountries: ["IR"] } };
   await page.route("**/api/news", route => route.fulfill({ json: { updatedAt: new Date(now).toISOString(), articles: [news] } }));
   await page.goto("/global-conflict-map-preview");

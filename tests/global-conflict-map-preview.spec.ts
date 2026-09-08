@@ -1066,9 +1066,9 @@ test("shows daily and weekly movement leaders in both directions", async ({
       volume: [8_161_752, 483_019, 17_151_386, 99_999, 8_886_800][index]!,
       volume24h: [1, 2, 0, 20_000, 0][index]!,
       priceChange1h: [0.75, -0.81, 0.66, 0.9, -0.72][index]!,
-      priceChange24h: [0.05, -0.049, 0.06, 0.8, 0.04996][index]!,
+      priceChange24h: [0.02, -0.019, 0.03, 0.8, 0.01996][index]!,
       recentPriceMove: { changePoints: [5,-20,6,80,4.9][index]!, occurredAt: updatedAt, fromProbability: .5, toProbability: .55 },
-      priceChange7d: [0.199, -0.2, 0.25, -0.9, -0.19996][index]!,
+      priceChange7d: [0.049, -0.05, 0.08, -0.9, -0.04996][index]!,
     })),
   };
 
@@ -1100,12 +1100,13 @@ test("shows daily and weekly movement leaders in both directions", async ({
     true,
   );
   await expect(rail).toHaveAttribute("data-activity-count", "3");
-  await expect(rail).toContainText("-20.0 pp");
+  await expect(rail).toContainText("-5.0%");
   await expect(rail.locator('[data-activity-kind="odds-rise"]')).toHaveCount(2);
   await expect(rail).not.toContainText("Odds");
-  await expect(rail.locator('time[data-time-kind="updated"]')).toHaveCount(3);
+  await expect(rail.locator('time[data-time-kind="updated"]')).toHaveCount(0);
   await expect(rail.locator("article").first()).toHaveAttribute("data-activity-window", "24H");
-  await expect(rail).toContainText(" pp");
+  await expect(rail).not.toContainText(" pp");
+  await expect(rail).not.toContainText("Updated");
   await expect(rail).not.toContainText("Volume");
   await expect(rail).not.toContainText("1h");
   await expect(rail.locator('[data-activity-source="rolling"]')).toHaveCount(3);
@@ -1352,9 +1353,9 @@ test("shows confirmed price moves with referral-safe buys from $200K", async ({
       volume: index === 2 ? 900_000 : event.volume,
       volume24h: index === 1 ? 1 : event.volume24h,
       priceChange1h: index === 0 ? 0.9 : index === 3 ? -0.8 : null,
-      priceChange24h: index === 1 ? -0.08 : 0.049,
+      priceChange24h: index === 1 ? -0.08 : 0.019,
       recentPriceMove: index === 1 || index === 2 ? { changePoints: index === 1 ? -8 : 25, occurredAt: updatedAt, fromProbability: .5, toProbability: index === 1 ? .42 : .75 } : null,
-      priceChange7d: index === 1 ? -0.19 : index === 2 ? 0.25 : null,
+      priceChange7d: index === 1 ? -0.049 : index === 2 ? 0.25 : null,
     })),
   };
   // Keep two additional eligible markets for the next fifteen-minute page.
@@ -1465,8 +1466,8 @@ test("shows confirmed price moves with referral-safe buys from $200K", async ({
       .locator('[data-activity-kind="large-buy"]')
       .locator("[data-activity-metric]"),
   ).toHaveAttribute("aria-label", "Trade execution odds");
-  await expect(rail).toContainText("+25.0 pp");
-  await expect(rail).toContainText("-8.0 pp");
+  await expect(rail).toContainText("+25.0%");
+  await expect(rail).toContainText("-8.0%");
   await expect(rail).not.toContainText(liveFeed.events[3]!.title);
   await expect(rail.locator('[data-activity-kind="large-sell"]')).toHaveCount(0);
   await expect(rail).not.toContainText("Volume");
@@ -1476,7 +1477,8 @@ test("shows confirmed price moves with referral-safe buys from $200K", async ({
   await page.evaluate(() => window.dispatchEvent(new Event("online")));
   await expect.poll(() => conflictFeedRequestCount).toBeGreaterThanOrEqual(2);
   await expect(rail).toHaveAttribute("data-activity-count", "3");
-  await expect(rail).toContainText(" pp");
+  await expect(rail).not.toContainText(" pp");
+  await expect(rail).not.toContainText("Updated");
   await expect(rail).toContainText("24H");
   await expect(
     rail.locator('[data-activity-kind="odds-rise"]'),

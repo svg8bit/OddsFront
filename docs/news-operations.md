@@ -79,13 +79,21 @@ An invalid research response fails the job and retains published
 content. Each edition writes a private receipt. The first article was manually
 checked against The Kyiv Independent and the Ukrainian presidency before release.
 
-Fresh articles may also become blue map alerts for 15 minutes. The publisher
-marks only a newly confirmed strike or a formally agreed/effective ceasefire in
-a major global hotspot. The application then independently requires an active
-Polymarket question with the same action and participants, the correct strike
-direction, and at least $1 million in that market. Forecasts, proposals,
-negotiations and loosely related markets fail closed. Both validated DropsBot
-and market actions are required; News alerts show no odds.
+The newest website edition supplies blue News cards throughout its two-hour
+publication window. Its nine verified stories are distributed once each across
+eight fifteen-minute slots (two stories in the first slot). A card expires at
+the slot boundary; refreshes, language changes and reloads do not restart it.
+Withdrawn, future-dated or stale stories are excluded. The published article
+must retain an approved media source within 72 hours and an independent
+approved official source. Sparse editions leave quiet slots rather than recycle
+stories. This is ordinary published reporting, not a breaking-event assertion.
+
+News cards link to the article in the selected language and show its country
+flags. Market actions are optional: only a publisher-verified strike or
+ceasefire with the same action, participants and direction as an active
+Polymarket question with at least $1M market volume can add them. Forecasts,
+proposals and country overlap cannot add unrelated market links. News cards
+show no odds. Website publication and source-verification gates are unchanged.
 Partner cover images are fetched from the source page's Open Graph metadata and
 proxied through a fixed host and MIME allowlist. Source provenance stays in the
 private receipt and structured data; cover UI contains no technical source label.
