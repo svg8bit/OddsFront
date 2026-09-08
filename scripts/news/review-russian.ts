@@ -7,7 +7,7 @@ import type { NewsCatalog } from "../../lib/news/types.ts";
 
 const directory = process.env.ODDSFRONT_NEWS_DIRECTORY || "/root/OddsFront/.local/news";
 const catalog = JSON.parse(await readFile(path.join(directory, "catalog.json"), "utf8")) as NewsCatalog;
-const articles = catalog.articles.toSorted((a, b) => Date.parse(b.publishedAt) - Date.parse(a.publishedAt)).slice(0, 9);
+const articles = catalog.articles.filter(article => !article.withdrawal).toSorted((a, b) => Date.parse(b.publishedAt) - Date.parse(a.publishedAt)).slice(0, 9);
 const texts = new Set(articles.flatMap(article => [article.title, article.description]));
 try {
   const response = await fetch("https://oddsfront.com/api/global-conflict-events", { cache: "no-store", signal: AbortSignal.timeout(15_000) });

@@ -6,5 +6,5 @@ export function articleSummary(article: NewsArticle): NewsArticle {
 }
 
 export function newsIndex(catalog: NewsCatalog) {
-  return { updatedAt: catalog.updatedAt, articles: catalog.articles.map(articleSummary) };
+  return { updatedAt: catalog.updatedAt, articles: catalog.articles.filter(article => !article.withdrawal).map(articleSummary) };
 }

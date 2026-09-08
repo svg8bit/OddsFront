@@ -1,18 +1,11 @@
 // Adapted from ColdMath's evidence, originality and duplicate publication gates.
 import type { NewsAlert, NewsArticle, NewsDraft } from "./types.ts";
 import { isNewsPublisher, isOfficialSource, sourceHost } from "./sources.ts";
+import { findDuplicateStory } from "./duplicates.ts";
+export { isDuplicateTitle } from "./duplicates.ts";
 
 export function normalizedWords(value: string) {
   return value.toLowerCase().normalize("NFKC").replace(/[^\p{L}\p{N}]+/gu, " ").trim().split(/\s+/).filter(Boolean);
-}
-
-export function isDuplicateTitle(title: string, existing: Pick<NewsArticle, "title">[]) {
-  const left = new Set(normalizedWords(title).filter(word => word.length > 3));
-  return existing.some(article => {
-    const right = new Set(normalizedWords(article.title).filter(word => word.length > 3));
-    const shared = [...left].filter(word => right.has(word)).length;
-    return shared / Math.max(1, Math.min(left.size, right.size)) >= 0.72;
-  });
 }
 
 const ALERT_COUNTRY_ALIASES: Readonly<Record<string, readonly string[]>> = {
@@ -128,7 +121,8 @@ export function validateNewsDraft(draft: NewsDraft, existing: NewsArticle[], now
     return words.some((_, index) => index + 12 <= words.length && normalized.includes(` ${words.slice(index, index + 12).join(" ")} `));
   })) reasons.push("Copied source language");
   if (/guaranteed profit|bet now|must-watch|game-changing|dive into/i.test(text)) reasons.push("Promotional or generic language");
-  if (isDuplicateTitle(draft.title, existing) || existing.some(article => article.sources.some(source => usable.some(candidate => candidate.kind === "media" && candidate.url === source.url)))) reasons.push("Already published story");
+  const duplicate = findDuplicateStory(draft, existing);
+  if (duplicate) reasons.push("Already published story", `Previously covered: ${duplicate.title}`);
   return reasons;
 }
 

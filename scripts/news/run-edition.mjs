@@ -3,6 +3,7 @@ import { spawnSync } from "node:child_process";
 import path from "node:path";
 import { writeNewsCatalog } from "../../lib/news/storage.ts";
 import { prepareEditionCovers } from "../../lib/news/edition-covers.ts";
+import { uniqueEditionArticles } from "../../lib/news/duplicates.ts";
 
 const directory = process.env.ODDSFRONT_NEWS_DIRECTORY || "/root/OddsFront/.local/news";
 const editionIntervalMs = 2 * 60 * 60_000;
@@ -63,6 +64,36 @@ await atomic(path.join(pendingDirectory, "catalog.json"), staged);
 const startedAt = new Date().toISOString();
 const rounds = [];
 let prepared = (await stagedCatalog()).articles.filter(article => !previous.has(article.id));
+async function checkNovelty() {
+  const current = await catalog();
+  const staged = await stagedCatalog();
+  const candidates = staged.articles.filter(article => !previous.has(article.id));
+  // A failed ledger write can leave this exact pending edition in the catalog.
+  // Its persisted timestamp and unchanged article content permit an idempotent
+  // export retry; an unrelated publication with the same ID does not.
+  const exportedIds = new Set(candidates.filter(article => pending.publishedAt && current.articles.some(item =>
+    item.id === article.id && !item.withdrawal && item.publishedAt === pending.publishedAt &&
+    item.title === article.title && item.slug === article.slug &&
+    JSON.stringify(item.body) === JSON.stringify(article.body) && JSON.stringify(item.sources) === JSON.stringify(article.sources),
+  )).map(article => article.id));
+  // Refresh old pending editions against the entire current exclusion history,
+  // including withdrawals. Current records override stale staged copies.
+  const history = [...current.articles.filter(article => !exportedIds.has(article.id)), ...staged.articles.filter(article => previous.has(article.id) && !current.articles.some(item => item.id === article.id))];
+  const { accepted, rejected } = uniqueEditionArticles(candidates, history);
+  for (const article of history) previous.add(article.id);
+  pending = { ...pending, baseIds: [...previous] };
+  await atomic(pendingFile, pending);
+  await atomic(path.join(pendingDirectory, "catalog.json"), { ...staged, articles: [...accepted, ...history] });
+  if (rejected.length) {
+    const file = path.join(pendingDirectory, "research-feedback.json");
+    await atomic(file, [...await read(file, []), ...rejected.map(({ article, duplicateOf }) => ({
+      title: article.title, reasons: ["Already published story", `Previously covered article: ${duplicateOf}`],
+      mediaSources: article.sources.filter(source => source.kind === "media").map(source => source.url),
+    }))].slice(-24));
+  }
+  prepared = accepted;
+}
+await checkNovelty();
 async function checkCovers() {
   if (prepared.length < 9) return;
   const { accepted, rejected } = await prepareEditionCovers(prepared);
@@ -86,6 +117,7 @@ for (let attempt = 1; attempt <= 6 && prepared.length < 9; attempt++) {
     ODDSFRONT_NEWS_DIRECTORY: pendingDirectory, ODDSFRONT_NEWS_PUBLIC_DIRECTORY: path.join(pendingDirectory, "public"),
     ODDSFRONT_NEWS_BATCH_SIZE: String(Math.min(3, 9 - prepared.length)) }, timeout: 11 * 60_000 });
   prepared = (await stagedCatalog()).articles.filter(article => !previous.has(article.id));
+  await checkNovelty();
   await checkCovers();
   rounds.push({ attempt, exitCode: run.status, prepared: prepared.length });
   stalledRounds = prepared.length > before ? 0 : stalledRounds + 1;
@@ -110,6 +142,13 @@ if (prepared.length !== 9) {
 const dueAt = process.argv.includes("--force") ? Date.now() : state.lastPublishedAt + editionIntervalMs;
 if (Date.now() < dueAt) console.log(JSON.stringify({status:"edition-ready",articles:9,publishAt:new Date(dueAt).toISOString()}));
 while (Date.now() < dueAt) await new Promise(resolve=>setTimeout(resolve,Math.min(30_000,dueAt-Date.now())));
+await checkNovelty();
+if (prepared.length !== 9) {
+  const receipt = { startedAt, finishedAt: new Date().toISOString(), requested: 9, published: [], prepared: prepared.length, rounds, status: "incomplete-retrying" };
+  await atomic(target, receipt);
+  console.error(JSON.stringify(receipt));
+  process.exit(1);
+}
 const publishedAt = pending.publishedAt || new Date().toISOString();
 await atomic(pendingFile, { ...pending, publishedAt });
 const published = prepared.map(article => ({ ...article, publishedAt, updatedAt: publishedAt }));

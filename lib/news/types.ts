@@ -41,6 +41,8 @@ export interface NewsArticle extends ArticleText {
   readingMinutes?: number;
   /** Anonymous article reads in the preceding seven days, across all locales. */
   views7d?: number;
+  /** Retained privately for permanent novelty exclusion; never republished. */
+  withdrawal?: { at: string; duplicateOf: string };
   countries: string[];
   topics: string[];
   alert?: NewsAlert | null;
