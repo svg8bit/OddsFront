@@ -40,7 +40,7 @@ export function parseNewsDiscoveryFeed(xml: string, feed: typeof NEWS_DISCOVERY_
     const title = field("title");
     const url = canonicalStoryUrl(field("link"));
     const timestamp = Date.parse(field("pubDate") || field("dc:date"));
-    if (title.length < 12 || title.length > 300 || /[<>]/.test(title) || !isNewsPublisher(url) || !(feed.articleHosts as readonly string[]).includes(sourceHost(url)) ||
+    if (title.length < 12 || title.length > 300 || /[<>]/.test(title) || url.length > 2048 || !isNewsPublisher(url) || !(feed.articleHosts as readonly string[]).includes(sourceHost(url)) ||
       !Number.isFinite(timestamp) || timestamp > now + 60_000 || now - timestamp > MAX_SOURCE_AGE_MS) continue;
     const photoCandidate = [...item[1].matchAll(/<(?:media:content|media:thumbnail|enclosure)\b[^>]*\burl\s*=\s*["']([^"']+)["'][^>]*>/gi)]
       .some(match => Boolean(normalizePartnerImageUrl(xmlText(match[1]), url)));
@@ -50,8 +50,22 @@ export function parseNewsDiscoveryFeed(xml: string, feed: typeof NEWS_DISCOVERY_
   return leads;
 }
 
-export function selectNewsDiscoveryLeads(discovery: NewsFeedDiscovery, existing: NewsArticle[], now = Date.now()): NewsDiscoveryLead[] {
-  const seen = new Set<string>();
+export function recentResearchRejections(receipts: readonly { finishedAt?: string; research?: { rejectedCandidates?: { url: string; reason: string }[] } }[], now = Date.now()) {
+  const rejected = new Map<string, { url: string; reason: string }>();
+  for (const receipt of receipts) {
+    const timestamp = Date.parse(receipt?.finishedAt ?? "");
+    if (!Number.isFinite(timestamp) || timestamp > now || now - timestamp > 2 * 60 * 60_000 || !Array.isArray(receipt.research?.rejectedCandidates)) continue;
+    for (const candidate of receipt.research.rejectedCandidates) {
+      if (!candidate || typeof candidate.url !== "string" || typeof candidate.reason !== "string" || !candidate.reason.trim() || candidate.url.length > 2048 || !isNewsPublisher(candidate.url)) continue;
+      const url = canonicalStoryUrl(candidate.url);
+      rejected.set(url, { url, reason: candidate.reason.slice(0, 300) });
+    }
+  }
+  return [...rejected.values()].slice(-120);
+}
+
+export function selectNewsDiscoveryLeads(discovery: NewsFeedDiscovery, existing: NewsArticle[], now = Date.now(), rejectedUrls: readonly string[] = []): NewsDiscoveryLead[] {
+  const seen = new Set(rejectedUrls.map(canonicalStoryUrl));
   const candidates = discovery.leads.filter(lead => {
     const timestamp = Date.parse(lead.publishedAt);
     const url = canonicalStoryUrl(lead.url);

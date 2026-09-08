@@ -223,6 +223,11 @@ Feed requests have a six-second deadline, three concurrent requests and a
 1.5 MB body limit. Cache raw discovery privately for ten minutes, but filter it
 against the entire current published, withdrawn and staged history on every
 round. Publisher rotation prevents one large feed monopolizing the prompt.
+Reuse recent editor rejections from the pending edition's last twelve receipts:
+exclude those exact URLs from the next discovery pool and give their reasons to
+the editor. These temporary exclusions expire after two hours; published-story
+exclusions remain permanent. Failed research must not silently restart with the
+same previously rejected candidates.
 
 RSS provides candidate URLs, publisher timestamps and possible photo links;
 it does not replace reading the linked article or verifying primary evidence,

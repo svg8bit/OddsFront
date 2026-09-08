@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 import seed from "../lib/news/catalog.seed.json";
-import { collectNewsFeedDiscovery, NEWS_DISCOVERY_FEEDS, parseNewsDiscoveryFeed, selectNewsDiscoveryLeads, type NewsFeedDiscovery } from "../lib/news/feed-discovery";
+import { collectNewsFeedDiscovery, NEWS_DISCOVERY_FEEDS, parseNewsDiscoveryFeed, recentResearchRejections, selectNewsDiscoveryLeads, type NewsFeedDiscovery } from "../lib/news/feed-discovery";
 import { researchPrompt } from "../lib/news/research";
 import type { NewsArticle } from "../lib/news/types";
 
@@ -70,4 +70,16 @@ test("feed collection bounds failures and exposes discovery data without replaci
   expect(prompt).toContain("https://bbc.com/news/new");
   expect(prompt).toContain("at least one primary institutional source");
   expect(prompt).toContain("source-use budget and novelty");
+});
+
+test("recent rejected research is not proposed again and temporary exclusions expire", () => {
+  const rejected = { url: "https://www.bbc.com/news/new?utm_source=rss", reason: "Primary evidence unavailable for this candidate" };
+  const current = { finishedAt: new Date(now - 60_000).toISOString(), research: { rejectedCandidates: [rejected, rejected, { url: "https://unapproved.example/article", reason: "Untrusted" }] } };
+  const feedback = recentResearchRejections([current], now);
+  expect(feedback).toEqual([{ url: "https://bbc.com/news/new", reason: rejected.reason }]);
+  const discovery: NewsFeedDiscovery = { collectedAt: new Date(now).toISOString(), feeds: [], leads: parseNewsDiscoveryFeed(item("Development fixture: a previously reviewed story", rejected.url), bbc, now) };
+  expect(selectNewsDiscoveryLeads(discovery, [], now, feedback.map(item => item.url))).toEqual([]);
+  expect(recentResearchRejections([current], now + 2 * 60 * 60_000)).toEqual([]);
+  expect(recentResearchRejections([{ ...current, finishedAt: new Date(now + 1).toISOString() }], now)).toEqual([]);
+  expect(selectNewsDiscoveryLeads(discovery, [], now, [])).toHaveLength(1);
 });

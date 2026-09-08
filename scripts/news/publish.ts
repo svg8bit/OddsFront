@@ -1,7 +1,7 @@
-import { collectNewsFeedDiscovery, selectNewsDiscoveryLeads, type NewsFeedDiscovery } from "../../lib/news/feed-discovery.ts";
+import { collectNewsFeedDiscovery, recentResearchRejections, selectNewsDiscoveryLeads, type NewsFeedDiscovery } from "../../lib/news/feed-discovery.ts";
 import { NEWS_EDITION_SIZE } from "../../lib/news/edition-policy.ts";
 import { createHash } from "node:crypto";
-import { mkdir, readFile, writeFile, rename } from "node:fs/promises";
+import { mkdir, readdir, readFile, writeFile, rename } from "node:fs/promises";
 import { spawnSync } from "node:child_process";
 import path from "node:path";
 import { executeSubscriptionCodex } from "../../lib/news/writer.ts";
@@ -31,6 +31,7 @@ if (!process.env.ODDSFRONT_EDITION_LOCKED) {
   const maxArticles = Number.isFinite(requested) ? Math.min(NEWS_EDITION_SIZE, Math.max(1, Math.floor(requested))) : NEWS_EDITION_SIZE;
   const startedAt = new Date().toISOString();
   let discovery: NewsFeedDiscovery | undefined;
+  let discoveryFeedback: NewsResearchRejection[] = [];
   if (!process.env.ODDSFRONT_NEWS_DRAFT_FILE) {
     const file = path.join(directory, "discovery-feeds.json");
     try {
@@ -43,11 +44,19 @@ if (!process.env.ODDSFRONT_EDITION_LOCKED) {
       await writeFile(`${file}.tmp`, JSON.stringify(discovery), { mode: 0o600 });
       await rename(`${file}.tmp`, file);
     }
-    discovery = { ...discovery, leads: selectNewsDiscoveryLeads(discovery, [...coverRejected, ...catalog.articles]) };
+    const receiptsDirectory = path.join(directory, "receipts");
+    const receiptFiles = await readdir(receiptsDirectory).catch((error: NodeJS.ErrnoException) => { if (error.code === "ENOENT") return []; throw error; });
+    const receipts = await Promise.all(receiptFiles.filter(file => /^\d{4}-.*\.json$/.test(file)).sort().slice(-12).map(async file => {
+      try { return JSON.parse(await readFile(path.join(receiptsDirectory, file), "utf8")).receipt; }
+      catch { return {}; }
+    }));
+    const reviewed = recentResearchRejections(receipts);
+    discoveryFeedback = reviewed.map(item => ({ title: "Previously reviewed discovery candidate", reasons: [item.reason], mediaSources: [item.url] }));
+    discovery = { ...discovery, leads: selectNewsDiscoveryLeads(discovery, [...coverRejected, ...catalog.articles], Date.now(), reviewed.map(item => item.url)) };
   }
   const raw = process.env.ODDSFRONT_NEWS_DRAFT_FILE
     ? await readFile(process.env.ODDSFRONT_NEWS_DRAFT_FILE, "utf8")
-    : await executeSubscriptionCodex({ prompt: researchPrompt([...coverRejected, ...catalog.articles], maxArticles, new Date(), feedback, discovery), schema: NEWS_BATCH_SCHEMA,
+    : await executeSubscriptionCodex({ prompt: researchPrompt([...coverRejected, ...catalog.articles], maxArticles, new Date(), [...feedback, ...discoveryFeedback], discovery), schema: NEWS_BATCH_SCHEMA,
       env: Object.fromEntries(["PATH", "USER", "LOGNAME", "LANG", "LC_ALL", "HTTPS_PROXY", "HTTP_PROXY", "NO_PROXY"].map(key => [key, process.env[key]])),
       timeoutMs: 600_000 });
   const parsed = JSON.parse(raw) as { articles: NewsDraft[]; research?: NewsResearchReport };
