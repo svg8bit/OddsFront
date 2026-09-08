@@ -1099,20 +1099,20 @@ test("shows daily and weekly movement leaders in both directions", async ({
   expect(await rail.evaluate((element) => element.closest("main") === null)).toBe(
     true,
   );
-  await expect(rail).toHaveAttribute("data-activity-count", "2");
-  await expect(rail).toContainText("-20.0%");
-  await expect(rail.locator('[data-activity-kind="odds-rise"]')).toHaveCount(1);
+  await expect(rail).toHaveAttribute("data-activity-count", "3");
+  await expect(rail).toContainText("-20.0 pp");
+  await expect(rail.locator('[data-activity-kind="odds-rise"]')).toHaveCount(2);
   await expect(rail).not.toContainText("Odds");
-  await expect(rail.locator('time[data-time-kind="updated"]')).toHaveCount(2);
+  await expect(rail.locator('time[data-time-kind="updated"]')).toHaveCount(3);
   await expect(rail.locator("article").first()).toHaveAttribute("data-activity-window", "24H");
-  await expect(rail).not.toContainText(" pp");
+  await expect(rail).toContainText(" pp");
   await expect(rail).not.toContainText("Volume");
   await expect(rail).not.toContainText("1h");
-  await expect(rail.locator('[data-activity-source="rolling"]')).toHaveCount(2);
+  await expect(rail.locator('[data-activity-source="rolling"]')).toHaveCount(3);
   const oddsMetrics = rail.locator(
     '[data-activity-kind^="odds-"] [data-activity-metric]',
   );
-  await expect(oddsMetrics).toHaveCount(2);
+  await expect(oddsMetrics).toHaveCount(3);
   for (const metric of await oddsMetrics.all()) {
     await expect(metric).toHaveText(/^YES \d+%$/);
     await expect(metric).toHaveCSS("white-space", "nowrap");
@@ -1168,14 +1168,14 @@ test("shows daily and weekly movement leaders in both directions", async ({
   await expect(rail).not.toContainText(liveFeed.events[4]!.title);
   await expect(rail.locator('[data-activity-window="7D"]')).not.toHaveCount(0);
   await expect(rail.locator('[data-activity-window="24H"]')).not.toHaveCount(0);
-  const before = await rail.locator("article").evaluateAll(cards => cards.map(card => card.getAttribute("data-event-id")));
+  const before = await rail.locator("article").evaluateAll(cards => cards.map(card => card.getAttribute("data-notice-id")));
   // Simulate a real fifteen-minute stay while upstream quotes remain fresh.
   await page.clock.fastForward(15 * 60_000 + 5_000);
   liveFeed.updatedAt = await page.evaluate(() => new Date().toISOString());
   await page.evaluate(() => window.dispatchEvent(new Event("online")));
   await expect(rail).toHaveAttribute("data-feed-updated-at", liveFeed.updatedAt);
-  await expect(rail.locator("article")).toHaveCount(1);
-  const after = await rail.locator("article").evaluateAll(cards => cards.map(card => card.getAttribute("data-event-id")));
+  await expect(rail.locator("article")).toHaveCount(3);
+  const after = await rail.locator("article").evaluateAll(cards => cards.map(card => card.getAttribute("data-notice-id")));
   expect(after.every(id => !before.includes(id))).toBe(true);
 });
 
@@ -1465,8 +1465,8 @@ test("shows confirmed price moves with referral-safe buys from $200K", async ({
       .locator('[data-activity-kind="large-buy"]')
       .locator("[data-activity-metric]"),
   ).toHaveAttribute("aria-label", "Trade execution odds");
-  await expect(rail).toContainText("+25.0%");
-  await expect(rail).toContainText("-8.0%");
+  await expect(rail).toContainText("+25.0 pp");
+  await expect(rail).toContainText("-8.0 pp");
   await expect(rail).not.toContainText(liveFeed.events[3]!.title);
   await expect(rail.locator('[data-activity-kind="large-sell"]')).toHaveCount(0);
   await expect(rail).not.toContainText("Volume");
@@ -1476,7 +1476,7 @@ test("shows confirmed price moves with referral-safe buys from $200K", async ({
   await page.evaluate(() => window.dispatchEvent(new Event("online")));
   await expect.poll(() => conflictFeedRequestCount).toBeGreaterThanOrEqual(2);
   await expect(rail).toHaveAttribute("data-activity-count", "3");
-  await expect(rail).not.toContainText(" pp");
+  await expect(rail).toContainText(" pp");
   await expect(rail).toContainText("24H");
   await expect(
     rail.locator('[data-activity-kind="odds-rise"]'),

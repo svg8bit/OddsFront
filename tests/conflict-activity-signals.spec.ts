@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { getConflictPreviewFixtureFeed } from "../features/global-conflict-map/preview/fixture";
 import { buildRollingActivitySignals, ACTIVITY_DISPLAY_TTL_MS } from "../lib/conflict-activity-signals";
+import { activeActivityDismissals } from "../lib/activity-notice-lifecycle";
 
 const now = Date.parse("2026-09-07T13:00:00Z");
 const fixture = getConflictPreviewFixtureFeed();
@@ -15,10 +16,10 @@ const feed = { ...fixture, dataMode: "live" as const, updatedAt: new Date(now).t
 
 test("restores both day and week leaders without requiring a sudden intraday move", () => {
   const signals = buildRollingActivitySignals(feed, now, now);
-  expect(signals).toHaveLength(2);
+  expect(signals).toHaveLength(3);
   expect(new Set(signals.map(item => item.windowLabel))).toEqual(new Set(["24H", "7D"]));
   expect(new Set(signals.map(item => item.kind))).toEqual(new Set(["odds-rise", "odds-drop"]));
-  expect(new Set(signals.map(item => item.eventId)).size).toBe(2);
+  expect(new Set(signals.map(item => item.eventId)).size).toBe(3);
   expect(signals.every(item => item.observedAt === now && item.expiresAt === now + ACTIVITY_DISPLAY_TTL_MS)).toBe(true);
 });
 
@@ -30,28 +31,36 @@ test("refreshed values do not extend display expiry and the next cycle creates c
   expect(refreshed.map(item => item.expiresAt)).toEqual(first.map(item => item.expiresAt));
   const newCycle = now + ACTIVITY_DISPLAY_TTL_MS;
   const rotated = buildRollingActivitySignals({ ...feed, updatedAt: new Date(newCycle).toISOString() }, newCycle, now);
-  expect(rotated).toHaveLength(1);
+  expect(rotated).toHaveLength(3);
   expect(rotated.every(item => !first.some(previous => previous.id === item.id))).toBe(true);
-  expect(rotated.every(item => !first.some(previous => previous.eventId === item.eventId))).toBe(true);
   expect(rotated.every(item => item.expiresAt === newCycle + ACTIVITY_DISPLAY_TTL_MS)).toBe(true);
 });
 
-test("visible markets really rotate for an hour instead of renewing the same cards", () => {
+test("six eligible markets rotate in distinct full pages", () => {
+  const events = Array.from({ length: 6 }, (_, index) => ({ ...event, id: `polymarket-${73000 + index}` }));
   let previous = new Set<string>();
   for (let cycle = 0; cycle < 5; cycle++) {
     const timestamp = now + cycle * ACTIVITY_DISPLAY_TTL_MS;
-    const signals = buildRollingActivitySignals({ ...feed, updatedAt: new Date(timestamp).toISOString() }, timestamp, now);
-    expect(signals.length).toBeGreaterThan(0);
+    const signals = buildRollingActivitySignals({ ...feed, events, updatedAt: new Date(timestamp).toISOString() }, timestamp, now);
+    expect(signals).toHaveLength(3);
     expect(signals.every(signal => !previous.has(signal.eventId))).toBe(true);
     previous = new Set(signals.map(signal => signal.eventId));
   }
 });
 
-test("a lone eligible market expires instead of reappearing immediately", () => {
-  const single = { ...feed, events: [event] };
-  expect(buildRollingActivitySignals(single, now, now)).toHaveLength(1);
-  const timestamp = now + ACTIVITY_DISPLAY_TTL_MS;
-  expect(buildRollingActivitySignals({ ...single, updatedAt: new Date(timestamp).toISOString() }, timestamp, now)).toEqual([]);
+test("small and uneven pools never create empty cycles or hide usable slots", () => {
+  for (const count of [1, 2, 3, 4, 5, 7]) {
+    const events = Array.from({ length: count }, (_, index) => ({ ...event, id: `polymarket-${73000 + index}` }));
+    const seen = new Set<string>();
+    for (let cycle = 0; cycle < count * 2; cycle++) {
+      const timestamp = now + cycle * ACTIVITY_DISPLAY_TTL_MS;
+      const signals = buildRollingActivitySignals({ ...feed, events, updatedAt: new Date(timestamp).toISOString() }, timestamp, now);
+      expect(signals).toHaveLength(Math.min(3, count));
+      expect(new Set(signals.map(signal => signal.eventId)).size).toBe(signals.length);
+      for (const signal of signals) seen.add(signal.eventId);
+    }
+    expect(seen.size).toBe(count);
+  }
 });
 
 test("remounting or refreshing cannot restart the first page or extend its lifetime", () => {
@@ -62,25 +71,42 @@ test("remounting or refreshing cannot restart the first page or extend its lifet
   expect(remounted.map(item=>item.expiresAt)).toEqual(first.map(item=>item.expiresAt));
   const later = now + ACTIVITY_DISPLAY_TTL_MS;
   const rotated = buildRollingActivitySignals({...feed,updatedAt:new Date(later).toISOString()},later);
-  expect(rotated.every(item=>!first.some(previous=>previous.eventId===item.eventId))).toBe(true);
+  expect(rotated.every(item=>!first.some(previous=>previous.id===item.id))).toBe(true);
 });
 
-test("small pages alternate daily and weekly signals across rotations", () => {
-  const pair = {...feed,events:feed.events.slice(0,2)};
-  const first = buildRollingActivitySignals(pair,now,now);
-  const later = now + 2 * ACTIVITY_DISPLAY_TTL_MS;
-  const returned = buildRollingActivitySignals({...pair,updatedAt:new Date(later).toISOString()},later,now);
-  expect(returned.map(item=>item.eventId)).toEqual(first.map(item=>item.eventId));
-  expect(first[0].windowLabel).toBe("24H");
-  expect(returned[0].windowLabel).toBe("7D");
+test("small pools alternate daily and weekly priority and larger pools do so on return", () => {
+  for (const count of [1, 2, 3, 6]) {
+    const events = Array.from({ length: count }, (_, index) => ({ ...event, id: `polymarket-${73000 + index}` }));
+    const pool = { ...feed, events };
+    const first = buildRollingActivitySignals(pool, now, now);
+    const later = now + Math.ceil(count / 3) * ACTIVITY_DISPLAY_TTL_MS;
+    const returned = buildRollingActivitySignals({ ...pool, updatedAt: new Date(later).toISOString() }, later, now);
+    expect(returned.map(item => item.eventId)).toEqual(first.map(item => item.eventId));
+    expect(first[0].windowLabel).toBe("24H");
+    expect(returned[0].windowLabel).toBe("7D");
+  }
 });
 
 test("excludes stale feeds, expired markets, low market volume and invalid changes", () => {
   expect(buildRollingActivitySignals({ ...feed, updatedAt: new Date(now - 3_600_000).toISOString() }, now)).toEqual([]);
+  expect(buildRollingActivitySignals({ ...feed, updatedAt: new Date(now + 61_000).toISOString() }, now)).toEqual([]);
   expect(buildRollingActivitySignals({ ...feed, dataMode: "fallback" }, now)).toEqual([]);
   for (const rejected of [
     { ...event, endDate: new Date(now - 1).toISOString() }, { ...event, marketVolume: 99_999 },
     { ...event, priceChange24h: .049, priceChange7d: -.199 },
     { ...event, priceChange24h: NaN, priceChange7d: Infinity },
   ]) expect(buildRollingActivitySignals({ ...feed, events: [rejected] }, now)).toEqual([]);
+});
+
+test("saved dismissals last only through their original expiry and stay bounded", () => {
+  const saved = { active: now + 60_000, expired: now, invalid: "later", indefinite: Infinity, excessive: now + 17 * 60_000 };
+  expect(activeActivityDismissals(saved, now)).toEqual({ active: now + 60_000 });
+  expect(activeActivityDismissals(activeActivityDismissals(saved, now), now + 60_000)).toEqual({});
+  expect(activeActivityDismissals(null, now)).toEqual({});
+  expect(activeActivityDismissals([], now)).toEqual({});
+  const many = Object.fromEntries(Array.from({ length: 100 }, (_, index) => [`notice-${index}`, now + 60_000]));
+  expect(Object.keys(activeActivityDismissals(many, now))).toHaveLength(96);
+  const skewedTrade = { "trade-clock-skew": now + 16 * 60_000 };
+  expect(activeActivityDismissals(skewedTrade, now)).toEqual(skewedTrade);
+  expect(activeActivityDismissals(skewedTrade, now + 16 * 60_000)).toEqual({});
 });

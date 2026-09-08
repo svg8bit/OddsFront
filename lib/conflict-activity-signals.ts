@@ -28,25 +28,24 @@ export function buildRollingActivitySignals(feed: ConflictPreviewFeed, now = Dat
         expiresAt: cycle + ACTIVITY_DISPLAY_TTL_MS }];
     });
   }).toSorted((a, b) => b.value - a.value || a.eventId.localeCompare(b.eventId));
-  // Reserve different markets for the next display cycle. Previously all
-  // three eligible markets were immediately emitted again with new IDs, so
-  // the visible cards appeared stuck despite their expiry timestamps changing.
-  // Stable market ordering prevents a small price refresh reshuffling a page.
+  // Keep every available slot useful. Reserving half the markets for later
+  // created empty cycles for one market and hid half of small live pools.
+  // Larger pools rotate through overlapping pages without an empty tail.
   const markets = [...new Set(candidates.map(item => item.eventId))].sort();
-  const pageSize = Math.min(3, Math.max(1, Math.ceil(markets.length / 2)));
-  const pageCount = Math.max(2, Math.ceil(markets.length / pageSize));
-  const page = Math.floor((cycle - cycleStartedAt) / ACTIVITY_DISPLAY_TTL_MS) % pageCount;
-  const pageMarkets = new Set(markets.slice(page * pageSize, (page + 1) * pageSize));
+  if (!markets.length) return [];
+  const cycleIndex = Math.floor((cycle - cycleStartedAt) / ACTIVITY_DISPLAY_TTL_MS);
+  const pageSize = Math.min(3, markets.length);
+  const offset = cycleIndex * pageSize % markets.length;
+  const pageMarkets = new Set(Array.from({ length: pageSize }, (_, index) => markets[(offset + index) % markets.length]));
   const currentCandidates = candidates.filter(item => pageMarkets.has(item.eventId));
   const selected: RollingActivitySignal[] = [];
   const used = new Set<string>();
   const add = (candidate: RollingActivitySignal | undefined) => {
     if (candidate && !used.has(candidate.eventId)) { selected.push(candidate); used.add(candidate.eventId); }
   };
-  // Keep both periods and directions when the current page supports them.
-  // Alternate the preferred period on each full market rotation. Otherwise a
-  // one-market page always consumes its only slot with 24H and never shows 7D.
-  const rotation = Math.floor((cycle - cycleStartedAt) / ACTIVITY_DISPLAY_TTL_MS / pageCount);
+  // Swap the preferred period after a pass through the pool. Small pools
+  // swap every quarter-hour; larger pools get both periods on return visits.
+  const rotation = Math.floor(cycleIndex * pageSize / markets.length);
   const windows = rotation % 2 === 0 ? ["24H", "7D"] as const : ["7D", "24H"] as const;
   for (const window of windows) {
     const group = currentCandidates.filter(item => item.windowLabel === window && !used.has(item.eventId));
