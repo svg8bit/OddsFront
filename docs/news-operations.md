@@ -23,6 +23,8 @@ verifies the relationship, retains a private original-record receipt in
 public index entry and detail file. Both Node and Python exports and all three
 social selectors honor the withdrawal. The private record continues to exclude
 that story; historical edition and provider receipts are never rewritten.
+Article and social-image lookups first require membership in the current public
+catalog so a cached detail response cannot resurrect a withdrawn permalink.
 Do not delete catalog history or reset publication timers to remove a duplicate.
 
 ## Runtime boundary

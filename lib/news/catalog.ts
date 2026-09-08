@@ -24,12 +24,16 @@ export const getNewsArticle = cache(async (slug: string): Promise<NewsArticle | 
   const rawUrl = process.env.ODDSFRONT_MARKET_FEED_URL;
   const token = process.env.ODDSFRONT_MARKET_FEED_TOKEN;
   if (rawUrl && token) {
+    // Cached detail responses can outlive a withdrawal at the feed origin.
+    // The current public index is authoritative for every article permalink,
+    // locale and social image, even when an old detail response remains cached.
+    if (!(await getNewsCatalog()).articles.some(article => article.slug === slug && !article.withdrawal)) return null;
     try {
       const url = new URL(rawUrl);
       if (url.protocol !== "https:" || url.username || url.password) throw new Error("Invalid feed URL");
       url.pathname = `/v1/news/articles/${slug}`; url.search = ""; url.hash = "";
       const response = await fetch(url, {headers:{Authorization:`Bearer ${token}`},next:{revalidate:60},signal:AbortSignal.timeout(4000)});
-      if (response.ok) { const article=await response.json() as NewsArticle; if(article.slug===slug&&Array.isArray(article.body))return article; }
+      if (response.ok) { const article=await response.json() as NewsArticle; if(article.slug===slug&&!article.withdrawal&&Array.isArray(article.body))return article; }
     } catch { /* Existing stories remain readable during a worker outage. */ }
   }
   return (seed as NewsCatalog).articles.find(article=>article.slug===slug)??null;
