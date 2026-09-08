@@ -8,6 +8,23 @@ After two consecutive rounds add no usable article, the same private edition
 waits 30 minutes before further model calls. Timer and monitor retries respect
 this cooldown; the nine-story and cover requirements remain unchanged.
 
+Novelty checks compare canonical media URLs (ignoring tracking parameters),
+word-normalized article and source headlines, and strongly overlapping leads.
+Shared institutional background alone never identifies a duplicate. The full
+private history has no age cutoff. Pending editions are rechecked on resume,
+after research and immediately before export, including comparisons within the
+new batch. Rejected candidates remain private and cannot reduce a published
+batch below nine. These deterministic checks make no additional model calls.
+
+For a verified repeat, use `node scripts/news/withdraw-duplicate.ts ARTICLE_ID
+ORIGINAL_ID` from the canonical checkout. The command takes the edition lock,
+verifies the relationship, retains a private original-record receipt in
+`withdrawals/`, and marks the duplicate in the private catalog. It removes the
+public index entry and detail file. Both Node and Python exports and all three
+social selectors honor the withdrawal. The private record continues to exclude
+that story; historical edition and provider receipts are never rewritten.
+Do not delete catalog history or reset publication timers to remove a duplicate.
+
 ## Runtime boundary
 
 The UI runs in the dedicated OddsFront Vercel project. An isolated publisher on

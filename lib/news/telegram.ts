@@ -20,7 +20,7 @@ export function newsPublicationPriority(article: NewsArticle): number {
 }
 
 export function freshEditionArticles(articles: NewsArticle[], sent: readonly string[], now = Date.now()): NewsArticle[] {
-  const fresh = articles.filter(article => Number.isFinite(Date.parse(article.publishedAt)) &&
+  const fresh = articles.filter(article => !article.withdrawal && Number.isFinite(Date.parse(article.publishedAt)) &&
     Date.parse(article.publishedAt) <= now && now - Date.parse(article.publishedAt) <= 6 * 60 * 60_000)
     .toSorted((a, b) => Date.parse(b.publishedAt) - Date.parse(a.publishedAt));
   let pool = fresh.filter(article => !sent.includes(article.id)).slice(0, 27);
@@ -73,7 +73,7 @@ function escapeHtml(text: string): string {
 }
 
 export function russianTelegramArticle(articles: NewsArticle[], selectedArticleId: string | undefined, sent: readonly string[], startAfterPublishedAt?: string, now = Date.now()) {
-  const article = articles.find(item => item.id === selectedArticleId && !sent.includes(item.id) && Date.parse(item.publishedAt) <= now && now - Date.parse(item.publishedAt) <= 6 * 60 * 60_000);
+  const article = articles.find(item => !item.withdrawal && item.id === selectedArticleId && !sent.includes(item.id) && Date.parse(item.publishedAt) <= now && now - Date.parse(item.publishedAt) <= 6 * 60 * 60_000);
   if (!article || (!sent.length && startAfterPublishedAt && Date.parse(article.publishedAt) <= Date.parse(startAfterPublishedAt))) return null;
   const translation = article.translations?.ru;
   return translation?.editorReviewed && /[А-Яа-яЁё]/.test(translation.title) && /[А-Яа-яЁё]/.test(translation.description) ? article : null;

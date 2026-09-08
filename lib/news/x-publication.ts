@@ -33,7 +33,7 @@ export function xNewsArticle(articles: NewsArticle[], telegramArticleIds: readon
   // Reuse the editorial choice actually published to Telegram; do not choose a
   // different or older story just because the X timer runs a few minutes later.
   const article = articles.find(item => item.id === telegramArticleIds.at(-1));
-  if (!article || sentIds.includes(article.id)) return null;
+  if (!article || article.withdrawal || sentIds.includes(article.id)) return null;
   const publishedAt = Date.parse(article.publishedAt);
   return Number.isFinite(publishedAt) && publishedAt <= now && now - publishedAt <= 6 * 60 * 60_000 ? article : null;
 }

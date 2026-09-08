@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { mkdtemp, readFile, rm, writeFile, stat } from "node:fs/promises";
+import { mkdtemp, mkdir, readFile, rm, writeFile, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { spawn, spawnSync } from "node:child_process";
@@ -186,6 +186,17 @@ test("editions retain partial research privately, resume to exactly nine and enf
     const index = JSON.parse(before); expect(index.articles).toHaveLength(9); expect(new Set(index.articles.map((a: NewsArticle) => a.publishedAt)).size).toBe(1);
     const state = JSON.parse(await readFile(join(directory, "edition-state.json"), "utf8")); expect(state.articleIds).toHaveLength(9);
     expect(run().stdout).toContain("interval-not-due"); expect(await readFile(join(directory, "public/catalog.json"), "utf8")).toBe(before);
+    // Simulate a crash after exporting this exact edition but before committing
+    // its ledger. The pending timestamp identifies a safe idempotent retry.
+    const research = state.receipt.replace(/\.json$/, "-research");
+    await mkdir(join(directory, "pending-edition"));
+    for (const file of ["catalog.json", "edition.json"]) await writeFile(join(directory, "pending-edition", file), await readFile(join(research, file)));
+    await writeFile(join(directory, "edition-state.json"), JSON.stringify({ lastPublishedAt: 0 }));
+    const recovered = run(true); expect(recovered.status, recovered.stderr).toBe(0);
+    const recoveredState = JSON.parse(await readFile(join(directory, "edition-state.json"), "utf8"));
+    expect(recoveredState.lastPublishedAt).toBe(state.lastPublishedAt);
+    expect(recoveredState.articleIds).toEqual(state.articleIds);
+    expect(JSON.parse(await readFile(join(directory, "public/catalog.json"), "utf8")).articles).toHaveLength(9);
   } finally { await rm(directory, { recursive: true, force: true }); }
 });
 

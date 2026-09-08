@@ -39,8 +39,14 @@ def export_catalog(catalog):
     public.chmod(0o755)
     articles.chmod(0o755)
     for article in catalog["articles"]:
-        atomic_json(articles / f'{article["slug"]}.json', article, public=True)
-    atomic_json(public / "catalog.json", {**catalog, "articles": [summary(article) for article in catalog["articles"]]}, public=True)
+        if not article.get("withdrawal"):
+            atomic_json(articles / f'{article["slug"]}.json', article, public=True)
+    atomic_json(public / "catalog.json", {**catalog, "articles": [summary(article) for article in catalog["articles"] if not article.get("withdrawal")]}, public=True)
+    for article in catalog["articles"]:
+        if article.get("withdrawal"):
+            if not re.fullmatch(r"[a-z0-9]+(?:-[a-z0-9]+)*", article["slug"]):
+                raise ValueError("Invalid withdrawn article slug")
+            (articles / f'{article["slug"]}.json').unlink(missing_ok=True)
 
 
 def main():
@@ -51,12 +57,13 @@ def main():
     if True:
         catalog_path = DIRECTORY / "catalog.json"
         catalog = json.loads(catalog_path.read_text())
+        active_articles = [article for article in catalog["articles"] if not article.get("withdrawal")]
         cache_path = DIRECTORY / "translation-cache.json"
         cache = json.loads(cache_path.read_text()) if cache_path.exists() else {}
         tokenizer = sentencepiece.SentencePieceProcessor(model_file=str(MODEL / "source/sentencepiece.bpe.model"))
         translator = ctranslate2.Translator(str(MODEL / "int8"), device="cpu", compute_type="int8", intra_threads=2)
         texts = set()
-        for article in catalog["articles"]:
+        for article in active_articles:
             texts.update([article["title"], article["description"], *article["topics"], *[block["text"] for block in article["body"]]])
         market_texts = set()
         market_feed_available = False
@@ -130,7 +137,7 @@ def main():
                     normalized = "".join(str(unicodedata.digit(char)) if char.isdigit() else char for char in value)
                     return Counter(re.findall(r"\d+", normalized))
                 return text if numbers(text) - numbers(value) else value
-            for article in catalog["articles"]:
+            for article in active_articles:
                 previous = article["translations"].get(language)
                 article["translations"][language] = {
                     "title": translated_text(article["title"]),
@@ -144,7 +151,7 @@ def main():
                     article["updatedAt"] = datetime.now(timezone.utc).isoformat(timespec="milliseconds").replace("+00:00", "Z")
                     catalog["updatedAt"] = article["updatedAt"]
             dictionary = {} if market_feed_available else catalog.get("marketTranslations", {}).get(language, {}).copy()
-            dictionary.update({text: translated_text(text) for text in market_texts | {topic for article in catalog["articles"] for topic in article["topics"]} | (set(json.loads(extra_path.read_text())) if extra_path.exists() else set())})
+            dictionary.update({text: translated_text(text) for text in market_texts | {topic for article in active_articles for topic in article["topics"]} | (set(json.loads(extra_path.read_text())) if extra_path.exists() else set())})
             catalog.setdefault("marketTranslations", {})[language] = dictionary
             atomic_json(cache_path, cache)
             atomic_json(catalog_path, catalog)
