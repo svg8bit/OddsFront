@@ -79,8 +79,8 @@ deferred map bundle. It refreshes immediately on entry, pageshow, focus,
 visibility restoration and reconnect, deduplicates in-flight requests, times
 out blocked requests and ignores older snapshots. Visible tabs poll roughly
 once per minute. The activity rail shows the live Gamma day/week changes for
-active individual markets with at least $100K volume: at least five percentage
-points over 24 hours or twenty over seven days. It includes both periods and
+active individual markets with at least $100K volume: at least two percentage
+points over 24 hours or five over seven days. It includes both periods and
 directions when the current selection supports them, and rotates up to three
 markets every fifteen minutes. Pools of one to three markets remain visible
 without artificial empty cycles; larger pools wrap through all eligible
@@ -89,21 +89,29 @@ Rotation uses fixed UTC quarter-hours, so reloading or remounting the rail
 cannot renew a cycle. Dismissing a card hides it in that browser tab through
 reloads until its original expiry. A market may qualify again in a later
 cycle; this does not claim a new price jump. A price refresh updates the value
-without extending the display cycle. Changes use percentage points (`pp`, or
-`п.п.` in Russian), separately from the current YES probability in percent.
-The timestamp is labelled Updated, not a new event occurrence.
+without extending the display cycle. The compact signed change uses `%` on the
+probability scale; the hover title gives previous/current probabilities when
+both are valid, separately from current YES odds. No quote-update timestamp is
+shown. These values are not relative investment returns.
 Feeds older than ten minutes or more than a minute ahead of the browser clock,
-fallback data and expired markets cannot produce rolling notices. This requires no
-additional CLOB history requests from Vercel. Large trades and strict
-breaking-news matches retain their actual occurrence times and fifteen-minute
-lifetimes. The client also caps trade notice lifetimes at fifteen minutes and
-rejects invalid or future-dated trades. It shows up to three cards in total,
-prioritizing up to two verified news matches, then large buys of at least
-$200K, then rolling changes. News must be a verified strike or ceasefire,
-match the actual actor/target of a current market with at least $1M volume,
-and have been published in the last fifteen minutes. A market occupies at
-most one visible card. Expiry is checked every five seconds and on tab restore;
-the rail stays empty when no genuine eligible notices exist.
+fallback data and expired markets cannot produce rolling notices. This requires
+no additional CLOB history requests from Vercel. Large buys of at least $200K
+retain their occurrence times and a maximum fifteen-minute lifetime. Invalid
+or future-dated trades are rejected.
+
+The rail shows at most three cards, prioritizing up to two verified news
+stories, then large buys while reserving a slot for rolling movement. The
+remaining slots rotate through eligible markets after excluding those already
+represented by news or trades; selecting three before truncation could hide
+some markets forever. At most one visible card represents each market.
+Nine stories from the newest edition rotate once through eight fifteen-minute
+slots within two hours of publication. Each story keeps its actual publication
+time, with no forced market match or implied price reaction. Strictly related
+active markets may add action links; see `docs/news-operations.md`. Stories with
+missing source verification, withdrawals, future dates or age over two hours
+are excluded. Older news-index responses cannot replace newer ones. Expiry is
+checked every five seconds and on tab restore. With no genuine eligible data,
+the rail stays empty rather than fabricating or renewing expired activity.
 
 ## Security boundary
 

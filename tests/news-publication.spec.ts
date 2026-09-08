@@ -94,6 +94,7 @@ test("news alert gate requires a confirmed major event and an exact high-volume 
   const matching = {
     ...fixture,
     id:"polymarket-100",
+    marketConditionId:`0x${"1".repeat(64)}`,
     title:"Will the United States strike Iran by September 30?",
     countryCodes:["US","IR"],
     dataOrigin:"polymarket" as const,

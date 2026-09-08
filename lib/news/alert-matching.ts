@@ -1,9 +1,19 @@
 import type { ConflictPreviewEvent } from "@/features/global-conflict-map/preview/types";
 import { buildDropsBotTrackUrl, isOfficialPolymarketEventUrl } from "@/lib/polymarket-links";
+import { isPolymarketActivityEventCurrent } from "@/lib/polymarket-activity-query";
+import { isNewsPublisher, isOfficialSource, sourceHost } from "./sources";
 import type { NewsArticle, NewsAlertKind } from "@/lib/news/types";
 
 export const NEWS_ALERT_TTL_MS = 15 * 60 * 1_000;
 export const NEWS_ALERT_MINIMUM_MARKET_VOLUME = 1_000_000;
+export const NEWS_ACTIVITY_POOL_MS = 2 * 60 * 60_000;
+
+export interface NewsActivityAlert {
+  article: NewsArticle;
+  event: ConflictPreviewEvent | null;
+  publishedAt: number;
+  expiresAt: number;
+}
 
 export interface NewsMarketAlert {
   article: NewsArticle;
@@ -79,7 +89,9 @@ function eventMatchesArticle(
   const alert = article.alert;
   if (
     !alert ||
+    article.withdrawal ||
     event.dataOrigin !== "polymarket" ||
+    !isPolymarketActivityEventCurrent(event, now) ||
     !isOfficialPolymarketEventUrl(event.marketUrl) ||
     !buildDropsBotTrackUrl(event.marketUrl)
   ) {
@@ -87,7 +99,7 @@ function eventMatchesArticle(
   }
   const volume = event.marketVolume ?? event.volume;
   if (
-    volume < NEWS_ALERT_MINIMUM_MARKET_VOLUME ||
+    !Number.isFinite(volume) || volume < NEWS_ALERT_MINIMUM_MARKET_VOLUME ||
     (event.endDate !== null && Date.parse(event.endDate) <= now)
   ) return false;
 
@@ -116,7 +128,7 @@ export function buildNewsMarketAlerts(
 ): NewsMarketAlert[] {
   const alerts: NewsMarketAlert[] = [];
   for (const article of articles) {
-    if (!article.alert) continue;
+    if (!article.alert || article.withdrawal) continue;
     const publishedAt = Date.parse(article.publishedAt);
     const expiresAt = publishedAt + NEWS_ALERT_TTL_MS;
     if (
@@ -147,4 +159,31 @@ export function buildNewsMarketAlerts(
     (right.event.marketVolume ?? right.event.volume) -
       (left.event.marketVolume ?? left.event.volume),
   );
+}
+
+// News cards describe verified published reporting, not market-resolution or
+// breaking-strike claims. A market is optional and still needs the strict
+// direction/volume/current-event match above; country overlap alone is unused.
+export function buildNewsActivityAlerts(articles: readonly NewsArticle[], events: readonly ConflictPreviewEvent[], now = Date.now()): NewsActivityAlert[] {
+  const recent = articles.filter(article => {
+    const publishedAt = Date.parse(article.publishedAt);
+    if (article.withdrawal || !Number.isFinite(publishedAt) || publishedAt > now || now >= publishedAt + NEWS_ACTIVITY_POOL_MS) return false;
+    const sources = Array.isArray(article.sources) ? article.sources : [];
+    const media = sources.filter(source => source && source.kind === "media" && isNewsPublisher(source.url) &&
+      Date.parse(source.publishedAt) <= now + 60_000 && Date.parse(source.publishedAt) >= now - 72 * 60 * 60_000);
+    return media.length > 0 && sources.some(source => source && source.kind === "official" && isOfficialSource(source.url) && Date.parse(source.publishedAt) <= now + 60_000 && media.some(report => sourceHost(report.url) !== sourceHost(source.url)));
+  }).toSorted((a, b) => Date.parse(b.publishedAt) - Date.parse(a.publishedAt) || a.id.localeCompare(b.id));
+  if (!recent.length) return [];
+  const publishedAt = Date.parse(recent[0].publishedAt);
+  const edition = [...new Map(recent.filter(article => Date.parse(article.publishedAt) === publishedAt).map(article => [article.id, article])).values()].slice(0, 9);
+  const slotCount = NEWS_ACTIVITY_POOL_MS / NEWS_ALERT_TTL_MS;
+  const slot = Math.floor((now - publishedAt) / NEWS_ALERT_TTL_MS);
+  // Distribute all nine stories across eight quarters. Sparse editions leave
+  // quiet slots instead of presenting the same story again as a new alert.
+  const current = edition.slice(Math.ceil(slot * edition.length / slotCount), Math.ceil((slot + 1) * edition.length / slotCount));
+  return current.map(article => ({
+    article, publishedAt, expiresAt: publishedAt + (slot + 1) * NEWS_ALERT_TTL_MS,
+    event: events.filter(event => eventMatchesArticle(article, event, now))
+      .toSorted((a, b) => (b.marketVolume ?? b.volume) - (a.marketVolume ?? a.volume))[0] ?? null,
+  }));
 }

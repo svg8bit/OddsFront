@@ -93,9 +93,24 @@ test("excludes stale feeds, expired markets, low market volume and invalid chang
   expect(buildRollingActivitySignals({ ...feed, dataMode: "fallback" }, now)).toEqual([]);
   for (const rejected of [
     { ...event, endDate: new Date(now - 1).toISOString() }, { ...event, marketVolume: 99_999 },
-    { ...event, priceChange24h: .049, priceChange7d: -.199 },
+    { ...event, priceChange24h: .019, priceChange7d: -.049 },
     { ...event, priceChange24h: NaN, priceChange7d: Infinity },
   ]) expect(buildRollingActivitySignals({ ...feed, events: [rejected] }, now)).toEqual([]);
+});
+
+test("fills available slots across the whole pool while news or trades occupy other slots", () => {
+  const events = Array.from({ length: 6 }, (_, index) => ({ ...event, id: `polymarket-${73000 + index}`, priceChange24h: index % 2 ? -.03 : .025, priceChange7d: index % 2 ? -.06 : .055 }));
+  const seen = new Set<string>();
+  const excludedEventIds = new Set([events[0].id]);
+  for (let cycle = 0; cycle < 5; cycle++) {
+    const timestamp = now + cycle * ACTIVITY_DISPLAY_TTL_MS;
+    const signals = buildRollingActivitySignals({ ...feed, events, updatedAt: new Date(timestamp).toISOString() }, timestamp, now, { limit: 2, excludedEventIds });
+    expect(signals).toHaveLength(2);
+    expect(signals.some(signal => excludedEventIds.has(signal.eventId))).toBe(false);
+    for (const signal of signals) seen.add(signal.eventId);
+  }
+  expect(seen.size).toBe(5);
+  expect(buildRollingActivitySignals(feed, now, now, { limit: 0 })).toEqual([]);
 });
 
 test("saved dismissals last only through their original expiry and stay bounded", () => {

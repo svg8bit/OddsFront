@@ -30,7 +30,8 @@ import {
 import { ACTIVITY_DISPLAY_TTL_MS, buildRollingActivitySignals } from "@/lib/conflict-activity-signals";
 import { formatMarketTitle } from "@/lib/market-title";
 import { articleText } from "@/lib/news/locale";
-import type { NewsMarketAlert } from "@/lib/news/alert-matching";
+import type { NewsActivityAlert } from "@/lib/news/alert-matching";
+import { availableNewsArticlePath } from "@/lib/news/routing";
 import type { NewsArticle } from "@/lib/news/types";
 import {
   batchPolymarketActivityMarketIds,
@@ -179,11 +180,10 @@ function tradeNotice(
   };
 }
 
-function noticeLabel(notice: ActivityNotice, locale = "en"): string {
+function noticeLabel(notice: ActivityNotice): string {
   if (notice.kind === "news") return "News";
-  const unit = locale === "ru" ? "п.п." : "pp";
-  if (notice.kind === "odds-rise") return `+${notice.value.toFixed(1)} ${unit}`;
-  if (notice.kind === "odds-drop") return `-${notice.value.toFixed(1)} ${unit}`;
+  if (notice.kind === "odds-rise") return `+${notice.value.toFixed(1)}%`;
+  if (notice.kind === "odds-drop") return `-${notice.value.toFixed(1)}%`;
   return `Large BUY ${formatMoney(notice.value)}`;
 }
 
@@ -202,7 +202,7 @@ function noticeMetricLabel(
   return event ? `YES ${event.yesOdds}%` : null;
 }
 
-function selectVisibleNotices(notices: ActivityNotice[]): ActivityNotice[] {
+function selectVisibleNotices(notices: ActivityNotice[], reserveRolling = false): ActivityNotice[] {
   const newestFirst = notices.toSorted(
     (left, right) =>
       right.occurredAt - left.occurredAt || right.value - left.value,
@@ -239,6 +239,7 @@ function selectVisibleNotices(notices: ActivityNotice[]): ActivityNotice[] {
 
   let tradeCount = 0;
   for (const notice of trades) {
+    if (selected.length >= MAX_VISIBLE_NOTICES - 1) break;
     if (add(notice)) tradeCount += 1;
     if (tradeCount >= 2) break;
   }
@@ -246,6 +247,7 @@ function selectVisibleNotices(notices: ActivityNotice[]): ActivityNotice[] {
     add(notice);
     if (selected.length >= MAX_VISIBLE_NOTICES) return selected;
   }
+  if (reserveRolling) return selected;
   for (const notice of trades) {
     add(notice);
     if (selected.length >= MAX_VISIBLE_NOTICES) break;
@@ -257,9 +259,10 @@ function buildRollingNotices(
   feed: ConflictPreviewFeed,
   now = Date.now(),
   cycleStartedAt = 0,
+  options: Parameters<typeof buildRollingActivitySignals>[3] = {},
 ): ActivityNotice[] {
   const eventsById = new Map(feed.events.map((event) => [event.id, event]));
-  return buildRollingActivitySignals(feed, now, cycleStartedAt)
+  return buildRollingActivitySignals(feed, now, cycleStartedAt, options)
     .map((signal): ActivityNotice | null => {
       const event = eventsById.get(signal.eventId);
       if (!event) return null;
@@ -305,22 +308,22 @@ function isNewsIndex(value: unknown): value is { updatedAt: string; articles: Ne
     );
 }
 
-function newsNotice(alert: NewsMarketAlert): ActivityNotice {
+function newsNotice(alert: NewsActivityAlert): ActivityNotice {
   return {
-    id: `news-${alert.article.id}-${alert.event.id}`,
+    id: `news-${alert.article.id}`,
     kind: "news",
     source: "news",
-    eventId: alert.event.id,
-    marketConditionId: alert.event.marketConditionId,
+    eventId: alert.event?.id ?? null,
+    marketConditionId: alert.event?.marketConditionId ?? null,
     title: alert.article.title,
-    locationLabel: alert.event.locationLabel,
-    value: alert.event.marketVolume ?? alert.event.volume,
+    locationLabel: alert.event?.locationLabel ?? "",
+    value: alert.event ? alert.event.marketVolume ?? alert.event.volume : 0,
     windowLabel: null,
     outcome: null,
     outcomeOdds: null,
     occurredAt: alert.publishedAt,
     expiresAt: alert.expiresAt,
-    marketUrl: toPolymarketReferralUrl(alert.event.marketUrl),
+    marketUrl: alert.event ? toPolymarketReferralUrl(alert.event.marketUrl) : null,
     article: alert.article,
     articleUrl: `/news/${(alert.article.countries[0] || "world").toLowerCase()}/${alert.article.slug}`,
   };
@@ -451,19 +454,14 @@ export function ActivityRail({
     () => new Map(feed.events.map((event) => [event.id, event])),
     [feed.events],
   );
-  // Updated day/week odds do not extend the fifteen-minute display cycle.
-  const rollingNotices = useMemo(
-    () => fixtureMode ? [] : buildRollingNotices(feed, clock),
-    [clock, feed, fixtureMode],
-  );
   useEffect(() => {
     if (fixtureMode || newsIndex.receivedAt === 0) return;
     let cancelled = false;
     void import("@/lib/news/alert-matching")
-      .then(({ buildNewsMarketAlerts }) => {
-        const next = buildNewsMarketAlerts(
+      .then(({ buildNewsActivityAlerts }) => {
+        const next = buildNewsActivityAlerts(
           newsIndex.articles,
-          feed.events,
+          feed.dataMode === "live" && Date.parse(feed.updatedAt) <= clock + 60_000 && clock - Date.parse(feed.updatedAt) < 10 * 60_000 ? feed.events : [],
           Math.max(clock, newsIndex.receivedAt),
         ).map(newsNotice);
         if (!cancelled) setNewsNotices(next);
@@ -472,7 +470,7 @@ export function ActivityRail({
         // Market activity stays available when the additive News matcher fails.
       });
     return () => { cancelled = true; };
-  }, [clock, feed.events, fixtureMode, newsIndex]);
+  }, [clock, feed.events, feed.dataMode, feed.updatedAt, fixtureMode, newsIndex]);
   const marketIdQueries = useMemo(
     () =>
       batchPolymarketActivityMarketIds(
@@ -502,7 +500,7 @@ export function ActivityRail({
         });
         const payload: unknown = response.ok ? await response.json() : null;
         if (!cancelled && isNewsIndex(payload)) {
-          setNewsIndex(current => current.updatedAt === payload.updatedAt
+          setNewsIndex(current => Date.parse(current.updatedAt) >= Date.parse(payload.updatedAt)
             ? current
             : {
                 articles: payload.articles.slice(0, 24),
@@ -668,29 +666,24 @@ export function ActivityRail({
     };
   }, []);
 
-  const visibleNotices = selectVisibleNotices(
-    [...newsNotices, ...notices, ...rollingNotices].filter(
-      (notice) => {
-        if (
-          notice.expiresAt <= clock ||
-          dismissedNoticeIds.has(notice.id)
-        ) {
-          return false;
-        }
-        if (notice.eventId === null) return true;
-        const event = eventsById.get(notice.eventId);
-        if (notice.kind === "news") {
-          return Boolean(event && isPolymarketActivityEventCurrent(event, clock));
-        }
-        return Boolean(
-          event &&
-            isPolymarketActivityEventCurrent(event, clock) &&
-            notice.marketConditionId !== null &&
-            notice.marketConditionId === event.marketConditionId,
-        );
-      },
-    ),
-  );
+  const isVisible = (notice: ActivityNotice) => {
+    if (notice.expiresAt <= clock || dismissedNoticeIds.has(notice.id)) return false;
+    if (notice.eventId === null) return true;
+    const event = eventsById.get(notice.eventId);
+    return Boolean(
+      event && isPolymarketActivityEventCurrent(event, clock) &&
+      notice.marketConditionId !== null && notice.marketConditionId === event.marketConditionId,
+    );
+  };
+  const available = [...newsNotices, ...notices].filter(isVisible);
+  const leading = selectVisibleNotices(available, true);
+  // Rotate over the slots actually available after news/trades. Preselecting
+  // three movers and then truncating them permanently hid each third market.
+  const rollingNotices = fixtureMode ? [] : buildRollingNotices(feed, clock, 0, {
+    limit: MAX_VISIBLE_NOTICES - leading.length,
+    excludedEventIds: new Set(leading.flatMap(notice => notice.eventId ? [notice.eventId] : [])),
+  });
+  const visibleNotices = selectVisibleNotices([...available, ...rollingNotices.filter(isVisible)]);
 
   if (visibleNotices.length === 0) return null;
 
@@ -716,6 +709,11 @@ export function ActivityRail({
         const referralMarketUrl = toPolymarketReferralUrl(notice.marketUrl);
         const trackUrl = event ? buildDropsBotTrackUrl(event.marketUrl) : null;
         const metricLabel = noticeMetricLabel(notice, event);
+        const countries = news ? notice.article?.countries ?? [] : event?.countryCodes ?? [];
+        const previousOdds = notice.source === "rolling" && event
+          ? event.yesOdds + (notice.kind === "odds-drop" ? notice.value : -notice.value) : null;
+        const probabilityRange = previousOdds !== null && previousOdds >= 0 && previousOdds <= 100 && event
+          ? `${new Intl.NumberFormat(locale, { maximumFractionDigits: 1 }).format(previousOdds)}% → ${event.yesOdds}%` : undefined;
         const metricAriaLabel =
           notice.kind === "large-buy"
             ? "Trade execution odds"
@@ -744,14 +742,15 @@ export function ActivityRail({
                     <ArrowDownRight size={15} />
                   )}
                 </span>
-                <strong>{news ? t("news") : noticeLabel(notice, locale).replace("Large BUY",marketLabel(locale,"Large BUY"))}</strong>
+                <strong title={probabilityRange}>{news ? t("news") : noticeLabel(notice).replace("Large BUY",marketLabel(locale,"Large BUY"))}</strong>
                 {notice.windowLabel ? <span>{notice.windowLabel}</span> : null}
-                <time dateTime={new Date(notice.occurredAt).toISOString()} data-time-kind={notice.source === "rolling" ? "updated" : "occurred"}>
-                  {notice.source === "rolling" ? `${t("updated")} ${new Intl.DateTimeFormat(locale,{hour:"2-digit",minute:"2-digit"}).format(notice.occurredAt)}` : locale === "en" ? relativeTime(notice.occurredAt, clock) : new Intl.RelativeTimeFormat(locale,{numeric:"auto",style:"narrow"}).format(-Math.max(0,Math.floor((clock-notice.occurredAt)/60_000)),"minute")}
-                </time>
+                {notice.source !== "rolling" ? <time dateTime={new Date(notice.occurredAt).toISOString()} data-time-kind="occurred">
+                  {locale === "en" ? relativeTime(notice.occurredAt, clock) : new Intl.RelativeTimeFormat(locale,{numeric:"auto",style:"narrow"}).format(-Math.max(0,Math.floor((clock-notice.occurredAt)/60_000)),"minute")}
+                </time> : null}
                 <button
                   type="button"
                   className={styles.activityDismiss}
+                  style={notice.source === "rolling" ? { marginInlineStart: "auto" } : undefined}
                   aria-label={t("dismiss")}
                   onClick={() => {
                     try {
@@ -773,20 +772,20 @@ export function ActivityRail({
                 </button>
               </div>
               {news && notice.article && notice.articleUrl ? (
-                <Link className={styles.activityNewsLink} href={`${notice.articleUrl}?lang=${locale}`} prefetch={false}>
+                <Link className={styles.activityNewsLink} href={availableNewsArticlePath(notice.article, locale)} prefetch={false}>
                   {articleText(notice.article, locale).title}
                 </Link>
               ) : (
                 <p>{locale === "en" ? formatMarketTitle(notice.title) : translate(notice.title)}</p>
               )}
               <div className={styles.activityFooter} data-activity-footer>
-                {event && event.countryCodes.length > 0 ? (
+                {countries.length > 0 ? (
                   <div
                     className={styles.activityFlags}
                     data-activity-flags
-                    aria-label={`Event participants: ${event.countryCodes.join(", ")}`}
+                    aria-label={`Event participants: ${countries.join(", ")}`}
                   >
-                    {[...new Set(event.countryCodes)]
+                    {[...new Set(countries)]
                       .slice(0, 3)
                       .map((code) => (
                         <CountryFlag

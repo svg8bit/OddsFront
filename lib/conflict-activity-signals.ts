@@ -2,6 +2,12 @@ import type { ConflictPreviewFeed } from "@/features/global-conflict-map/preview
 import { isPolymarketActivityEventCurrent, POLYMARKET_ACTIVITY_EVENT_MIN_VOLUME } from "@/lib/polymarket-activity-query";
 
 export const ACTIVITY_DISPLAY_TTL_MS = 15 * 60_000;
+export const DAILY_MOVEMENT_THRESHOLD = .02;
+export const WEEKLY_MOVEMENT_THRESHOLD = .05;
+interface RollingSelectionOptions {
+  limit?: number;
+  excludedEventIds?: ReadonlySet<string>;
+}
 export interface RollingActivitySignal {
   id: string;
   kind: "odds-rise" | "odds-drop";
@@ -14,14 +20,14 @@ export interface RollingActivitySignal {
 
 // Measurement period and screen lifetime are independent. These are current
 // day/week changes, not claims that a sudden move happened in fifteen minutes.
-export function buildRollingActivitySignals(feed: ConflictPreviewFeed, now = Date.now(), cycleStartedAt = 0): RollingActivitySignal[] {
+export function buildRollingActivitySignals(feed: ConflictPreviewFeed, now = Date.now(), cycleStartedAt = 0, options: RollingSelectionOptions = {}): RollingActivitySignal[] {
   const feedTime = Date.parse(feed.updatedAt);
   if (feed.dataMode !== "live" || !Number.isFinite(feedTime) || feedTime > now + 60_000 || now - feedTime > 10 * 60_000) return [];
   const cycle = cycleStartedAt + Math.max(0, Math.floor((now - cycleStartedAt) / ACTIVITY_DISPLAY_TTL_MS)) * ACTIVITY_DISPLAY_TTL_MS;
   const candidates = feed.events.flatMap((event): RollingActivitySignal[] => {
-    if (!isPolymarketActivityEventCurrent(event, now) || (event.marketVolume ?? event.volume) < POLYMARKET_ACTIVITY_EVENT_MIN_VOLUME) return [];
+    if (options.excludedEventIds?.has(event.id) || !isPolymarketActivityEventCurrent(event, now) || !Number.isFinite(event.marketVolume ?? event.volume) || (event.marketVolume ?? event.volume) < POLYMARKET_ACTIVITY_EVENT_MIN_VOLUME) return [];
     return ([['24H', event.priceChange24h], ['7D', event.priceChange7d]] as const).flatMap(([windowLabel, change]): RollingActivitySignal[] => {
-      if (change === null || !Number.isFinite(change) || Math.abs(change) < (windowLabel === "24H" ? .05 : .2) || Math.abs(change) > 1) return [];
+      if (change === null || !Number.isFinite(change) || Math.abs(change) < (windowLabel === "24H" ? DAILY_MOVEMENT_THRESHOLD : WEEKLY_MOVEMENT_THRESHOLD) || Math.abs(change) > 1) return [];
       const kind = change > 0 ? "odds-rise" : "odds-drop";
       return [{ id: `rolling-${windowLabel}-${event.id}-${kind}-${cycle}`, kind, eventId: event.id,
         value: Math.round(Math.abs(change) * 1_000) / 10, windowLabel, observedAt: feedTime,
@@ -34,14 +40,15 @@ export function buildRollingActivitySignals(feed: ConflictPreviewFeed, now = Dat
   const markets = [...new Set(candidates.map(item => item.eventId))].sort();
   if (!markets.length) return [];
   const cycleIndex = Math.floor((cycle - cycleStartedAt) / ACTIVITY_DISPLAY_TTL_MS);
-  const pageSize = Math.min(3, markets.length);
+  const pageSize = Math.min(3, markets.length, Math.max(0, Math.floor(options.limit ?? 3)));
+  if (!pageSize) return [];
   const offset = cycleIndex * pageSize % markets.length;
   const pageMarkets = new Set(Array.from({ length: pageSize }, (_, index) => markets[(offset + index) % markets.length]));
   const currentCandidates = candidates.filter(item => pageMarkets.has(item.eventId));
   const selected: RollingActivitySignal[] = [];
   const used = new Set<string>();
   const add = (candidate: RollingActivitySignal | undefined) => {
-    if (candidate && !used.has(candidate.eventId)) { selected.push(candidate); used.add(candidate.eventId); }
+    if (candidate && selected.length < pageSize && !used.has(candidate.eventId)) { selected.push(candidate); used.add(candidate.eventId); }
   };
   // Swap the preferred period after a pass through the pool. Small pools
   // swap every quarter-hour; larger pools get both periods on return visits.
@@ -54,7 +61,7 @@ export function buildRollingActivitySignals(feed: ConflictPreviewFeed, now = Dat
     if (pool.length) add(pool[0]);
   }
   for (const candidate of currentCandidates) {
-    if (selected.length === 3) break;
+    if (selected.length === pageSize) break;
     add(candidate);
   }
   return selected;
