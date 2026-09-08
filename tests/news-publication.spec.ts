@@ -134,7 +134,7 @@ test("language negotiation covers browser regions, aliases, fallback and RTL",()
   expect(regionFromLanguages(["zh-Hant-TW"])).toBe("TW");expect(localeDirection("fa")).toBe("rtl");expect(localeDirection("he")).toBe("rtl");
   expect(switchNewsLocalePath("/ru/news","de")).toBe("/de/news");
   expect(switchNewsLocalePath("/news/archive","ru")).toBe("/news/archive");
-  expect(availableNewsArticlePath({...seed.articles[0],translations:{}} as NewsArticle,"ru")).toBe(`/news/${seed.articles[0].countries[0].toLowerCase()}/${seed.articles[0].slug}`);
+  expect(availableNewsArticlePath({...seed.articles[0],translations:{}} as NewsArticle,"ru")).toBe(`/en/news/${seed.articles[0].slug}`);
 });
 
 test("news index excludes article bodies and the full market dictionary",()=>{
@@ -158,9 +158,9 @@ test("public exports remain readable under the production service's private umas
   } finally { await rm(directory, { recursive: true, force: true }); }
 });
 
-test("editions retain partial research privately, resume to exactly nine and enforce the two-hour interval", async () => {
+test("editions retain partial research privately, resume to exactly twenty and enforce the two-hour interval", async () => {
   const directory = await mkdtemp(join(tmpdir(), "oddsfront-complete-edition-"));
-  const titles = ["Test: Alpine delegations reopen mountain crossing", "Test: Coastal parliament approves maritime reform", "Test: Desert authorities announce water-sharing framework", "Test: Island leaders establish regional assembly", "Test: Northern ambassadors resume diplomatic dialogue", "Test: Eastern ministers appoint border commission", "Test: Southern council ratifies migration accord", "Test: Western agencies restore emergency coordination", "Test: Pacific representatives sign environmental treaty"];
+  const titles = ["Test: Alpine delegations reopen mountain crossing", "Test: Coastal parliament approves maritime reform", "Test: Desert authorities announce water-sharing framework", "Test: Island leaders establish regional assembly", "Test: Northern ambassadors resume diplomatic dialogue", "Test: Eastern ministers appoint border commission", "Test: Southern council ratifies migration accord", "Test: Western agencies restore emergency coordination", "Test: Pacific representatives sign environmental treaty", "Test: Andean coalition reviews emergency funding", "Test: Baltic inspectors suspend unsafe ferry operator", "Test: Sahel mediation team releases joint declaration", "Test: Caribbean legislature adopts hurricane recovery plan", "Test: Nordic court orders financial disclosure", "Test: Caucasus envoys schedule regional summit", "Test: Amazon conservation agency expands protected forest", "Test: Mediterranean port authority opens cargo terminal", "Test: Central Asian cabinet restructures electricity regulator", "Test: Southeast Asian health ministry funds rural clinics", "Test: Antarctic researchers establish ocean monitoring network"];
   const articles = titles.map((title, i) => { const item = draft(); item.title = title; item.sources[0].url += `-${i}`; item.sources[1].url += `-${i}`; return item; });
   try {
     const input = join(directory, "draft.json");
@@ -184,8 +184,8 @@ test("editions retain partial research privately, resume to exactly nine and enf
     await writeFile(input, JSON.stringify({ articles: articles.slice(3) }));
     const complete = run(true); expect(complete.status, complete.stderr).toBe(0);
     const before = await readFile(join(directory, "public/catalog.json"), "utf8");
-    const index = JSON.parse(before); expect(index.articles).toHaveLength(9); expect(new Set(index.articles.map((a: NewsArticle) => a.publishedAt)).size).toBe(1);
-    const state = JSON.parse(await readFile(join(directory, "edition-state.json"), "utf8")); expect(state.articleIds).toHaveLength(9);
+    const index = JSON.parse(before); expect(index.articles).toHaveLength(20); expect(new Set(index.articles.map((a: NewsArticle) => a.publishedAt)).size).toBe(1);
+    const state = JSON.parse(await readFile(join(directory, "edition-state.json"), "utf8")); expect(state.articleIds).toHaveLength(20);
     expect(run().stdout).toContain("interval-not-due"); expect(await readFile(join(directory, "public/catalog.json"), "utf8")).toBe(before);
     // Simulate a crash after exporting this exact edition but before committing
     // its ledger. The pending timestamp identifies a safe idempotent retry.
@@ -197,7 +197,7 @@ test("editions retain partial research privately, resume to exactly nine and enf
     const recoveredState = JSON.parse(await readFile(join(directory, "edition-state.json"), "utf8"));
     expect(recoveredState.lastPublishedAt).toBe(state.lastPublishedAt);
     expect(recoveredState.articleIds).toEqual(state.articleIds);
-    expect(JSON.parse(await readFile(join(directory, "public/catalog.json"), "utf8")).articles).toHaveLength(9);
+    expect(JSON.parse(await readFile(join(directory, "public/catalog.json"), "utf8")).articles).toHaveLength(20);
   } finally { await rm(directory, { recursive: true, force: true }); }
 });
 

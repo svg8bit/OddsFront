@@ -42,12 +42,12 @@ checks every five minutes and has its own one-hour interval and pending-outcome
 guard. Its preparation step retries missing Russian translations after a failed
 follow-up, skipping a busy edition lock; it never reruns news research.
 A delayed RU translation cannot resend EN or X. Every article is deduplicated
-independently in each channel. The website publishes nine articles every two
+independently in each channel. The website publishes twenty articles every two
 hours; EN Telegram, RU Telegram and X each publish one selected story per hour.
 The next hourly slot can select another article from the same site edition.
 
 Only stories published in the last six hours and market observations younger
-than ten minutes are candidates. Up to nine recent unsent articles form the selection pool, with a different country and topic from the previous post when possible. Two social slots can use different stories from the same site edition. Actual strikes, attacks,
+than ten minutes are candidates. Up to twenty recent unsent articles form the selection pool, with a different country and topic from the previous post when possible. Two social slots can use different stories from the same site edition. Actual strikes, attacks,
 invasions and ceasefires take priority; otherwise the editor chooses the best
 general story. A market is attached only for a strong specific relationship,
 with its real tracking link. A common country alone is insufficient. Without a
@@ -58,7 +58,7 @@ requires reconciliation rather than risking a duplicate.
 
 Install the service and timer from `ops/`. Install
 `ops/oddsfront-news-editions.conf` as an `oddsfront-news.service` drop-in. The
-news job tops up partial research in up to six validated rounds toward nine
+news job tops up partial research in up to six validated rounds toward twenty
 new stories; its completion can trigger the Telegram job. Telegram does not
 wait for the news service's offline translation follow-up: the atomic public
 edition and send ledger provide readiness and duplicate checks. The Telegram timer

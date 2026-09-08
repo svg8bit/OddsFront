@@ -5,8 +5,8 @@ cover-rejected stories, including their media URLs. Institutional background is
 omitted from that index because it can legitimately support a different event.
 The latest 24 validation rejections are retained privately between attempts.
 After two consecutive rounds add no usable article, the same private edition
-waits 30 minutes before further model calls. Timer and monitor retries respect
-this cooldown; the nine-story and cover requirements remain unchanged.
+waits 30 minutes before further model calls. Publisher timer retries respect
+this cooldown; the twenty-story and cover requirements remain unchanged.
 
 Novelty checks compare canonical media URLs (ignoring tracking parameters),
 word-normalized article and source headlines, and strongly overlapping leads.
@@ -14,7 +14,7 @@ Shared institutional background alone never identifies a duplicate. The full
 private history has no age cutoff. Pending editions are rechecked on resume,
 after research and immediately before export, including comparisons within the
 new batch. Rejected candidates remain private and cannot reduce a published
-batch below nine. These deterministic checks make no additional model calls.
+batch below twenty. These deterministic checks make no additional model calls.
 
 For a verified repeat, use `node scripts/news/withdraw-duplicate.ts ARTICLE_ID
 ORIGINAL_ID` from the canonical checkout. The command takes the edition lock,
@@ -26,6 +26,18 @@ that story; historical edition and provider receipts are never rewritten.
 Article and social-image lookups first require membership in the current public
 catalog so a cached detail response cannot resurrect a withdrawn permalink.
 Do not delete catalog history or reset publication timers to remove a duplicate.
+
+Article URLs use exactly one language prefix, including English:
+`/en/news/<slug>` and `/ru/news/<slug>`. Country codes remain article context,
+not part of article URLs. Legacy country-based article routes redirect with
+308; missing or withdrawn articles still return 404. Canonical metadata,
+structured data, alternates, RSS, sitemaps, IndexNow and social publisher links
+use the shared article URL helper.
+
+The owner disabled automatic maintenance on 2026-09-08. Keep
+`oddsfront-publishing-monitor.timer` disabled and the private dispatch
+configuration `enabled: false`. Do not re-enable agent wakeups without a new
+explicit request. The news and hourly social publication timers remain active.
 
 ## Runtime boundary
 
@@ -63,7 +75,7 @@ full-text licensing, so ColdMath's licensed syndication mode is not enabled.
 The overlap gate checks evidence notes, not every word of a paywalled source.
 Research and publication gates reduce errors; they do not replace human review.
 
-The two-hour cycle publishes exactly nine verified new stories. Research runs
+The two-hour cycle publishes exactly twenty verified new stories. Research runs
 in small rounds of up to three so a slow writer cannot lose the entire edition.
 Partial results persist privately in `pending-edition` and are topped up;
 they never replace the public catalog. An incomplete cycle exits unsuccessfully
@@ -80,8 +92,11 @@ content. Each edition writes a private receipt. The first article was manually
 checked against The Kyiv Independent and the Ukrainian presidency before release.
 
 The newest website edition supplies blue News cards throughout its two-hour
-publication window. Its nine verified stories are distributed once each across
-eight fifteen-minute slots (two stories in the first slot). A card expires at
+publication window. Up to sixteen verified stories whose headlines concern military
+strikes, invasions or ceasefires are distributed once each across eight
+fifteen-minute slots (at most two per slot). General reporting, court cases,
+detentions, labour strikes, cyberattacks and background-only conflict tags
+do not qualify. Slots without eligible news remain available to market alerts. A card expires at
 the slot boundary; refreshes, language changes and reloads do not restart it.
 Withdrawn, future-dated or stale stories are excluded. The published article
 must retain an approved media source within 72 hours and an independent
@@ -101,7 +116,7 @@ Sky News RSS enclosures are matched to the exact article URL when discovering
 its photograph. Verified image URLs are saved with articles so subsequent RSS
 rotation does not remove their covers. Publisher title/logo-only share cards
 (including Meduza's `imgly` cards) use OddsFront artwork instead.
-Every nine-story edition must contain at least six verified photographic covers,
+Every twenty-story edition must contain at least seventeen verified photographic covers,
 with at most three OddsFront fallbacks. Excess stories without usable images
 are retained as private rejections and replaced during the next research round.
 

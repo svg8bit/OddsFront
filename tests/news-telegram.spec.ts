@@ -15,11 +15,11 @@ function fixture() {
 
 test("hourly social slots can select different stories from one two-hour site edition", () => {
   const { article, now } = fixture();
-  const edition = Array.from({ length: 9 }, (_, i) => ({ ...article, id: `qa-edition-${i}` }));
-  expect(freshEditionArticles(edition, [], now)).toHaveLength(9);
-  expect(freshEditionArticles(edition, [edition[3]!.id], now + 3_600_000)).toHaveLength(8);
+  const edition = Array.from({ length: 20 }, (_, i) => ({ ...article, id: `qa-edition-${i}` }));
+  expect(freshEditionArticles(edition, [], now)).toHaveLength(20);
+  expect(freshEditionArticles(edition, [edition[3]!.id], now + 3_600_000)).toHaveLength(19);
   const next = edition.map((item, i) => ({ ...item, id: `qa-next-edition-${i}`, publishedAt: new Date(now + 2 * 3_600_000).toISOString() }));
-  expect(freshEditionArticles([...next, ...edition], [edition[3]!.id], now + 2 * 3_600_000)).toHaveLength(9);
+  expect(freshEditionArticles([...next, ...edition], [edition[3]!.id], now + 2 * 3_600_000)).toHaveLength(20);
 });
 
 test("Telegram excludes expired news, stale markets and articles already sent", () => {
@@ -49,11 +49,11 @@ test("Telegram links, YES odds and tracking come from the selected condition wit
   expect(payload.text).toContain(`${event.marketUrl}?via=drops1`);
   expect(payload.text).toContain("Yes</a> 25%");
   expect(payload.link_preview_options.show_above_text).toBe(false);
-  expect(payload.link_preview_options.url).toContain("https://oddsfront.com/news/ua/");
+  expect(payload.link_preview_options.url).toContain("https://oddsfront.com/en/news/");
   expect(payload.reply_markup?.inline_keyboard[0]?.[0]?.url).toContain("TRACKpm_russia-x-ukraine-ceasefire-agreement-by");
 });
 
-test("social publication prioritizes attacks in the latest nine and supports news without a forced market", async () => {
+test("social publication prioritizes attacks in the latest edition and supports news without a forced market", async () => {
   const { freshEditionArticles, telegramSelectionPrompt } = await import("../lib/news/telegram");
   const { article, now } = fixture();
   const general = { ...article, id: "general-fixture", title: "Election results announced", topics: ["elections"] };
@@ -77,7 +77,7 @@ test("Russian channel uses Russian copy, localized preview and the same live con
   expect(payload.text).toContain("Да</a> 25%");
   expect(payload.text).not.toContain(event.title);
   expect(payload.text).toContain(`${event.marketUrl}?via=drops1`);
-  expect(payload.link_preview_options.url).toContain("https://oddsfront.com/ru/news/ua/");
+  expect(payload.link_preview_options.url).toContain("https://oddsfront.com/ru/news/");
   expect(payload.link_preview_options.show_above_text).toBe(false);
   expect(payload.reply_markup?.inline_keyboard[0]?.[0]?.text).toBe("Отслеживать в DropsBot");
   expect(payload.reply_markup?.inline_keyboard[0]?.[0]?.url).toBe(telegramPayload({ article, event }).reply_markup?.inline_keyboard[0]?.[0]?.url);

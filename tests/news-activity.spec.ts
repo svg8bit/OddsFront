@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { getConflictPreviewFixtureFeed } from "../features/global-conflict-map/preview/fixture";
-import { buildNewsActivityAlerts, NEWS_ACTIVITY_POOL_MS, NEWS_ALERT_TTL_MS } from "../lib/news/alert-matching";
+import { buildNewsActivityAlerts, isMapNewsTopic, NEWS_ACTIVITY_POOL_MS, NEWS_ALERT_TTL_MS } from "../lib/news/alert-matching";
 import type { NewsArticle } from "../lib/news/types";
 
 const published = Date.parse("2026-09-08T18:00:00Z");
@@ -8,9 +8,9 @@ const iso = (time: number) => new Date(time).toISOString();
 function edition(time = published): NewsArticle[] {
   return Array.from({ length: 9 }, (_, i) => ({
     id: `development-news-${i}`, slug: `development-news-${i}`,
-    title: `Development fixture: diplomatic report ${i}`,
+    title: `Development fixture: Ukraine ceasefire talks report ${i}`,
     description: "Development-only verified reporting fixture.", body: [],
-    countries: ["UA", "RU"], topics: ["diplomacy"], author: "Test fixture",
+    countries: ["UA", "RU"], topics: ["ceasefires"], author: "Test fixture",
     publishedAt: iso(time), updatedAt: iso(time), alert: null,
     translations: { ru: { title: `Тестовая новость ${i}`, description: "Тест", body: [] } },
     sources: [
@@ -20,7 +20,7 @@ function edition(time = published): NewsArticle[] {
   }));
 }
 
-test("all nine ordinary news stories rotate once over two hours without requiring market matches", () => {
+test("nine conflict news stories rotate once over two hours without requiring market matches", () => {
   const articles = edition();
   const seen: string[] = [];
   for (let slot = 0; slot < 8; slot++) {
@@ -107,4 +107,27 @@ test("news and market cards coexist, rotate, localize and retain dismissal expir
   expect(Date.parse(await news.first().getAttribute("data-expires-at") ?? "")).toBe(published + 2 * NEWS_ALERT_TTL_MS);
   await expect(page.locator('[data-activity-source="rolling"] time')).toHaveCount(0);
   await expect(cards.first().locator("..")).not.toContainText(/Updated|Обновлено|п\.п\.|\bpp\b/);
+});
+
+
+test("map news rejects unrelated reporting even when background tags mention war", () => {
+  for (const title of [
+    "Russian citizens return home from detained Professor Molchanov, Meduza reports",
+    "Russian court gives artist's wife another 14 days in detention",
+    "Egyptian presenter Sarah Khalifa plans appeal against death sentence",
+    "Workers launch a labour strike over pay",
+    "Bank reports a cyberattack on payment systems",
+    "Company expands drone production plant",
+    "Russia and China strike a trade agreement",
+  ]) {
+    const article = { ...edition()[0], title, topics: ["invasion", "ceasefire", "strikes"] };
+    expect(isMapNewsTopic(article)).toBe(false);
+    expect(buildNewsActivityAlerts([article], [], published)).toEqual([]);
+  }
+  for (const title of [
+    "Israel strikes Lebanon after overnight attacks", "Russian drones attacked an airfield",
+    "Ukraine reports shelling near the border", "China begins an invasion of Taiwan",
+    "Troops launch a ground offensive", "Ukraine and Russia discuss a ceasefire",
+    "Negotiators agree terms of a peace deal",
+  ]) expect(isMapNewsTopic({ title, alert: null })).toBe(true);
 });

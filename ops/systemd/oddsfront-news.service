@@ -10,7 +10,6 @@ WorkingDirectory=/root/OddsFront
 ExecStart=/usr/local/bin/node scripts/news/run-edition.mjs --with-followups
 Environment=NODE_ENV=production
 Environment=PATH=/usr/local/bin:/usr/bin:/bin
-Environment=ODDSFRONT_NEWS_BATCH_SIZE=9
 Nice=10
 CPUQuota=100%
 MemoryMax=3G

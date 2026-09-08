@@ -3,13 +3,14 @@ import "maplibre-gl/dist/maplibre-gl.css";
 import "../globals.css";
 import { RootDocument, ROOT_METADATA, ROOT_VIEWPORT } from "@/components/root-document";
 import { normalizeLocale } from "@/lib/news/locale";
-import { localeSegment, NON_ENGLISH_LOCALES } from "@/lib/news/routing";
+import { localeSegment } from "@/lib/news/routing";
+import { LOCALES } from "@/lib/news/types";
 
 export const metadata = ROOT_METADATA;
 export const viewport = ROOT_VIEWPORT;
 
 export function generateStaticParams() {
-  return NON_ENGLISH_LOCALES.map((locale) => ({ locale: localeSegment(locale) }));
+  return LOCALES.map((locale) => ({ locale: localeSegment(locale) }));
 }
 
 export default async function LocalizedLayout({
@@ -21,6 +22,6 @@ export default async function LocalizedLayout({
 }) {
   const { locale: segment } = await params;
   const locale = normalizeLocale(segment);
-  if (!locale || locale === "en" || localeSegment(locale) !== segment.toLowerCase()) notFound();
-  return <RootDocument locale={locale}>{children}</RootDocument>;
+  if (!locale || localeSegment(locale) !== segment.toLowerCase()) notFound();
+  return <RootDocument locale={locale} fixedLocale>{children}</RootDocument>;
 }

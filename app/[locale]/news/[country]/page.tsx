@@ -1,22 +1,31 @@
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
+import { notFound, permanentRedirect } from "next/navigation";
 import { NewsOverview } from "@/components/news/news";
-import { getNewsCatalog } from "@/lib/news/catalog";
+import { ArticlePageContent } from "@/components/news/article-page";
+import { getNewsArticle, getNewsCatalog } from "@/lib/news/catalog";
 import { normalizeLocale } from "@/lib/news/locale";
-import { newsMetadata } from "@/lib/news/metadata";
+import { articleMetadata, newsMetadata } from "@/lib/news/metadata";
 import { newsIndex } from "@/lib/news/publication";
+import { isNewsCountrySegment, newsCountryPath } from "@/lib/news/routing";
 
 type Props = { params: Promise<{ locale: string; country: string }> };
 export const revalidate = 60;
+// The existing dynamic segment retains legacy country listings; article slugs
+// now occupy the same depth, with the language only in the leading segment.
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  const { locale: segment, country } = await params;
+  const { locale: segment, country: slug } = await params;
   const locale = normalizeLocale(segment);
-  return locale && locale !== "en" ? newsMetadata(locale, country) : {};
+  if (!locale) return {};
+  if (isNewsCountrySegment(slug)) return newsMetadata(locale, slug);
+  const article = await getNewsArticle(slug);
+  return article && (locale === "en" || article.translations[locale]) ? articleMetadata(article, locale) : {};
 }
-export default async function LocalizedCountryNews({ params }: Props) {
-  const { locale: segment, country } = await params;
+export default async function LocalizedNewsRoute({ params }: Props) {
+  const { locale: segment, country: slug } = await params;
   const locale = normalizeLocale(segment);
-  if (!locale || locale === "en" || (country !== "world" && !/^[a-z]{2}$/.test(country))) notFound();
+  if (!locale) notFound();
+  if (!isNewsCountrySegment(slug)) return <ArticlePageContent slug={slug} locale={locale}/>;
+  if (locale === "en") permanentRedirect(newsCountryPath(slug, "en"));
   const catalog = await getNewsCatalog();
-  return <NewsOverview initialArticles={newsIndex(catalog).articles} initialUpdatedAt={catalog.updatedAt} activeCountry={country === "world" ? "ALL" : country.toUpperCase()}/>;
+  return <NewsOverview initialArticles={newsIndex(catalog).articles} initialUpdatedAt={catalog.updatedAt} activeCountry={slug === "world" ? "ALL" : slug.toUpperCase()}/>;
 }

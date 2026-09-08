@@ -1,3 +1,4 @@
+import { newsArticlePath } from "../../lib/news/routing.ts";
 import { readFile } from "node:fs/promises";
 import { NEWS_CATEGORIES, articleCategory } from "../../lib/news/categories.ts";
 
@@ -15,12 +16,11 @@ try {
   const catalog = JSON.parse(await readFile(`${directory}/catalog.json`, "utf8"));
   const urls = new Set([origin, `${origin}/global-conflict-map`, `${origin}/news`, `${origin}/sitemap.xml`, `${origin}/news-sitemap.xml`]);
   const countries = new Set(["world"]);
-  for (const article of catalog.articles ?? []) {
+  for (const article of (catalog.articles ?? []).filter(article => !article.withdrawal)) {
     for (const country of article.countries ?? []) countries.add(country.toLowerCase());
     for (const locale of locales) {
       if (locale !== "en" && !article.translations?.[locale]) continue;
-      const country = (article.countries?.[0] || "world").toLowerCase();
-      urls.add(`${origin}${prefix(locale)}/news/${country}/${article.slug}`);
+      urls.add(`${origin}${newsArticlePath(article, locale)}`);
     }
   }
   for (const locale of locales) {

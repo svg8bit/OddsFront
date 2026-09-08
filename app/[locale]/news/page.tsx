@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
+import { notFound, permanentRedirect } from "next/navigation";
 import { NewsOverview } from "@/components/news/news";
 import { getNewsCatalog } from "@/lib/news/catalog";
 import { normalizeLocale } from "@/lib/news/locale";
@@ -14,7 +14,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 }
 export default async function LocalizedNewsPage({ params }: Props) {
   const locale = normalizeLocale((await params).locale);
-  if (!locale || locale === "en") notFound();
+  if (!locale) notFound();
+  if (locale === "en") permanentRedirect("/news");
   const catalog = await getNewsCatalog();
   return <NewsOverview initialArticles={newsIndex(catalog).articles} initialUpdatedAt={catalog.updatedAt}/>;
 }

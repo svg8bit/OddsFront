@@ -7,7 +7,7 @@ const directory = process.env.ODDSFRONT_NEWS_DIRECTORY || "/root/OddsFront/.loca
 const catalog = JSON.parse(await readFile(path.join(directory, "catalog.json"), "utf8")) as NewsCatalog;
 const latest = catalog.articles.toSorted((a, b) => Date.parse(b.publishedAt) - Date.parse(a.publishedAt))[0];
 const edition = latest ? catalog.articles.filter(article => article.publishedAt === latest.publishedAt) : [];
-if (edition.length >= 9 && Date.now() - Date.parse(latest!.publishedAt) < 3 * 60 * 60_000 && edition.some(article => !article.translations?.ru?.editorReviewed)) {
+if (edition.length > 0 && Date.now() - Date.parse(latest!.publishedAt) < 3 * 60 * 60_000 && edition.some(article => !article.translations?.ru?.editorReviewed)) {
   // Retry a failed Russian follow-up without rerunning research, resending EN,
   // or waiting behind the edition writer's lock. The next timer retries a busy
   // translation while the publisher below continues to enforce readiness.

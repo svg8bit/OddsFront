@@ -1,3 +1,4 @@
+import { NEWS_EDITION_SIZE } from "./edition-policy.ts";
 import type { ConflictPreviewEvent } from "@/features/global-conflict-map/preview/types";
 import { buildDropsBotTrackUrl, isOfficialPolymarketEventUrl } from "@/lib/polymarket-links";
 import { isPolymarketActivityEventCurrent } from "@/lib/polymarket-activity-query";
@@ -161,6 +162,19 @@ export function buildNewsMarketAlerts(
   );
 }
 
+// Only the headline's actual conflict topic qualifies. Background tags and a
+// shared country must not turn court cases, evacuations or general news into alerts.
+export function isMapNewsTopic(article: Pick<NewsArticle, "title" | "alert">): boolean {
+  const title = article.title;
+  if (/\b(?:cease-?fire|truce|peace (?:deal|agreement)|invasions?|invad(?:e|es|ed|ing)|incursions?|ground offensive)\b/i.test(title)) return true;
+  if (/\b(?:hunger|labou?r|worker|teacher|rail|transport|union)\w*\s+strikes?\b|\bstrikes?\s+(?:(?:a|an)\s+)?(?:(?:trade|economic|commercial)\s+)?(?:deal|agreement)\b|\b(?:cyberattack|cyber.attack|verbal attack|court|detention|prison sentence)\b/i.test(title)) return false;
+  if (/\b(?:air\s*strikes?|air\s*attacks?|missile attacks?|bombardment|shelling)\b/i.test(title)) return true;
+  if (!STRIKE_PATTERN.test(title)) return false;
+  return article.alert?.kind === "strike" ||
+    /\b(?:missiles?|drones?|military|naval|army|troops|forces|warships?|aircraft|refinery|airfield)\b/i.test(title) ||
+    Object.keys(COUNTRY_ALIASES).filter(country => titleMentionsCountry(title, country)).length >= 2;
+}
+
 // News cards describe verified published reporting, not market-resolution or
 // breaking-strike claims. A market is optional and still needs the strict
 // direction/volume/current-event match above; country overlap alone is unused.
@@ -175,10 +189,10 @@ export function buildNewsActivityAlerts(articles: readonly NewsArticle[], events
   }).toSorted((a, b) => Date.parse(b.publishedAt) - Date.parse(a.publishedAt) || a.id.localeCompare(b.id));
   if (!recent.length) return [];
   const publishedAt = Date.parse(recent[0].publishedAt);
-  const edition = [...new Map(recent.filter(article => Date.parse(article.publishedAt) === publishedAt).map(article => [article.id, article])).values()].slice(0, 9);
+  const edition = [...new Map(recent.filter(article => Date.parse(article.publishedAt) === publishedAt).map(article => [article.id, article])).values()].slice(0, NEWS_EDITION_SIZE).filter(isMapNewsTopic).slice(0, 16);
   const slotCount = NEWS_ACTIVITY_POOL_MS / NEWS_ALERT_TTL_MS;
   const slot = Math.floor((now - publishedAt) / NEWS_ALERT_TTL_MS);
-  // Distribute all nine stories across eight quarters. Sparse editions leave
+  // Distribute up to sixteen conflict stories across eight quarters. Sparse editions leave
   // quiet slots instead of presenting the same story again as a new alert.
   const current = edition.slice(Math.ceil(slot * edition.length / slotCount), Math.ceil((slot + 1) * edition.length / slotCount));
   return current.map(article => ({
