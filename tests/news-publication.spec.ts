@@ -15,6 +15,7 @@ import { getConflictPreviewFixtureFeed } from "../features/global-conflict-map/p
 import { availableNewsArticlePath, switchNewsLocalePath } from "../lib/news/routing";
 import { researchProblems, researchExclusions, researchPrompt } from "../lib/news/research";
 import { NEWS_SOURCES } from "../lib/news/sources";
+import { NEWS_DISCOVERY_FEEDS } from "../lib/news/feed-discovery";
 
 function draft():NewsDraft {
   return {publishable:true,rejectionReason:"",alert:{eligible:false,kind:"none",actorCountries:[],targetCountries:[]},title:"Test fixture: regional diplomatic review",description:"Development-only publication validation fixture.",countries:["UA"],topics:["diplomacy"],
@@ -46,6 +47,23 @@ test("distinguishes incomplete discovery from checked news that cannot be publis
   expect(researchProblems({...report,sources:report.sources.slice(1)})).toContain("Research did not cover Reuters");
   expect(researchProblems({...report,sources:report.sources.map(source=>({...source,status:"unavailable",candidatesReviewed:0}))})).toContain("Research inspected no current candidates");
   expect(researchProblems(undefined)).toContain("Missing news research report");
+});
+
+test("configured RSS coverage completes discovery without admitting feeds as article evidence",()=>{
+  const report={summary:"Development fixture: publisher feeds checked and one article inspected.",sources:NEWS_SOURCES.map(source=>({
+    publisher:source.name,url:NEWS_DISCOVERY_FEEDS.find(feed=>feed.publisher===source.name)?.url ?? source.url,
+    status:"checked" as const,candidatesReviewed:source.id==="guardian" ? 1 : 0,reason:"Development discovery fixture",
+  })),rejectedCandidates:[]};
+  expect(researchProblems(report)).toEqual([]);
+  for (const publisher of ["BBC","Sky News","Axios"]) {
+    const source=report.sources.find(source=>source.publisher===publisher)!;
+    for (const invalid of [source.url.replace("https:","http:"),source.url+"?redirect=untrusted",source.url.replace("://","://untrusted.example@")]) {
+      expect(researchProblems({...report,sources:report.sources.map(item=>item===source ? {...item,url:invalid} : item)})).toContain(`Research did not cover ${publisher}`);
+    }
+    const article=draft();article.sources[0].url=source.url;
+    expect(validateNewsDraft(article,[])).toContain("No fresh source from the configured news publishers");
+  }
+  expect(researchProblems({...report,sources:report.sources.map(source=>({...source,candidatesReviewed:0}))})).toContain("Research inspected no current candidates");
 });
 
 test("research excludes every catalog story beyond eighty without repeating institutional background", () => {
