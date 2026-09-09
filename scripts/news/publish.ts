@@ -4,7 +4,7 @@ import { createHash } from "node:crypto";
 import { mkdir, readdir, readFile, writeFile, rename } from "node:fs/promises";
 import { spawnSync } from "node:child_process";
 import path from "node:path";
-import { executeSubscriptionCodex } from "../../lib/news/writer.ts";
+import { CodexUsageLimitError, executeSubscriptionCodex } from "../../lib/news/writer.ts";
 import { NEWS_BATCH_SCHEMA, researchPrompt, researchProblems } from "../../lib/news/research.ts";
 import type { NewsResearchReport, NewsResearchRejection } from "../../lib/news/research.ts";
 import { articleSlug, validateNewsDraft, verifiedNewsAlert } from "../../lib/news/validation.ts";
@@ -58,7 +58,11 @@ if (!process.env.ODDSFRONT_EDITION_LOCKED) {
     ? await readFile(process.env.ODDSFRONT_NEWS_DRAFT_FILE, "utf8")
     : await executeSubscriptionCodex({ prompt: researchPrompt([...coverRejected, ...catalog.articles], maxArticles, new Date(), [...feedback, ...discoveryFeedback], discovery), schema: NEWS_BATCH_SCHEMA,
       env: Object.fromEntries(["PATH", "USER", "LOGNAME", "LANG", "LC_ALL", "HTTPS_PROXY", "HTTP_PROXY", "NO_PROXY"].map(key => [key, process.env[key]])),
-      timeoutMs: 600_000 });
+      purpose: "research", usageFile: path.join(directory, "writer-usage.jsonl"),
+      timeoutMs: 600_000 }).catch(error => {
+        if (error instanceof CodexUsageLimitError) { console.error(error.message); process.exit(75); }
+        throw error;
+      });
   const parsed = JSON.parse(raw) as { articles: NewsDraft[]; research?: NewsResearchReport };
   if (!Array.isArray(parsed.articles)) throw new Error("Invalid news batch");
   const researchErrors = process.env.ODDSFRONT_NEWS_DRAFT_FILE && !parsed.research ? [] : researchProblems(parsed.research);
