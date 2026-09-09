@@ -1,4 +1,4 @@
-import type { NewsFeedDiscovery } from "./feed-discovery.ts";
+import { NEWS_DISCOVERY_FEEDS, type NewsFeedDiscovery } from "./feed-discovery.ts";
 import { NEWS_EDITION_SIZE } from "./edition-policy.ts";
 import { NEWS_SOURCES, OFFICIAL_SOURCE_DOMAINS, sourceHost } from "./sources.ts";
 import type { NewsArticle } from "./types.ts";
@@ -13,7 +13,12 @@ export function researchProblems(report: NewsResearchReport | undefined): string
   if (!report || typeof report.summary !== "string" || !report.summary.trim() || !Array.isArray(report.sources)) return ["Missing news research report"];
   const sources = report.sources.filter(source => source && typeof source.url === "string" && typeof source.reason === "string" && ["checked", "unavailable"].includes(source.status) && Number.isInteger(source.candidatesReviewed) && source.candidatesReviewed >= 0);
   if (sources.length !== report.sources.length) return ["Invalid source coverage report"];
-  const missing = NEWS_SOURCES.filter(source => !sources.some(item => sourceHost(item.url) === source.host || (source.id === "bbc" && sourceHost(item.url) === "bbc.co.uk")));
+  const missing = NEWS_SOURCES.filter(source => !sources.some(item =>
+    sourceHost(item.url) === source.host || (source.id === "bbc" && sourceHost(item.url) === "bbc.co.uk") ||
+    // The editor receives these exact RSS URLs as discovery inputs. Their
+    // coverage counts here; article evidence still requires publisher pages.
+    NEWS_DISCOVERY_FEEDS.some(feed => feed.publisher === source.name && feed.url === item.url),
+  ));
   const problems = missing.map(source => `Research did not cover ${source.name}`);
   if (!sources.some(source => source.status === "checked" && source.candidatesReviewed > 0)) problems.push("Research inspected no current candidates");
   return problems;
