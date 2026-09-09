@@ -84,13 +84,17 @@ try {
     candidates = telegramCandidates(articles, await feed(), state.sentArticles).filter(candidate => candidate.event.marketConditionId === expectedCondition);
   } else {
     candidates = telegramCandidates(articles, await feed(), state.sentArticles);
+    selection = { articleId: articles[0]!.id, eventId: null, confidence: 1, reason: "Verified site reporting selected from the existing country/topic rotation; no related market candidates are available." };
+    if (candidates.length) {
     try {
     selection = JSON.parse(await executeSubscriptionCodex({ prompt: telegramSelectionPrompt(candidates, articles), schema: TELEGRAM_SELECTION_SCHEMA, timeoutMs: 180_000,
+      purpose: "selection", usageFile: path.join(output, "writer-usage.jsonl"),
       env: Object.fromEntries(["PATH", "USER", "LOGNAME", "LANG", "LC_ALL", "HTTPS_PROXY", "HTTP_PROXY", "NO_PROXY"].map(key => [key, process.env[key]])) })) as TelegramSelection;
     } catch {
       // The original article has already passed publication gates. A failed
       // optional market editor must not stop the hourly news-only edition.
       selection = { articleId:articles[0]!.id, eventId:null, confidence:1, reason:"Verified published site reporting selected from the country/topic rotation; market editor unavailable, so no odds are attached." };
+    }
     }
   }
   const article = articles.find(item => item.id === selection.articleId);

@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { approvedTelegramCandidate, freshEditionArticles, russianTelegramArticle, russianNewsReady, telegramCandidates, telegramPayload, TELEGRAM_CHANNEL_ID, TELEGRAM_CHANNELS } from "../lib/news/telegram";
+import { approvedTelegramCandidate, freshEditionArticles, russianTelegramArticle, russianNewsReady, telegramCandidates, telegramPayload, telegramSelectionPrompt, TELEGRAM_CHANNEL_ID, TELEGRAM_CHANNELS } from "../lib/news/telegram";
 import { validateRussianEditorialTranslation } from "../lib/news/russian-editorial";
 import { getConflictPreviewFixtureFeed } from "../features/global-conflict-map/preview/fixture";
 import type { NewsArticle } from "../lib/news/types";
@@ -12,6 +12,17 @@ function fixture() {
   const event = { ...feed.events[0]!, id: "polymarket-123456", dataOrigin: "polymarket" as const, title: "Russia x Ukraine ceasefire by December 31?", countryCodes: ["RU", "UA"], marketUrl: "https://polymarket.com/event/russia-x-ukraine-ceasefire-agreement-by", marketConditionId: `0x${"1".repeat(64)}`, volume: 2_000_000, marketVolume: 2_000_000, yesOdds: 25, updatedAt: new Date(now).toISOString(), endDate: new Date(now + 86_400_000).toISOString() };
   return { article, event, feed: { ...feed, dataMode: "live" as const, updatedAt: event.updatedAt, events: [event] }, now };
 }
+
+test("market matching retains article evidence once while preserving every candidate identity", () => {
+  const { article, event } = fixture();
+  article.body = [{ type: "paragraph", text: "Unique development fixture context for this article." }];
+  const candidates = [event, { ...event, id: "polymarket-654321" }].map(event => ({ article, event }));
+  const prompt = telegramSelectionPrompt(candidates, [article]);
+  expect(prompt.split(article.body[0]!.text)).toHaveLength(2);
+  for (const { event } of candidates) expect(prompt).toContain(event.id);
+  expect(prompt).toContain(event.title);
+  expect(prompt).toContain('"countries":["UA","RU"]');
+});
 
 test("hourly social slots can select different stories from one two-hour site edition", () => {
   const { article, now } = fixture();

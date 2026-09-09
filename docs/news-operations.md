@@ -127,6 +127,21 @@ read-only research process. It consumes subscription usage. Paid API variables
 are removed and there is no paid fallback. Publication occurs only in the local
 validated runner; the research process has no publication credentials.
 
+The publisher explicitly selects `gpt-5.6-sol` with medium reasoning for research
+and Russian editorial translation, and low reasoning for social market matching.
+Only research enables live web search. Host skill discovery, plugins, account
+connectors, shell access and agent delegation are disabled for these invocations;
+shared Codex configuration is not modified. Successful invocations append token
+counts, cached input, purpose and duration timestamps to private
+`writer-usage.jsonl` files without storing article text or credentials there.
+A provider usage-limit refusal stops the research round immediately and defers
+the next attempt for six hours while retaining the staged edition. An operator
+can resume earlier after verifying account availability. There is no paid fallback.
+The hourly selector makes no model call when no market candidates exist; it uses
+the existing verified-article country/topic ordering and publishes news only.
+When matching is needed, article context is supplied once per article and market
+candidates reference its ID, avoiding repeated paragraphs for every market.
+
 Russian social headlines, descriptions and candidate market questions receive
 an automated translation review using the same isolated subscription editor.
 Only missing texts are processed and cached, with source-number checks. Russian

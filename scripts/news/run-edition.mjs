@@ -124,6 +124,13 @@ for (let attempt = 1; attempt <= 6 && prepared.length < NEWS_EDITION_SIZE; attem
   await checkNovelty();
   await checkCovers();
   rounds.push({ attempt, exitCode: run.status, prepared: prepared.length });
+  if (run.status === 75) {
+    // A provider quota refusal cannot be repaired by another immediate model
+    // call. Retry at most once per six hours, without losing verified drafts.
+    pending = { ...pending, retryAfter: Date.now() + 6 * 60 * 60_000, retryReason: "subscription-usage-unavailable" };
+    await atomic(pendingFile, pending);
+    break;
+  }
   stalledRounds = prepared.length > before ? 0 : stalledRounds + 1;
   if (stalledRounds >= 2) {
     // A timer or monitor retry must not create an unbounded subscription loop
