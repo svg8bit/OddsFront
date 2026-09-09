@@ -42,7 +42,7 @@ checks every five minutes and has its own one-hour interval and pending-outcome
 guard. Its preparation step retries missing Russian translations after a failed
 follow-up, skipping a busy edition lock; it never reruns news research.
 A delayed RU translation cannot resend EN or X. Every article is deduplicated
-independently in each channel. The website publishes twenty articles every two
+independently in each channel. The website publishes fifteen to twenty articles every two
 hours; EN Telegram, RU Telegram and X each publish one selected story per hour.
 The next hourly slot can select another article from the same site edition.
 
@@ -59,7 +59,8 @@ requires reconciliation rather than risking a duplicate.
 Install the service and timer from `ops/`. Install
 `ops/oddsfront-news-editions.conf` as an `oddsfront-news.service` drop-in. The
 news job tops up partial research in up to six validated rounds toward twenty
-new stories; its completion can trigger the Telegram job. Telegram does not
+new stories, publishing a verified minimum of fifteen when a top-up would delay
+the deadline; its completion can trigger the Telegram job. Telegram does not
 wait for the news service's offline translation follow-up: the atomic public
 edition and send ledger provide readiness and duplicate checks. The Telegram timer
 also checks independently every five minutes; the persisted send time enforces

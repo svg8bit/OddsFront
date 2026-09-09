@@ -1,5 +1,5 @@
 import { NEWS_DISCOVERY_FEEDS, type NewsFeedDiscovery } from "./feed-discovery.ts";
-import { NEWS_EDITION_SIZE } from "./edition-policy.ts";
+import { NEWS_EDITION_SIZE, NEWS_MINIMUM_EDITION_SIZE } from "./edition-policy.ts";
 import { NEWS_SOURCES, OFFICIAL_SOURCE_DOMAINS, sourceHost } from "./sources.ts";
 import type { NewsArticle } from "./types.ts";
 
@@ -55,11 +55,11 @@ export function researchExclusions(existing: NewsArticle[]) {
 
 export function researchPrompt(existing: NewsArticle[], maxArticles: number, date = new Date(), rejected: NewsResearchRejection[] = [], discovery?: NewsFeedDiscovery) {
   return `You are OddsFront's world-affairs news editor. Today is ${date.toISOString()}.
-Use live web search and inspect canonical sources. Complete this bounded research round with ${maxArticles} fresh, distinct original English news articles. Review ${Math.max(9, maxArticles * 3)} distinct candidate developments across regions if needed, but stop researching as soon as the requested verified articles are ready and return the completed JSON. A separate runner combines these small rounds into the ${NEWS_EDITION_SIZE}-article edition. All news leads must come from these user-selected publishers:
+Use live web search and inspect canonical sources. Complete this bounded research round with ${maxArticles} fresh, distinct original English news articles. Review ${Math.max(9, maxArticles * 3)} distinct candidate developments across regions if needed, but stop researching as soon as the requested verified articles are ready and return the completed JSON. A separate runner combines these small rounds into an edition of ${NEWS_MINIMUM_EDITION_SIZE} to ${NEWS_EDITION_SIZE} articles. All news leads must come from these user-selected publishers:
 ${NEWS_SOURCES.map(source => `${source.name}: ${source.url}`).join("\n")}
 
 Editorial requirements:
-- Prefer article pages with a real editorial photograph. Every ${NEWS_EDITION_SIZE}-story edition needs at least ${NEWS_EDITION_SIZE - 3} usable photographic covers; publisher logo/title-only share cards do not count. When filling a previously rejected cover slot, choose another well-sourced story with an accessible photograph.
+- Prefer article pages with a real editorial photograph. Every edition permits at most three stories without usable photographic covers; publisher logo/title-only share cards do not count. When filling a previously rejected cover slot, choose another well-sourced story with an accessible photograph.
 - The website covers diplomacy, politics, energy, security, humanitarian developments and world affairs, including consequential economic and infrastructure decisions. A story need not be an attack or have a related prediction market; the map alert filter is separate. Exclude celebrity gossip, promotional product announcements, sport results and lifestyle trivia.
 - News first: what happened, who is involved, when and where, why it matters, confirmed context, what to watch next. Markets are secondary context.
 - Prefer material from the last 48 hours; never older than 72 hours for the main news source. Preserve actual source publication dates, never replace them with today's date. Find recent individual articles, not homepages or category indexes.

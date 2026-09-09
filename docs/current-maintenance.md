@@ -2,7 +2,7 @@
 
 - [x] Implement and test article URLs containing one language segment, including English: `/en/news/<slug>` and `/ru/news/<slug>`. Redirect legacy country paths; update canonical URLs, alternates, sitemaps, RSS, IndexNow and publisher links.
 - [x] Implement and test Map News cards admitting only reporting whose headline concerns military strikes, invasions or ceasefires. Exclude court cases, detentions, general reporting and background-only topic matches. Keep source, recency, rotation and market-link guards.
-- [x] Configure and test exactly 20 verified unique website articles every two hours. Preserve at most three fallback covers (at least 17 photos), private partial preparation and hourly Telegram EN/RU/X sends.
+- [x] Configure 15–20 verified unique website articles every two hours (owner-approved minimum updated September 9). Ready editions publish on schedule even when research is paused; incomplete drafts remain private. Preserve at most three fallback covers and hourly Telegram EN/RU/X sends.
 - [x] Disable the publication monitor timer and Codex dispatch configuration. The publishing timers remain enabled. Runtime state and unit backups are private.
 - [x] Inspect the blurred RU Telegram Boost avatar preview. The original is sharp at 4096×4096 and the public Telegram thumbnail is sharp at 320×320; no faulty source asset was found. The owner's blurred in-client Boost card is not confirmed fixed.
 - [x] Prepare three announcement designs, each in English and Russian, following the supplied Figma references and OddsFront branding. Six 3840×2048 PNGs and short copy include the website and project Telegram links below the headline; draft archive verified. No announcement publication requested.

@@ -1,4 +1,4 @@
-import { NEWS_EDITION_SIZE, NEWS_EDITION_INTERVAL_MS, NEWS_RESEARCH_BATCH_SIZE } from "../../lib/news/edition-policy.ts";
+import { NEWS_EDITION_SIZE, NEWS_MINIMUM_EDITION_SIZE, NEWS_EDITION_INTERVAL_MS, NEWS_RESEARCH_BATCH_SIZE, NEWS_RESEARCH_TIMEOUT_MS, NEWS_RESEARCH_RETRY_MS, isPublishableEditionSize, shouldResearchEdition } from "../../lib/news/edition-policy.ts";
 import { readFile, mkdir, writeFile, rename } from "node:fs/promises";
 import { spawnSync } from "node:child_process";
 import path from "node:path";
@@ -38,6 +38,8 @@ const emptyCatalog = { version: 1, updatedAt: "1970-01-01T00:00:00.000Z", articl
 const catalog = () => read(path.join(directory, "catalog.json"), emptyCatalog);
 const stateFile = path.join(directory, "edition-state.json");
 const state = await read(stateFile, { lastPublishedAt: 0 });
+const force = process.argv.includes("--force");
+const dueAt = force ? Date.now() : state.lastPublishedAt + editionIntervalMs;
 if (!process.argv.includes("--force") && Date.now() < state.lastPublishedAt + editionIntervalMs - preparationLeadMs) {
   console.log(JSON.stringify({ status: "interval-not-due", nextDueAt: new Date(state.lastPublishedAt + editionIntervalMs).toISOString() }));
   process.exit(0);
@@ -52,22 +54,28 @@ if (!pending) {
   await atomic(path.join(pendingDirectory, "catalog.json"), current);
   await atomic(pendingFile, pending);
 }
-if (!process.argv.includes("--force") && pending.retryAfter > Date.now()) {
-  console.log(JSON.stringify({ status: "research-cooldown", nextResearchAt: new Date(pending.retryAfter).toISOString() }));
-  process.exit(0);
-}
 const previous = new Set(pending.baseIds);
 const stagedCatalog = () => read(path.join(pendingDirectory, "catalog.json"), emptyCatalog);
 const fresh = article => article.sources.some(source => source.kind === "media" && Date.parse(source.publishedAt) >= Date.now() - 72 * 60 * 60_000);
 const staged = await stagedCatalog();
-staged.articles = staged.articles.filter(article => previous.has(article.id) || fresh(article));
+staged.articles = staged.articles.filter(article => pending.publishedAt || previous.has(article.id) || fresh(article));
 await atomic(path.join(pendingDirectory, "catalog.json"), staged);
 const startedAt = new Date().toISOString();
 const rounds = [];
 let prepared = (await stagedCatalog()).articles.filter(article => !previous.has(article.id));
-if (pending.publishedAt && prepared.length !== NEWS_EDITION_SIZE) {
-  throw new Error("Previously exported pending edition has a different size; reconcile that export before preparing a new edition");
+function checkExportIdentity() {
+  if (!pending.publishedAt) return;
+  const ids = new Set(prepared.map(article => article.id));
+  const expected = pending.publishedIds;
+  // Old exported editions always contained twenty. New exports freeze their
+  // exact IDs so accepting a smaller edition cannot hide a partial retry.
+  if (!isPublishableEditionSize(prepared.length) || ids.size !== prepared.length || (expected
+    ? expected.length !== ids.size || expected.some(id => !ids.has(id))
+    : prepared.length !== NEWS_EDITION_SIZE)) {
+    throw new Error("Previously exported pending edition changed; reconcile that export before preparing a new edition");
+  }
 }
+checkExportIdentity();
 async function checkNovelty() {
   const current = await catalog();
   const staged = await stagedCatalog();
@@ -99,7 +107,7 @@ async function checkNovelty() {
 }
 await checkNovelty();
 async function checkCovers() {
-  if (prepared.length < NEWS_EDITION_SIZE) return;
+  if (prepared.length < NEWS_MINIMUM_EDITION_SIZE) return;
   const { accepted, rejected } = await prepareEditionCovers(prepared);
   const staged = await stagedCatalog();
   await atomic(path.join(pendingDirectory, "catalog.json"), {
@@ -112,22 +120,28 @@ async function checkCovers() {
   prepared = accepted;
 }
 await checkCovers();
+checkExportIdentity();
+// A research pause does not block publication of an already verified edition.
+if (!force && pending.retryAfter > Date.now() && !isPublishableEditionSize(prepared.length)) {
+  console.log(JSON.stringify({ status: "research-cooldown", nextResearchAt: new Date(pending.retryAfter).toISOString() }));
+  process.exit(0);
+}
 // Research may return a partial result. Persist it privately and keep filling
 // the same edition; never expose five stories as a successful complete edition.
 let stalledRounds = 0;
-for (let attempt = 1; attempt <= 6 && prepared.length < NEWS_EDITION_SIZE; attempt++) {
+for (let attempt = 1; attempt <= 6 && !pending.publishedAt && shouldResearchEdition({ prepared: prepared.length, dueAt, now: Date.now(), retryAfter: force ? 0 : pending.retryAfter }); attempt++) {
   const before = prepared.length;
   const run = spawnSync(process.execPath, ["scripts/news/publish.ts"], { stdio: "inherit", env: { ...process.env,
     ODDSFRONT_NEWS_DIRECTORY: pendingDirectory, ODDSFRONT_NEWS_PUBLIC_DIRECTORY: path.join(pendingDirectory, "public"),
-    ODDSFRONT_NEWS_BATCH_SIZE: String(Math.min(NEWS_RESEARCH_BATCH_SIZE, NEWS_EDITION_SIZE - prepared.length)) }, timeout: 11 * 60_000 });
+    ODDSFRONT_NEWS_BATCH_SIZE: String(Math.min(NEWS_RESEARCH_BATCH_SIZE, NEWS_EDITION_SIZE - prepared.length)) }, timeout: NEWS_RESEARCH_TIMEOUT_MS });
   prepared = (await stagedCatalog()).articles.filter(article => !previous.has(article.id));
   await checkNovelty();
   await checkCovers();
   rounds.push({ attempt, exitCode: run.status, prepared: prepared.length });
   if (run.status === 75) {
     // A provider quota refusal cannot be repaired by another immediate model
-    // call. Retry at most once per six hours, without losing verified drafts.
-    pending = { ...pending, retryAfter: Date.now() + 6 * 60 * 60_000, retryReason: "subscription-usage-unavailable" };
+    // call. Probe recovery at most once per thirty minutes, retaining drafts.
+    pending = { ...pending, retryAfter: Date.now() + NEWS_RESEARCH_RETRY_MS, retryReason: "subscription-usage-unavailable" };
     await atomic(pendingFile, pending);
     break;
   }
@@ -135,39 +149,39 @@ for (let attempt = 1; attempt <= 6 && prepared.length < NEWS_EDITION_SIZE; attem
   if (stalledRounds >= 2) {
     // A timer or monitor retry must not create an unbounded subscription loop
     // when discovery cannot add a usable story. Retain the partial edition.
-    pending = { ...pending, retryAfter: Date.now() + 30 * 60_000 };
+    pending = { ...pending, retryAfter: Date.now() + NEWS_RESEARCH_RETRY_MS };
     await atomic(pendingFile, pending);
     break;
   }
 }
 await mkdir(path.join(directory, "editions"), { recursive: true, mode: 0o700 });
 const target = path.join(directory, "editions", `${startedAt.replace(/[:.]/g, "-")}.json`);
-if (prepared.length !== NEWS_EDITION_SIZE) {
-  const receipt = { startedAt, finishedAt: new Date().toISOString(), requested: NEWS_EDITION_SIZE, published: [], prepared: prepared.length, rounds, status: "incomplete-retrying" };
+if (!isPublishableEditionSize(prepared.length)) {
+  const receipt = { startedAt, finishedAt: new Date().toISOString(), requested: NEWS_EDITION_SIZE, minimum: NEWS_MINIMUM_EDITION_SIZE, published: [], prepared: prepared.length, rounds, status: "incomplete-retrying" };
   await atomic(target, receipt);
   console.error(JSON.stringify(receipt));
   process.exit(1);
 }
 // Prepare privately before the deadline, so research time is not added to
 // every two-hour publishing interval. A forced operator edition publishes now.
-const dueAt = process.argv.includes("--force") ? Date.now() : state.lastPublishedAt + editionIntervalMs;
-if (Date.now() < dueAt) console.log(JSON.stringify({status:"edition-ready",articles:NEWS_EDITION_SIZE,publishAt:new Date(dueAt).toISOString()}));
+if (Date.now() < dueAt) console.log(JSON.stringify({status:"edition-ready",articles:prepared.length,publishAt:new Date(dueAt).toISOString()}));
 while (Date.now() < dueAt) await new Promise(resolve=>setTimeout(resolve,Math.min(30_000,dueAt-Date.now())));
 await checkNovelty();
-if (prepared.length !== NEWS_EDITION_SIZE) {
-  const receipt = { startedAt, finishedAt: new Date().toISOString(), requested: NEWS_EDITION_SIZE, published: [], prepared: prepared.length, rounds, status: "incomplete-retrying" };
+checkExportIdentity();
+if (!isPublishableEditionSize(prepared.length)) {
+  const receipt = { startedAt, finishedAt: new Date().toISOString(), requested: NEWS_EDITION_SIZE, minimum: NEWS_MINIMUM_EDITION_SIZE, published: [], prepared: prepared.length, rounds, status: "incomplete-retrying" };
   await atomic(target, receipt);
   console.error(JSON.stringify(receipt));
   process.exit(1);
 }
 const publishedAt = pending.publishedAt || new Date().toISOString();
-await atomic(pendingFile, { ...pending, publishedAt });
+await atomic(pendingFile, { ...pending, publishedAt, publishedIds: prepared.map(article => article.id) });
 const published = prepared.map(article => ({ ...article, publishedAt, updatedAt: publishedAt }));
 const ids = new Set(published.map(article => article.id));
 const current = await catalog();
 const next = { ...current, updatedAt: publishedAt, articles: [...published, ...current.articles.filter(article => !ids.has(article.id))] };
 await writeNewsCatalog(directory, publicDirectory, next, published);
-const receipt = { startedAt, finishedAt: new Date().toISOString(), requested: NEWS_EDITION_SIZE, published: published.map(article => article.slug), photographicCovers: published.filter(article => article.cover).length, fallbackCovers: published.filter(article => !article.cover).length, rounds, status: "complete" };
+const receipt = { startedAt, finishedAt: new Date().toISOString(), requested: NEWS_EDITION_SIZE, minimum: NEWS_MINIMUM_EDITION_SIZE, published: published.map(article => article.slug), photographicCovers: published.filter(article => article.cover).length, fallbackCovers: published.filter(article => !article.cover).length, rounds, status: "complete" };
 await atomic(target, receipt);
 await atomic(stateFile, { lastPublishedAt: Date.parse(publishedAt), articleIds: [...ids], receipt: target });
 // Keep research evidence; only the disposable staged catalogs are removed.

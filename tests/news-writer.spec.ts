@@ -51,7 +51,11 @@ test("a quota refusal stops after one research invocation and preserves the stag
     expect(receipt.rounds).toEqual([{ attempt: 1, exitCode: 75, prepared: 0 }]);
     const state = JSON.parse(await readFile(join(pending, "edition.json"), "utf8"));
     expect(state.retryReason).toBe("subscription-usage-unavailable");
-    expect(state.retryAfter).toBeGreaterThan(Date.now() + 5 * 60 * 60_000);
+    expect(state.retryAfter).toBeGreaterThan(Date.now() + 29 * 60_000);
+    expect(state.retryAfter).toBeLessThanOrEqual(Date.now() + 30 * 60_000);
+    const retry = spawnSync(process.execPath, ["scripts/news/run-edition.mjs"], { encoding: "utf8", timeout: 30_000, env: { ...process.env, PATH: `${bin}:${process.env.PATH}`, ODDSFRONT_NEWS_DIRECTORY: directory } });
+    expect(retry.status, retry.stderr).toBe(0);
+    expect(retry.stdout).toContain("research-cooldown");
     await expect(readFile(join(directory, "public/catalog.json"))).rejects.toMatchObject({ code: "ENOENT" });
   } finally { await rm(directory, { recursive: true, force: true }); }
 });
