@@ -104,7 +104,7 @@ stories, then large buys while reserving a slot for rolling movement. The
 remaining slots rotate through eligible markets after excluding those already
 represented by news or trades; selecting three before truncation could hide
 some markets forever. At most one visible card represents each market.
-Up to sixteen conflict stories from the newest twenty-article edition rotate
+Up to sixteen conflict stories from the newest fifteen-to-twenty-article edition rotate
 once through eight fifteen-minute slots within two hours of publication.
 Only headline topics involving military strikes, invasions or ceasefires
 qualify; general reporting and background tags do not. Each story keeps its actual publication

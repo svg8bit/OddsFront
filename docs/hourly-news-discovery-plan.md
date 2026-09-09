@@ -3,7 +3,7 @@
 Authorized on September 7, 2026. Preserve the site's existing design and brand.
 
 - [x] Publish a fresh nine-story edition now and send one post to EN Telegram, RU Telegram, and @alotofbit on X.
-- [ ] Keep website editions at twenty every two hours (updated by the owner on September 8). Publish social stories hourly from recent site reporting, alternating countries and categories when the pool permits.
+- [ ] Keep website editions at fifteen to twenty every two hours (minimum updated by the owner on September 9). Publish social stories hourly from recent site reporting, alternating countries and categories when the pool permits.
 - [ ] Replace country category navigation with localized editorial topics: strikes, invasions, ceasefires, diplomacy, politics, energy, security, and humanitarian affairs.
 - [ ] Render the correct flag for every supported country using local assets.
 - [ ] Add Russian Telegram to the footer and improve discoverability of the English and Russian channels.
