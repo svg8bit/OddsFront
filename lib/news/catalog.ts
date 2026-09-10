@@ -1,5 +1,6 @@
 import "server-only";
 import { cache } from "react";
+import { connection } from "next/server";
 import seed from "./catalog.seed.json";
 import type { NewsArticle, NewsCatalog } from "./types";
 import { readLiveNewsCatalog } from "./feed-reader";
@@ -16,6 +17,9 @@ const getLiveCatalog = createNewsCatalogCache(async () => {
 
 export const getNewsCatalog = cache(async (): Promise<NewsCatalog> => {
   if (!process.env.ODDSFRONT_MARKET_FEED_URL && !process.env.ODDSFRONT_MARKET_FEED_TOKEN) return seed as NewsCatalog;
+  // Defer live reads until a request, before feed retries can catch Next's
+  // prerender bailout. Build-time workers must never retain a live snapshot.
+  await connection();
   return getLiveCatalog();
 });
 
