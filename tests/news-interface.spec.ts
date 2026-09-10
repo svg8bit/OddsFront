@@ -5,6 +5,31 @@ import { LOCALES } from "../lib/news/types";
 import { getConflictPreviewFixtureFeed } from "../features/global-conflict-map/preview/fixture";
 import { newsArticlePath } from "../lib/news/routing";
 import { PNG } from "pngjs";
+import { newsIndexPage } from "../lib/news/index-page";
+import type { NewsCatalog } from "../lib/news/types";
+
+test("news loads archive pages on demand and searches beyond the first page", async ({ page }) => {
+  const articles = Array.from({ length: 100 }, (_, index) => ({ ...seed.articles[0], id: `development-page-${index}`, slug: `development-page-${index}`,
+    title: index === 90 ? "Development archive-only search result" : `Development paginated story ${index}`,
+    publishedAt: new Date(Date.now() - index * 60_000).toISOString(), views7d: index === 90 ? 99 : 0 }));
+  const catalog = { ...seed, updatedAt: new Date().toISOString(), articles } as NewsCatalog;
+  const offsets: number[] = [];
+  await page.route(/\/api\/news(?:\?.*)?$/, route => {
+    const params = new URL(route.request().url()).searchParams;
+    const offset = Number(params.get("offset") ?? 0); offsets.push(offset);
+    return route.fulfill({ json: newsIndexPage(catalog, { offset, query: params.get("q") ?? "" }) });
+  });
+  await page.goto("/news");
+  await expect(page.getByRole("heading", { name: "Development paginated story 0", exact: true })).toBeVisible();
+  await expect(page.getByRole("complementary").getByRole("heading", { name: "Development archive-only search result" })).toBeVisible();
+  for (let click = 0; click < 3; click++) await page.getByRole("button", { name: /Load more/i }).click();
+  await expect(page.getByRole("heading", { name: "Development paginated story 48", exact: true })).toBeVisible();
+  expect(offsets).toContain(48);
+  await page.getByRole("searchbox").fill("archive-only");
+  await expect(page.getByRole("heading", { name: "Development paginated story 0", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "Development archive-only search result", exact: true })).toHaveCount(2);
+  await expect(page.getByRole("button", { name: /Load more/i })).toHaveCount(0);
+});
 
 test("assigned Vercel aliases redirect to the canonical host", async ({ request }) => {
   for (const host of [
@@ -49,7 +74,7 @@ test("long translated listing headlines remain inside unbranded covers", async (
   article.title = "Development fixture: a deliberately long international headline checks that complete translated text stays readable inside every news cover";
   article.translations.ru.title = "Проверочный материал: очень длинный международный заголовок полностью помещается в обложку новостной карточки на экранах компьютеров и мобильных устройств";
   const articles = Array.from({ length: 4 }, (_, index) => ({ ...article, id: `${article.id}-${index}` }));
-  await page.route("**/api/news", route => route.fulfill({ json: { updatedAt: new Date().toISOString(), articles } }));
+  await page.route(/\/api\/news(?:\?.*)?$/, route => route.fulfill({ json: { updatedAt: new Date().toISOString(), articles } }));
   for (const viewport of [{ width: 1510, height: 941 }, { width: 390, height: 844 }]) {
     await page.setViewportSize(viewport);
     await page.goto("/ru/news/world");
@@ -92,7 +117,7 @@ test("all localized article paths, unbranded covers, mobile and RTL layouts rema
 });
 
 test("news keeps a newer edition when a refresh returns older data",async({page})=>{
-  await page.route("**/api/news",route=>route.fulfill({json:{updatedAt:"2000-01-01T00:00:00Z",articles:[]}}));
+  await page.route(/\/api\/news(?:\?.*)?$/,route=>route.fulfill({json:{updatedAt:"2000-01-01T00:00:00Z",articles:[]}}));
   await page.goto("/news/world");await expect(page.getByRole("heading",{name:seed.articles[0].title,exact:true}).first()).toBeVisible();
   await page.evaluate(()=>window.dispatchEvent(new Event("focus")));
   await expect(page.getByRole("heading",{name:seed.articles[0].title,exact:true}).first()).toBeVisible();
@@ -149,7 +174,7 @@ test("a strict fresh news match renders a blue 15-minute alert and popup-safe co
   const article={...seed.articles[0],sources:seed.articles[0].sources.map(source=>({...source,publishedAt:new Date(now-60_000).toISOString()})),id:"news-alert-fixture",slug:"united-states-strikes-iran",title:"United States strikes Iran after attacks begin overnight",description:"American forces attacked Iranian military sites, according to official and independent reporting.",countries:["US","IR"],publishedAt:new Date(now-1_000).toISOString(),updatedAt:new Date(now-1_000).toISOString(),translations:{},alert:{kind:"strike" as const,actorCountries:["US"],targetCountries:["IR"]}};
   await page.route("https://tiles.openfreemap.org/planet/**",route=>route.fulfill({status:200,contentType:"application/x-protobuf",body:Buffer.alloc(0)}));
   await page.route("**/api/global-conflict-events",route=>route.fulfill({json:feed}));
-  await page.route("**/api/news",route=>route.fulfill({json:{updatedAt:new Date(now).toISOString(),articles:[article]}}));
+  await page.route(/\/api\/news(?:\?.*)?$/,route=>route.fulfill({json:{updatedAt:new Date(now).toISOString(),articles:[article]}}));
   await page.route("**/_next/image**",route=>route.fulfill({contentType:"image/png",body:Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=","base64")}));
   await page.goto("/global-conflict-map-preview");
   const alert=page.locator('[data-activity-kind="news"]');

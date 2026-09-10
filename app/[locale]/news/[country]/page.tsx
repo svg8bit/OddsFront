@@ -5,7 +5,7 @@ import { ArticlePageContent } from "@/components/news/article-page";
 import { getNewsArticle, getNewsCatalog } from "@/lib/news/catalog";
 import { normalizeLocale } from "@/lib/news/locale";
 import { articleMetadata, newsMetadata } from "@/lib/news/metadata";
-import { newsIndex } from "@/lib/news/publication";
+import { newsOverviewProps } from "@/lib/news/index-page";
 import { isNewsCountrySegment, newsCountryPath } from "@/lib/news/routing";
 
 type Props = { params: Promise<{ locale: string; country: string }> };
@@ -27,5 +27,5 @@ export default async function LocalizedNewsRoute({ params }: Props) {
   if (!isNewsCountrySegment(slug)) return <ArticlePageContent slug={slug} locale={locale}/>;
   if (locale === "en") permanentRedirect(newsCountryPath(slug, "en"));
   const catalog = await getNewsCatalog();
-  return <NewsOverview initialArticles={newsIndex(catalog).articles} initialUpdatedAt={catalog.updatedAt} activeCountry={slug === "world" ? "ALL" : slug.toUpperCase()}/>;
+  return <NewsOverview {...newsOverviewProps(catalog, { country: slug === "world" ? "ALL" : slug.toUpperCase() })} activeCountry={slug === "world" ? "ALL" : slug.toUpperCase()}/>;
 }

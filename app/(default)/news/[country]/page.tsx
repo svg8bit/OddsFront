@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { notFound, permanentRedirect } from "next/navigation";
 import { NewsOverview } from "@/components/news/news";
-import { newsIndex } from "@/lib/news/publication";
+import { newsOverviewProps } from "@/lib/news/index-page";
 import { getNewsArticle, getNewsCatalog } from "@/lib/news/catalog";
 import { normalizeLocale } from "@/lib/news/locale";
 import { articleMetadata, newsMetadata } from "@/lib/news/metadata";
@@ -24,5 +24,5 @@ export default async function DefaultNewsRoute({ params, searchParams }: Props) 
   }
   if (locale && locale !== "en") permanentRedirect(newsCountryPath(country, locale));
   const catalog = await getNewsCatalog();
-  return <NewsOverview initialArticles={newsIndex(catalog).articles} initialUpdatedAt={catalog.updatedAt} activeCountry={country === "world" ? "ALL" : country.toUpperCase()}/>;
+  return <NewsOverview {...newsOverviewProps(catalog, { country: country === "world" ? "ALL" : country.toUpperCase() })} activeCountry={country === "world" ? "ALL" : country.toUpperCase()}/>;
 }

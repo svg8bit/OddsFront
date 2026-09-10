@@ -9,7 +9,7 @@ test("popular stories use readership instead of publication order", async ({ pag
     { ...base, id: "development-popular", title: "Development most-read story", slug: "development-popular", views7d: 20 },
     { ...base, id: "development-unread", title: "Development unread story", slug: "development-unread", views7d: 0 },
   ];
-  await page.route("**/api/news", route => route.fulfill({ json: { updatedAt: new Date().toISOString(), articles } }));
+  await page.route(/\/api\/news(?:\?.*)?$/, route => route.fulfill({ json: { updatedAt: new Date().toISOString(), articles } }));
   await page.goto("/news");
   const popular = page.getByRole("complementary", { name: "The Most Popular" });
   await expect(popular.getByRole("heading").first()).toHaveText("Development most-read story");
