@@ -116,6 +116,8 @@ test("map news rejects unrelated reporting even when background tags mention war
     "Russian court gives artist's wife another 14 days in detention",
     "Egyptian presenter Sarah Khalifa plans appeal against death sentence",
     "Workers launch a labour strike over pay",
+    "Drone manufacturer shares hit a record high",
+    "Houthi spokesman launches a verbal attack on peace negotiators",
     "Bank reports a cyberattack on payment systems",
     "Company expands drone production plant",
     "Russia and China strike a trade agreement",
@@ -129,5 +131,8 @@ test("map news rejects unrelated reporting even when background tags mention war
     "Ukraine reports shelling near the border", "China begins an invasion of Taiwan",
     "Troops launch a ground offensive", "Ukraine and Russia discuss a ceasefire",
     "Negotiators agree terms of a peace deal",
+    "Ukrainian drones hit Makhachkala port and a theatre in Russia's Dagestan",
+    "New Yemen fighting kills children as Houthi attacks trigger alerts in southern Saudi Arabia",
+    "Missiles hit a military airfield overnight",
   ]) expect(isMapNewsTopic({ title, alert: null })).toBe(true);
 });

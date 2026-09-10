@@ -169,6 +169,10 @@ export function isMapNewsTopic(article: Pick<NewsArticle, "title" | "alert">): b
   if (/\b(?:cease-?fire|truce|peace (?:deal|agreement)|invasions?|invad(?:e|es|ed|ing)|incursions?|ground offensive)\b/i.test(title)) return true;
   if (/\b(?:hunger|labou?r|worker|teacher|rail|transport|union)\w*\s+strikes?\b|\bstrikes?\s+(?:(?:a|an)\s+)?(?:(?:trade|economic|commercial)\s+)?(?:deal|agreement)\b|\b(?:cyberattack|cyber.attack|verbal attack|court|detention|prison sentence)\b/i.test(title)) return false;
   if (/\b(?:air\s*strikes?|air\s*attacks?|missile attacks?|bombardment|shelling)\b/i.test(title)) return true;
+  // Headlines also describe physical strikes as a weapon hitting its target.
+  // Keep this news-only test separate from directional market matching.
+  if (/\b(?:drones?|missiles?|warplanes?|fighter jets?)\s+(?:hit|hits|target|targets|targeted|struck)\b/i.test(title)) return true;
+  if (/\b(?:Houthi|Hezbollah)\s+attacks?\b/i.test(title)) return true;
   if (!STRIKE_PATTERN.test(title)) return false;
   return article.alert?.kind === "strike" ||
     /\b(?:missiles?|drones?|military|naval|army|troops|forces|warships?|aircraft|refinery|airfield)\b/i.test(title) ||
