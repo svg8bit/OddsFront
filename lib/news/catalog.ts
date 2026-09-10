@@ -1,21 +1,25 @@
 import "server-only";
 import { cache } from "react";
-import { unstable_cache } from "next/cache";
+import { connection } from "next/server";
 import seed from "./catalog.seed.json";
 import type { NewsArticle, NewsCatalog } from "./types";
 import { readLiveNewsCatalog } from "./feed-reader";
+import { createNewsCatalogCache } from "./catalog-cache";
 
-const getLiveCatalog = unstable_cache(async () => {
+const getLiveCatalog = createNewsCatalogCache(async () => {
   const rawUrl = process.env.ODDSFRONT_MARKET_FEED_URL;
   const token = process.env.ODDSFRONT_MARKET_FEED_TOKEN;
   if (!rawUrl || !token) throw new Error("Live news feed is not configured");
-  // Only successful live results enter the persistent cache. A failed refresh
+  // Only successful live results enter the worker cache. A failed refresh
   // leaves its last good catalog intact instead of caching the one-story seed.
   return readLiveNewsCatalog(rawUrl, token, fetch, seed.updatedAt);
-}, ["oddsfront-live-news-catalog-v2"], { revalidate: 30 });
+});
 
 export const getNewsCatalog = cache(async (): Promise<NewsCatalog> => {
   if (!process.env.ODDSFRONT_MARKET_FEED_URL && !process.env.ODDSFRONT_MARKET_FEED_TOKEN) return seed as NewsCatalog;
+  // Defer live reads until a request, before feed retries can catch Next's
+  // prerender bailout. Build-time workers must never retain a live snapshot.
+  await connection();
   return getLiveCatalog();
 });
 

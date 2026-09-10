@@ -48,11 +48,23 @@ exported to `/opt/oddsfront-market-feed/news`. The existing sandboxed feed servi
 can read only that export, with its existing bearer authentication. Caddy adds
 `/v1/news` and `/v1/news/articles/<slug>` on the existing feed host. No new port,
 public write API, shared environment, or cross-product credential is used.
-Vercel reads the edition with the existing OddsFront feed variables, revalidates
-in 30 seconds, and retains the last successful live response during an outage. Browser
+Vercel reads the edition with the existing OddsFront feed variables. Each warm
+worker retains one validated catalog for thirty seconds, coalesces concurrent
+reads and retains its last good response during an outage, retrying failures
+after five seconds. The full multilingual archive must not enter Next's
+persistent Data Cache: its two-megabyte entry limit can silently retain an old
+edition once the archive grows. Browser
 news refreshes retain the newer edition on failed or older responses. Article
 publication requires neither a commit nor a deployment. `/news/archive`, country
 routes, RSS and the sitemap derive from the same catalog.
+
+Public news API responses and initial overview props contain at most 48 stories,
+plus five popularity leaders selected from the entire archive. `offset`, `q`,
+`country`, `category` and `lang` select a page; search operates over the full
+archive before pagination. Browsers request additional pages only when the
+reader needs them, and refresh the visible pages as one consistent edition.
+Article detail, canonical URLs, withdrawals, RSS and sitemap history remain
+unbounded by the overview page size. Map news alerts use the newest page.
 
 ## Editorial workflow
 

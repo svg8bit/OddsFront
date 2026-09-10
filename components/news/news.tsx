@@ -16,6 +16,7 @@ import { availableNewsArticlePath, newsArticlePath, newsPath, newsTopicPath } fr
 import { NEWS_CATEGORIES, articleCategory, categoryLabel, allNewsLabel, newsCategoriesLabel, type NewsCategory } from "@/lib/news/categories";
 import styles from "./news.module.css";
 import { useArticleReadership } from "./use-article-readership";
+import { NEWS_INDEX_PAGE_SIZE } from "@/lib/news/index-page";
 
 export function articlePath(article: NewsArticle) { return newsArticlePath(article, "en"); }
 
@@ -56,25 +57,54 @@ function StoryCard({ article, featured = false }: { article: NewsArticle; featur
   </Link>;
 }
 
-export function NewsOverview({ initialArticles, initialUpdatedAt, activeCountry, activeCategory, archive = false }: { initialArticles: NewsArticle[]; initialUpdatedAt: string; activeCountry?: string; activeCategory?: NewsCategory; archive?: boolean }) {
+export function NewsOverview({ initialArticles, initialUpdatedAt, initialPopular, initialTotal, activeCountry, activeCategory, archive = false }: { initialArticles: NewsArticle[]; initialUpdatedAt: string; initialPopular?: NewsArticle[]; initialTotal?: number; activeCountry?: string; activeCategory?: NewsCategory; archive?: boolean }) {
   const { locale, country, t } = useLocale();
   const [articles,setArticles] = useState(initialArticles);
+  const [popularArticles,setPopularArticles] = useState(initialPopular ?? initialArticles);
+  const [total,setTotal] = useState(initialTotal ?? initialArticles.length);
   const newestEdition=useRef(Date.parse(initialUpdatedAt));
   const [query,setQuery] = useState(""); const [limit,setLimit] = useState(13);
   const selected = activeCountry ?? "ALL";
+  const pageCount = Math.ceil(limit / NEWS_INDEX_PAGE_SIZE);
   useEffect(() => {
     const controller = new AbortController(); let pending=false;
-    const refresh = () => { if (document.visibilityState === "hidden" || pending) return; pending=true; void fetch("/api/news",{cache:"no-store",signal:controller.signal}).then(response=>response.ok?response.json():null).then(data=>{if(Array.isArray(data?.articles)&&Date.parse(data.updatedAt)>=newestEdition.current&&!controller.signal.aborted){newestEdition.current=Date.parse(data.updatedAt);setArticles(data.articles);}}).catch(()=>{}).finally(()=>{pending=false;}); };
-    refresh(); const interval=setInterval(refresh,60_000); window.addEventListener("focus",refresh); window.addEventListener("pageshow",refresh);
-    return ()=>{controller.abort();clearInterval(interval);window.removeEventListener("focus",refresh);window.removeEventListener("pageshow",refresh);};
-  },[]);
+    const refresh = async () => {
+      if (document.visibilityState === "hidden" || pending) return;
+      pending = true;
+      try {
+        const incoming: NewsArticle[] = []; let timestamp = ""; let count = 0; let popular: NewsArticle[] = [];
+        let offset = 0;
+        for (let page = 0; page < pageCount; page++) {
+          const params = new URLSearchParams({ offset: String(offset), country: selected, lang: locale });
+          if (activeCategory) params.set("category", activeCategory);
+          if (query.trim()) params.set("q", query.trim().slice(0, 160));
+          const response = await fetch(`/api/news?${params}`, { cache: "no-store", signal: controller.signal });
+          if (!response.ok) return;
+          const data = await response.json();
+          if (!Array.isArray(data.articles) || !Number.isFinite(Date.parse(data.updatedAt)) ||
+            (timestamp && data.updatedAt !== timestamp)) return;
+          timestamp = data.updatedAt; incoming.push(...data.articles);
+          count = Number.isSafeInteger(data.total) ? data.total : incoming.length;
+          popular = Array.isArray(data.popular) ? data.popular : incoming;
+          if (!Number.isSafeInteger(data.nextOffset) || data.nextOffset <= offset) break;
+          offset = data.nextOffset;
+        }
+        if (Date.parse(timestamp) >= newestEdition.current && !controller.signal.aborted) {
+          newestEdition.current = Date.parse(timestamp); setArticles(incoming); setPopularArticles(popular); setTotal(count);
+        }
+      } catch { /* Keep the last complete page during a failed or interrupted refresh. */ }
+      finally { pending = false; }
+    };
+    const firstRefresh=setTimeout(refresh,query.trim()?250:0); const interval=setInterval(refresh,60_000); window.addEventListener("focus",refresh); window.addEventListener("pageshow",refresh);
+    return ()=>{controller.abort();clearTimeout(firstRefresh);clearInterval(interval);window.removeEventListener("focus",refresh);window.removeEventListener("pageshow",refresh);};
+  },[selected,activeCategory,query,locale,pageCount]);
   const filtered=articles.filter(article=>(selected==="ALL"||article.countries.includes(selected))&&(!activeCategory||articleCategory(article)===activeCategory)&&`${articleText(article,locale).title} ${articleText(article,locale).description}`.toLowerCase().includes(query.toLowerCase()));
   const featured=filtered[0];
-  const popular=articles.filter(article=>Number.isSafeInteger(article.views7d)&&(article.views7d??0)>0).toSorted((left,right)=>(right.views7d??0)-(left.views7d??0)||Date.parse(right.publishedAt)-Date.parse(left.publishedAt)||left.id.localeCompare(right.id)).slice(0,5);
+  const popular=popularArticles.filter(article=>Number.isSafeInteger(article.views7d)&&(article.views7d??0)>0).toSorted((left,right)=>(right.views7d??0)-(left.views7d??0)||Date.parse(right.publishedAt)-Date.parse(left.publishedAt)||left.id.localeCompare(right.id)).slice(0,5);
   return <NewsChrome>
-    <section className={styles.intro}><div><h1>{archive?t("archive"):activeCategory?categoryLabel(activeCategory,locale):selected==="ALL"?t("latest"):country(selected)}</h1><p>{t("description")}</p></div><label className={styles.search}><Search size={16}/><input type="search" aria-label={t("search")} placeholder={t("search")} value={query} onChange={event=>setQuery(event.target.value)}/></label></section>
+    <section className={styles.intro}><div><h1>{archive?t("archive"):activeCategory?categoryLabel(activeCategory,locale):selected==="ALL"?t("latest"):country(selected)}</h1><p>{t("description")}</p></div><label className={styles.search}><Search size={16}/><input type="search" aria-label={t("search")} placeholder={t("search")} value={query} onChange={event=>{setQuery(event.target.value);setLimit(13);}}/></label></section>
     <nav className={styles.filters} aria-label={newsCategoriesLabel(locale)}><Link href={newsPath(locale)} aria-current={!activeCategory&&selected==="ALL"?"page":undefined} prefetch={false}>{allNewsLabel(locale)}</Link>{NEWS_CATEGORIES.map(topic=><Link key={topic} href={newsTopicPath(topic,locale)} aria-current={activeCategory===topic?"page":undefined} prefetch={false}>{categoryLabel(topic,locale)}</Link>)}</nav>
-    <div className={styles.overviewGrid}><section aria-label={t("latest")}>{featured?<StoryCard article={featured} featured/>:<div className={styles.empty}>{query||activeCategory?t("noResults"):t("empty")}</div>}<div className={styles.cardGrid}>{filtered.slice(1,limit).map(article=><StoryCard key={article.id} article={article}/>)}</div>{filtered.length>limit?<button className={styles.loadMore} onClick={()=>setLimit(limit+12)}>{t("loadMore")}</button>:null}</section>
+    <div className={styles.overviewGrid}><section aria-label={t("latest")}>{featured?<StoryCard article={featured} featured/>:<div className={styles.empty}>{query||activeCategory?t("noResults"):t("empty")}</div>}<div className={styles.cardGrid}>{filtered.slice(1,limit).map(article=><StoryCard key={article.id} article={article}/>)}</div>{total>limit?<button className={styles.loadMore} onClick={()=>setLimit(limit+12)}>{t("loadMore")}</button>:null}</section>
       <aside className={styles.latestRail} aria-label={t("popular")}><span className={styles.eyebrow}>{t("popular")}</span>{popular.length?popular.map((article,index)=><Link key={article.id} href={availableNewsArticlePath(article,locale)} prefetch={false}><span>{String(index+1).padStart(2,"0")}</span><div><h3>{articleText(article,locale).title}</h3><time dateTime={article.publishedAt}>{new Intl.DateTimeFormat(locale,{month:"short",day:"numeric"}).format(new Date(article.publishedAt))}</time></div></Link>):<p className={styles.popularEmpty}>{t("popularEmpty")}</p>}</aside>
     </div>
   </NewsChrome>;

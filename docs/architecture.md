@@ -111,7 +111,10 @@ qualify; general reporting and background tags do not. Each story keeps its actu
 time, with no forced market match or implied price reaction. Strictly related
 active markets may add action links; see `docs/news-operations.md`. Stories with
 missing source verification, withdrawals, future dates or age over two hours
-are excluded. Older news-index responses cannot replace newer ones. Expiry is
+are excluded. Older news-index responses cannot replace newer ones. The news
+index is paged so archive growth cannot freeze fresh news behind the persistent
+cache size limit; server-side catalog reads coalesce within a thirty-second
+worker cache. Expiry is
 checked every five seconds and on tab restore. With no genuine eligible data,
 the rail stays empty rather than fabricating or renewing expired activity.
 

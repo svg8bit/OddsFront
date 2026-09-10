@@ -1,6 +1,6 @@
 import { permanentRedirect } from "next/navigation";
 import { NewsOverview } from "@/components/news/news";
-import { newsIndex } from "@/lib/news/publication";
+import { newsOverviewProps } from "@/lib/news/index-page";
 import { getNewsCatalog } from "@/lib/news/catalog";
 import { normalizeLocale } from "@/lib/news/locale";
 import { newsMetadata } from "@/lib/news/metadata";
@@ -11,5 +11,5 @@ export default async function NewsPage({ searchParams }: { searchParams: Promise
   const locale = normalizeLocale((await searchParams).lang);
   if (locale) permanentRedirect(newsPath(locale));
   const catalog=await getNewsCatalog();
-  return <NewsOverview initialArticles={newsIndex(catalog).articles} initialUpdatedAt={catalog.updatedAt}/>;
+  return <NewsOverview {...newsOverviewProps(catalog)}/>;
 }
