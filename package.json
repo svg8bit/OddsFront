@@ -44,7 +44,7 @@
     "react": "19.2.8",
     "react-dom": "19.2.8",
     "react-map-gl": "8.1.2",
-    "sharp": "0.35.3",
+    "sharp": "0.35.4",
     "zustand": "^5.0.14"
   },
   "devDependencies": {
