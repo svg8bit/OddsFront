@@ -24,13 +24,13 @@ test("market matching retains article evidence once while preserving every candi
   expect(prompt).toContain('"countries":["UA","RU"]');
 });
 
-test("hourly social slots can select different stories from one two-hour site edition", () => {
+test("social selection preserves recent unpublished stories across site editions", () => {
   const { article, now } = fixture();
-  const edition = Array.from({ length: 20 }, (_, i) => ({ ...article, id: `qa-edition-${i}` }));
-  expect(freshEditionArticles(edition, [], now)).toHaveLength(20);
-  expect(freshEditionArticles(edition, [edition[3]!.id], now + 3_600_000)).toHaveLength(19);
+  const edition = Array.from({ length: 10 }, (_, i) => ({ ...article, id: `qa-edition-${i}` }));
+  expect(freshEditionArticles(edition, [], now)).toHaveLength(10);
+  expect(freshEditionArticles(edition, [edition[3]!.id], now + 3_600_000)).toHaveLength(9);
   const next = edition.map((item, i) => ({ ...item, id: `qa-next-edition-${i}`, publishedAt: new Date(now + 2 * 3_600_000).toISOString() }));
-  expect(freshEditionArticles([...next, ...edition], [edition[3]!.id], now + 2 * 3_600_000)).toHaveLength(20);
+  expect(freshEditionArticles([...next, ...edition], [edition[3]!.id], now + 2 * 3_600_000)).toHaveLength(10);
 });
 
 test("Telegram excludes expired news, stale markets and articles already sent", () => {

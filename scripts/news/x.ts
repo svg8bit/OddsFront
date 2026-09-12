@@ -4,7 +4,7 @@ import path from "node:path";
 import type { NewsCatalog } from "../../lib/news/types.ts";
 import { xCredentials, xRequest, XRequestError } from "../../lib/news/x-client.ts";
 import { xNewsArticle, xNewsCoverUrl, xNewsPayload, verifyXPhotoPost, X_NEWS_ACCOUNT } from "../../lib/news/x-publication.ts";
-import { hourlyPublicationDue } from "../../lib/news/hourly-publication.ts";
+import { socialPublicationDue } from "../../lib/news/social-publication.ts";
 import { xUploadNewsCover } from "../../lib/news/x-media.ts";
 
 const directory = process.env.ODDSFRONT_NEWS_DIRECTORY || "/root/OddsFront/.local/news";
@@ -24,7 +24,7 @@ try {
   let state: State = { lastSentAt: 0, sentArticles: [] };
   try { state = JSON.parse(await readFile(stateFile, "utf8")); } catch (error) { if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error; }
   if (state.pending) throw new Error("Previous X send has an unknown outcome; reconcile before retrying");
-  if (!process.argv.includes("--force") && !hourlyPublicationDue(state.lastSentAt)) { console.log(JSON.stringify({ status: "interval-not-due" })); process.exit(0); }
+  if (!process.argv.includes("--force") && !socialPublicationDue(state.lastSentAt)) { console.log(JSON.stringify({ status: "interval-not-due" })); process.exit(0); }
   const catalog = JSON.parse(await readFile(path.join(directory, "catalog.json"), "utf8")) as NewsCatalog;
   let telegram: { sentArticles: string[] } = { sentArticles: [] };
   try { telegram = JSON.parse(await readFile(path.join(directory, "telegram/state.json"), "utf8")); } catch (error) { if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error; }

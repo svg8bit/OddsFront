@@ -1,7 +1,8 @@
+import { SOCIAL_PUBLICATION_INTERVAL_MS } from "./social-publication.ts";
 import type { NewsArticle } from "./types.ts";
 
 export const X_NEWS_ACCOUNT = "alotofbit";
-export const X_NEWS_INTERVAL_MS = 60 * 60_000;
+export const X_NEWS_INTERVAL_MS = SOCIAL_PUBLICATION_INTERVAL_MS;
 
 export function xNewsPayload(article: NewsArticle) {
   const title = article.title.replace(/\s+/g, " ").trim();

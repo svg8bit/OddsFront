@@ -62,7 +62,13 @@ staged.articles = staged.articles.filter(article => pending.publishedAt || previ
 await atomic(path.join(pendingDirectory, "catalog.json"), staged);
 const startedAt = new Date().toISOString();
 const rounds = [];
-let prepared = (await stagedCatalog()).articles.filter(article => !previous.has(article.id));
+function selectPrepared(articles) {
+  const candidates = articles.filter(article => !previous.has(article.id));
+  if (pending.publishedAt) return pending.publishedIds
+    ? candidates.filter(article => pending.publishedIds.includes(article.id)) : candidates;
+  return candidates.slice(0, NEWS_EDITION_SIZE);
+}
+let prepared = selectPrepared((await stagedCatalog()).articles);
 function checkExportIdentity() {
   if (!pending.publishedAt) return;
   const ids = new Set(prepared.map(article => article.id));
@@ -103,13 +109,13 @@ async function checkNovelty() {
       mediaSources: article.sources.filter(source => source.kind === "media").map(source => source.url),
     }))].slice(-24));
   }
-  prepared = accepted;
+  prepared = selectPrepared(accepted);
 }
 await checkNovelty();
 async function checkCovers() {
   if (prepared.length < NEWS_MINIMUM_EDITION_SIZE) return;
-  const { accepted, rejected } = await prepareEditionCovers(prepared);
   const staged = await stagedCatalog();
+  const { accepted, rejected } = await prepareEditionCovers(staged.articles.filter(article => !previous.has(article.id)));
   await atomic(path.join(pendingDirectory, "catalog.json"), {
     ...staged, articles: [...accepted, ...staged.articles.filter(article => previous.has(article.id))],
   });
@@ -117,7 +123,7 @@ async function checkCovers() {
     const file = path.join(pendingDirectory, "cover-rejections.json");
     await atomic(file, [...await read(file, []), ...rejected]);
   }
-  prepared = accepted;
+  prepared = selectPrepared(accepted);
 }
 await checkCovers();
 checkExportIdentity();
@@ -134,7 +140,7 @@ for (let attempt = 1; attempt <= 6 && !pending.publishedAt && shouldResearchEdit
   const run = spawnSync(process.execPath, ["scripts/news/publish.ts"], { stdio: "inherit", env: { ...process.env,
     ODDSFRONT_NEWS_DIRECTORY: pendingDirectory, ODDSFRONT_NEWS_PUBLIC_DIRECTORY: path.join(pendingDirectory, "public"),
     ODDSFRONT_NEWS_BATCH_SIZE: String(Math.min(NEWS_RESEARCH_BATCH_SIZE, NEWS_EDITION_SIZE - prepared.length)) }, timeout: NEWS_RESEARCH_TIMEOUT_MS });
-  prepared = (await stagedCatalog()).articles.filter(article => !previous.has(article.id));
+  prepared = selectPrepared((await stagedCatalog()).articles);
   await checkNovelty();
   await checkCovers();
   rounds.push({ attempt, exitCode: run.status, prepared: prepared.length });
@@ -185,7 +191,15 @@ const receipt = { startedAt, finishedAt: new Date().toISOString(), requested: NE
 await atomic(target, receipt);
 await atomic(stateFile, { lastPublishedAt: Date.parse(publishedAt), articleIds: [...ids], receipt: target });
 // Keep research evidence; only the disposable staged catalogs are removed.
+const remaining = (await stagedCatalog()).articles.filter(article => !previous.has(article.id) && !ids.has(article.id) && fresh(article));
 await rename(pendingDirectory, path.join(directory, "editions", `${startedAt.replace(/[:.]/g, "-")}-research`));
+// A reduced edition size must not discard already verified surplus reporting.
+// The next run rechecks its novelty, age and covers against current history.
+if (remaining.length) {
+  await mkdir(pendingDirectory, { recursive: true, mode: 0o700 });
+  await atomic(path.join(pendingDirectory, "catalog.json"), { ...next, articles: [...remaining, ...next.articles] });
+  await atomic(pendingFile, { startedAt: new Date().toISOString(), baseIds: next.articles.map(article => article.id) });
+}
 console.log(JSON.stringify(receipt));
 if (process.argv.includes("--with-followups")) {
   for (const [command, args, timeout] of [

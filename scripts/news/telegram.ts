@@ -3,7 +3,7 @@ import { spawnSync } from "node:child_process";
 import path from "node:path";
 import { executeSubscriptionCodex } from "../../lib/news/writer.ts";
 import { approvedTelegramCandidate, freshEditionArticles, russianTelegramArticle, russianNewsReady, telegramCandidates, telegramPayload, telegramSelectionPrompt, TELEGRAM_SELECTION_SCHEMA, TELEGRAM_CHANNELS } from "../../lib/news/telegram.ts";
-import { hourlyPublicationDue } from "../../lib/news/hourly-publication.ts";
+import { socialPublicationDue } from "../../lib/news/social-publication.ts";
 import type { TelegramSelection, TelegramLocale, TelegramCandidate } from "../../lib/news/telegram.ts";
 import type { NewsCatalog } from "../../lib/news/types.ts";
 import type { ConflictPreviewFeed } from "../../features/global-conflict-map/preview/types.ts";
@@ -50,7 +50,7 @@ try {
   let state: State = { lastSentAt: 0, sentArticles: [] };
   try { state = JSON.parse(await readFile(stateFile, "utf8")); } catch (error) { if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error; }
   if (state.pending) throw new Error("Previous send has an unknown outcome; reconcile it before retrying");
-  if (!process.argv.includes("--force") && !hourlyPublicationDue(state.lastSentAt)) { console.log(JSON.stringify({ status: "interval-not-due" })); process.exit(0); }
+  if (!process.argv.includes("--force") && !socialPublicationDue(state.lastSentAt)) { console.log(JSON.stringify({ status: "interval-not-due" })); process.exit(0); }
   const catalog = JSON.parse(await readFile(path.join(directory, "catalog.json"), "utf8")) as NewsCatalog;
   // The common EN/RU/X selection must have a reviewed Russian preview before
   // English delivery commits the choice for all three publishers.
@@ -92,7 +92,7 @@ try {
       env: Object.fromEntries(["PATH", "USER", "LOGNAME", "LANG", "LC_ALL", "HTTPS_PROXY", "HTTP_PROXY", "NO_PROXY"].map(key => [key, process.env[key]])) })) as TelegramSelection;
     } catch {
       // The original article has already passed publication gates. A failed
-      // optional market editor must not stop the hourly news-only edition.
+      // optional market editor must not stop the scheduled news-only edition.
       selection = { articleId:articles[0]!.id, eventId:null, confidence:1, reason:"Verified published site reporting selected from the country/topic rotation; market editor unavailable, so no odds are attached." };
     }
     }

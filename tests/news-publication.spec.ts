@@ -177,19 +177,17 @@ test("public exports remain readable under the production service's private umas
   } finally { await rm(directory, { recursive: true, force: true }); }
 });
 
-test("edition top-ups cannot delay a verified minimum past its deadline", () => {
+test("editions stop at ten and preserve the two-hour deadline and research cooldown", () => {
   const now = Date.now();
-  const ready = { prepared: 15, dueAt: now + 60 * 60_000, now };
-  expect(shouldResearchEdition(ready)).toBe(true);
-  expect(shouldResearchEdition({ ...ready, dueAt: now + 5 * 60_000 })).toBe(false);
+  const ready = { prepared: 10, dueAt: now + 60 * 60_000, now };
+  expect(shouldResearchEdition(ready)).toBe(false);
   expect(shouldResearchEdition({ ...ready, dueAt: now - 1 })).toBe(false);
-  expect(shouldResearchEdition({ ...ready, prepared: 14, dueAt: now - 1 })).toBe(true);
-  expect(shouldResearchEdition({ ...ready, prepared: 20 })).toBe(false);
-  expect(shouldResearchEdition({ ...ready, prepared: 14, retryAfter: now + 1 })).toBe(false);
-  expect([14, 15, 18, 20, 21].map(isPublishableEditionSize)).toEqual([false, true, true, true, false]);
+  expect(shouldResearchEdition({ ...ready, prepared: 9, dueAt: now - 1 })).toBe(true);
+  expect(shouldResearchEdition({ ...ready, prepared: 9, retryAfter: now + 1 })).toBe(false);
+  expect([9, 10, 11, 15, 20].map(isPublishableEditionSize)).toEqual([false, true, false, false, false]);
 });
 
-test("editions resume to an on-time minimum and retain exact identity across export retries", async () => {
+test("reduced editions retain surplus drafts and exact identity across export retries", async () => {
   const directory = await mkdtemp(join(tmpdir(), "oddsfront-complete-edition-"));
   const titles = ["Test: Alpine delegations reopen mountain crossing", "Test: Coastal parliament approves maritime reform", "Test: Desert authorities announce water-sharing framework", "Test: Island leaders establish regional assembly", "Test: Northern ambassadors resume diplomatic dialogue", "Test: Eastern ministers appoint border commission", "Test: Southern council ratifies migration accord", "Test: Western agencies restore emergency coordination", "Test: Pacific representatives sign environmental treaty", "Test: Andean coalition reviews emergency funding", "Test: Baltic inspectors suspend unsafe ferry operator", "Test: Sahel mediation team releases joint declaration", "Test: Caribbean legislature adopts hurricane recovery plan", "Test: Nordic court orders financial disclosure", "Test: Caucasus envoys schedule regional summit", "Test: Amazon conservation agency expands protected forest", "Test: Mediterranean port authority opens cargo terminal", "Test: Central Asian cabinet restructures electricity regulator", "Test: Southeast Asian health ministry funds rural clinics", "Test: Antarctic researchers establish ocean monitoring network"];
   const articles = titles.map((title, i) => { const item = draft(); item.title = title; item.sources[0].url += `-${i}`; item.sources[1].url += `-${i}`; return item; });
@@ -213,20 +211,27 @@ test("editions resume to an on-time minimum and retain exact identity across exp
     expect(pending.retryAfter).toBeGreaterThan(Date.now());
     expect(run().stdout).toContain("research-cooldown");
     await writeFile(input, JSON.stringify({ articles: articles.slice(3) }));
+    // Model an existing thirteen-story queue when the owner reduces the size.
+    const fill = spawnSync(process.execPath, ["scripts/news/publish.ts"], { encoding: "utf8", env: { ...process.env, ODDSFRONT_NEWS_DIRECTORY: join(directory, "pending-edition"), ODDSFRONT_NEWS_DRAFT_FILE: input } });
+    expect(fill.status, fill.stderr).toBe(0);
+    expect(JSON.parse(await readFile(join(directory, "pending-edition/catalog.json"), "utf8")).articles).toHaveLength(13);
     const complete = run(true); expect(complete.status, complete.stderr).toBe(0);
     const before = await readFile(join(directory, "public/catalog.json"), "utf8");
-    const index = JSON.parse(before); expect(index.articles).toHaveLength(18); expect(new Set(index.articles.map((a: NewsArticle) => a.publishedAt)).size).toBe(1);
-    const state = JSON.parse(await readFile(join(directory, "edition-state.json"), "utf8")); expect(state.articleIds).toHaveLength(18);
+    const index = JSON.parse(before); expect(index.articles).toHaveLength(10); expect(new Set(index.articles.map((a: NewsArticle) => a.publishedAt)).size).toBe(1);
+    const state = JSON.parse(await readFile(join(directory, "edition-state.json"), "utf8")); expect(state.articleIds).toHaveLength(10);
     expect(run().stdout).toContain("interval-not-due"); expect(await readFile(join(directory, "public/catalog.json"), "utf8")).toBe(before);
+    const carry = JSON.parse(await readFile(join(directory, "pending-edition/catalog.json"), "utf8"));
+    const carryState = JSON.parse(await readFile(join(directory, "pending-edition/edition.json"), "utf8"));
+    expect(carry.articles.filter((a: NewsArticle) => !carryState.baseIds.includes(a.id))).toHaveLength(3);
     // Simulate a crash after exporting this exact edition but before committing
     // its ledger. The pending timestamp identifies a safe idempotent retry.
     const research = state.receipt.replace(/\.json$/, "-research");
-    await mkdir(join(directory, "pending-edition"));
+    await mkdir(join(directory, "pending-edition"), { recursive: true });
     for (const file of ["catalog.json", "edition.json"]) await writeFile(join(directory, "pending-edition", file), await readFile(join(research, file)));
     await writeFile(join(directory, "edition-state.json"), JSON.stringify({ lastPublishedAt: 0 }));
     const frozenCatalog = await readFile(join(research, "catalog.json"), "utf8");
     const altered = JSON.parse(frozenCatalog);
-    altered.articles.pop();
+    altered.articles = altered.articles.filter((a: NewsArticle) => a.id !== state.articleIds[0]);
     await writeFile(join(directory, "pending-edition/catalog.json"), JSON.stringify(altered));
     const unsafeRetry = run(true);
     expect(unsafeRetry.status).toBe(1);
@@ -237,19 +242,19 @@ test("editions resume to an on-time minimum and retain exact identity across exp
     const recoveredState = JSON.parse(await readFile(join(directory, "edition-state.json"), "utf8"));
     expect(recoveredState.lastPublishedAt).toBe(state.lastPublishedAt);
     expect(recoveredState.articleIds).toEqual(state.articleIds);
-    expect(JSON.parse(await readFile(join(directory, "public/catalog.json"), "utf8")).articles).toHaveLength(18);
+    expect(JSON.parse(await readFile(join(directory, "public/catalog.json"), "utf8")).articles).toHaveLength(10);
   } finally { await rm(directory, { recursive: true, force: true }); }
 });
 
-for (const usableCovers of [12, 11]) {
-  test(`an overdue fifteen-story edition during quota cooldown requires at least twelve photos (${usableCovers} available)`, async () => {
+for (const usableCovers of [7, 6]) {
+  test(`an overdue ten-story edition during quota cooldown requires at least seven photos (${usableCovers} available)`, async () => {
     const directory = await mkdtemp(join(tmpdir(), "oddsfront-minimum-edition-"));
     const pendingDirectory = join(directory, "pending-edition");
     const titles = ["Alpine border opens", "Coastal legislature elected", "Desert water deal signed", "Island assembly established", "Northern railway reopens", "Eastern commission appointed", "Southern migration pact ratified", "Western emergency funding approved", "Pacific pollution treaty adopted", "Andean cabinet reshuffled", "Baltic ferry services suspended", "Sahel mediation talks resume", "Caribbean hurricane aid arrives", "Nordic financial rules amended", "Caucasus dam construction begins"];
     try {
       await mkdir(pendingDirectory);
       const input = join(directory, "draft.json");
-      await writeFile(input, JSON.stringify({ articles: titles.map((title, index) => {
+      await writeFile(input, JSON.stringify({ articles: titles.slice(0, 10).map((title, index) => {
         const article = draft(); article.title = `Test: ${title}`;
         article.sources[0].url += `/${index}`; article.sources[1].url += `/${index}`;
         return article;
@@ -266,16 +271,16 @@ for (const usableCovers of [12, 11]) {
       };`);
       const result = spawnSync(process.execPath, ["--import", mock, "scripts/news/run-edition.mjs"], { encoding: "utf8", env: { ...process.env, ODDSFRONT_NEWS_DIRECTORY: directory, ODDSFRONT_NEWS_DRAFT_FILE: join(directory, "must-not-invoke-writer.json") } });
       expect(result.status, result.stderr).toBe(0);
-      if (usableCovers === 12) {
+      if (usableCovers === 7) {
         const ledger = JSON.parse(await readFile(join(directory, "edition-state.json"), "utf8"));
         const receipt = JSON.parse(await readFile(ledger.receipt, "utf8"));
-        expect(receipt).toMatchObject({ status: "complete", minimum: 15, photographicCovers: 12, fallbackCovers: 3, rounds: [] });
-        expect(ledger.articleIds).toHaveLength(15);
-        expect(JSON.parse(await readFile(join(directory, "public/catalog.json"), "utf8")).articles).toHaveLength(15);
+        expect(receipt).toMatchObject({ status: "complete", minimum: 10, photographicCovers: 7, fallbackCovers: 3, rounds: [] });
+        expect(ledger.articleIds).toHaveLength(10);
+        expect(JSON.parse(await readFile(join(directory, "public/catalog.json"), "utf8")).articles).toHaveLength(10);
       } else {
         expect(result.stdout).toContain("research-cooldown");
         await expect(readFile(join(directory, "public/catalog.json"))).rejects.toMatchObject({ code: "ENOENT" });
-        expect(JSON.parse(await readFile(join(pendingDirectory, "catalog.json"), "utf8")).articles).toHaveLength(14);
+        expect(JSON.parse(await readFile(join(pendingDirectory, "catalog.json"), "utf8")).articles).toHaveLength(9);
       }
     } finally { await rm(directory, { recursive: true, force: true }); }
   });

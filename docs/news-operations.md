@@ -14,7 +14,7 @@ Shared institutional background alone never identifies a duplicate. The full
 private history has no age cutoff. Pending editions are rechecked on resume,
 after research and immediately before export, including comparisons within the
 new batch. Rejected candidates remain private and cannot reduce a published
-batch below fifteen. These deterministic checks make no additional model calls.
+batch below ten. These deterministic checks make no additional model calls.
 
 For a verified repeat, use `node scripts/news/withdraw-duplicate.ts ARTICLE_ID
 ORIGINAL_ID` from the canonical checkout. The command takes the edition lock,
@@ -37,7 +37,7 @@ use the shared article URL helper.
 The owner disabled automatic maintenance on 2026-09-08. Keep
 `oddsfront-publishing-monitor.timer` disabled and the private dispatch
 configuration `enabled: false`. Do not re-enable agent wakeups without a new
-explicit request. The news and hourly social publication timers remain active.
+explicit request. The news and five-hour social publication timers remain active.
 
 ## Runtime boundary
 
@@ -87,18 +87,17 @@ full-text licensing, so ColdMath's licensed syndication mode is not enabled.
 The overlap gate checks evidence notes, not every word of a paywalled source.
 Research and publication gates reduce errors; they do not replace human review.
 
-The two-hour cycle targets twenty verified new stories, with an owner-approved
-minimum of fifteen. Research runs in small rounds of up to five so a slow writer
-cannot lose the entire edition. Once fifteen are verified, an optional top-up
-starts only if its bounded research time fits before the deadline. A ready
-fifteen-to-twenty-story edition publishes even during a research cooldown.
+The two-hour cycle publishes exactly ten verified new stories. Research runs in
+small rounds of up to five and stops once ten are ready. A verified complete
+edition publishes even during a research cooldown. Previously prepared surplus
+articles carry into the next private edition and pass the same gates again.
 Partial results persist privately in `pending-edition` and are topped up;
 they never replace the public catalog. An incomplete cycle exits unsuccessfully
 and the five-minute timer retries that pending edition. The two-hour interval
 is measured from the last complete publication in `edition-state.json`.
 Before export the pending record freezes its publication timestamp and exact
-article IDs. Retries must retain that set; accepting a variable edition size
-does not permit dropping articles from an already exported edition.
+article IDs. Retries must retain that set; a schedule change does not permit dropping
+articles from an already exported edition.
 Each round records coverage of all ten publishers, reviewed candidate counts
 and rejection reasons. Missing source coverage or discovery
 with no inspected candidates fails the job rather than reporting a healthy
@@ -134,8 +133,8 @@ Sky News RSS enclosures are matched to the exact article URL when discovering
 its photograph. Verified image URLs are saved with articles so subsequent RSS
 rotation does not remove their covers. Publisher title/logo-only share cards
 (including Meduza's `imgly` cards) use OddsFront artwork instead.
-Every edition permits at most three OddsFront fallbacks: at least twelve photos
-for fifteen stories, rising to seventeen for twenty. Excess stories without usable images
+Every ten-story edition permits at most three OddsFront fallbacks and requires
+at least seven photographic covers. Excess stories without usable images
 are retained as private rejections and replaced during the next research round.
 
 ## Writer and translation costs
@@ -156,7 +155,7 @@ A provider usage-limit refusal stops the research round immediately and defers
 the next attempt for thirty minutes while retaining the staged edition. Timer
 checks during that pause make no model calls; one refusal ends the next attempt
 immediately. There is no paid fallback or automatic maintenance-agent wakeup.
-The hourly selector makes no model call when no market candidates exist; it uses
+The five-hour selector makes no model call when no market candidates exist; it uses
 the existing verified-article country/topic ordering and publishes news only.
 When matching is needed, article context is supplied once per article and market
 candidates reference its ID, avoiding repeated paragraphs for every market.
@@ -270,3 +269,13 @@ records coverage for all configured publishers, including outlets without RSS.
 Available feed discovery avoids repeated category-page probing. Site coverage
 includes the existing politics, energy, security, humanitarian and world-affairs
 categories; a market match is unnecessary for an ordinary website article.
+
+## Temporary publication cadence (2026-09-12)
+
+Website editions contain exactly ten verified new articles every two hours.
+Each of Telegram EN, Telegram RU and X sends one story after at least five hours
+have elapsed since its own last confirmed receipt. Five-minute timer checks and
+website follow-ups cannot bypass this guard, and retries never clear pending sends.
+Source freshness, translations, country/topic rotation and account checks remain
+in force. The maintenance monitor stays disabled; its dormant overdue thresholds
+use the same five-hour interval.

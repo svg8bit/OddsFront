@@ -15,7 +15,7 @@ test("hourly selection alternates available countries and editorial topics witho
   const differentBoth={...base,id:"other-topic-country",title:"German election results announced",countries:["DE"],topics:["elections"]};
   expect(freshEditionArticles([previous,repeat,differentPlace,differentBoth],[previous.id],now).map(a=>a.id)).toEqual([differentBoth.id]);
   expect(freshEditionArticles([previous,repeat],[previous.id],now).map(a=>a.id)).toEqual([repeat.id]);
-  expect(TELEGRAM_INTERVAL_MS).toBe(3_600_000);expect(X_NEWS_INTERVAL_MS).toBe(3_600_000);
+  expect(TELEGRAM_INTERVAL_MS).toBe(18_000_000);expect(X_NEWS_INTERVAL_MS).toBe(18_000_000);
   expect(articleCategory({title:"Iran and US agree a ceasefire",topics:["Iran"]})).toBe("ceasefires");
   expect(articleCategory({title:"Ground invasion begins",topics:[]})).toBe("invasions");
   expect(articleCategory({title:"Aid reaches displaced families",topics:[]})).toBe("humanitarian");
@@ -26,7 +26,9 @@ test("supervision stays quiet while healthy, recovers a stopped timer and never 
   const rows:PublicationHealth[]=(Object.keys(PUBLICATION_JOBS) as PublicationJob[]).map(job=>({job,lastPublication:now-60_000,pending:false,timerActive:true,serviceRunning:false}));
   expect(publicationHealthPlan(rows,now)).toEqual({actions:[],incidents:[]});
   const x=rows.find(row=>row.job==="x")!;
-  x.timerActive=false;x.lastPublication=now-2*3_600_000;
+  x.lastPublication=now-4*3_600_000;
+  expect(publicationHealthPlan(rows,now)).toEqual({actions:[],incidents:[]});
+  x.timerActive=false;x.lastPublication=now-6*3_600_000;
   expect(publicationHealthPlan(rows,now).actions).toEqual([{job:"x",action:"enable-timer"},{job:"x",action:"start-service"}]);
   x.pending=true;expect(publicationHealthPlan(rows,now).actions).toEqual([]);
   x.pending=false;x.serviceRunning=true;
