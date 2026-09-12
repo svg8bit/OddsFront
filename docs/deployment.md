@@ -62,7 +62,7 @@ Writable private storage is reserved before the refresh request; a read-only
 mount therefore cannot consume the token before discovering the storage error.
 Keep these credentials off Vercel and Git.
 Every post still verifies `@alotofbit` before sending and retains the existing
-one-hour interval, pending-send guard and verified publication receipts.
+five-hour interval, pending-send guard and verified publication receipts.
 When rolling back to an OAuth1-only publisher, retain the OAuth2 credential
 file privately and pause the X publisher until compatible code is restored.
 

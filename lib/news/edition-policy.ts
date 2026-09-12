@@ -1,6 +1,6 @@
-// Aim for twenty; a verified minimum edition must not miss its deadline.
-export const NEWS_EDITION_SIZE = 20;
-export const NEWS_MINIMUM_EDITION_SIZE = 15;
+// Temporary owner-approved cadence: exactly ten verified stories per edition.
+export const NEWS_EDITION_SIZE = 10;
+export const NEWS_MINIMUM_EDITION_SIZE = 10;
 export const NEWS_EDITION_INTERVAL_MS = 2 * 60 * 60_000;
 export const NEWS_RESEARCH_BATCH_SIZE = 5;
 export const NEWS_RESEARCH_TIMEOUT_MS = 11 * 60_000;
