@@ -1,9 +1,10 @@
 import { articleCategory, type NewsCategory } from "./categories.ts";
+import { NEWS_INDEX_PAGE_SIZE } from "./constants.ts";
 import { articleText } from "./locale.ts";
 import { articleSummary } from "./publication.ts";
 import type { Locale, NewsCatalog } from "./types.ts";
 
-export const NEWS_INDEX_PAGE_SIZE = 48;
+export { NEWS_INDEX_PAGE_SIZE } from "./constants.ts";
 export interface NewsIndexQuery { offset?: number; country?: string; category?: NewsCategory; query?: string; locale?: Locale }
 
 export function newsIndexPage(catalog: NewsCatalog, options: NewsIndexQuery = {}) {

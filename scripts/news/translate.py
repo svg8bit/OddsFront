@@ -17,6 +17,36 @@ import sentencepiece
 DIRECTORY = Path(os.environ.get("ODDSFRONT_NEWS_DIRECTORY", "/root/OddsFront/.local/news"))
 MODEL = Path("/root/OddsFront/.local/translation-model")
 LANGUAGES = ["ru", "zh", "ko", "vi", "de", "es", "pt-BR", "fr", "uk", "fa", "he"]
+TRANSLATION_TEXT_BUDGET = max(50, min(500, int(os.environ.get("ODDSFRONT_TRANSLATION_TEXT_BUDGET", "150"))))
+
+
+def article_source_texts(article):
+    return {
+        article["title"],
+        article["description"],
+        *article["topics"],
+        *(block["text"] for block in article["body"]),
+    }
+
+
+def select_pending_texts(active_articles, dictionary_texts, language, cache, cache_key, budget):
+    article_pending = set()
+    ordered_articles = sorted(active_articles, key=lambda article: article["publishedAt"], reverse=True)
+    for article in ordered_articles:
+        missing = {text for text in article_source_texts(article) if cache_key(language, text) not in cache}
+        if not missing:
+            continue
+        if article_pending and len(article_pending | missing) > budget:
+            break
+        article_pending.update(missing)
+        if len(article_pending) >= budget:
+            break
+    remaining = max(0, budget - len(article_pending))
+    dictionary_pending = [
+        text for text in sorted(dictionary_texts - article_pending)
+        if cache_key(language, text) not in cache
+    ][:remaining]
+    return sorted(article_pending) + dictionary_pending
 
 
 def atomic_json(path, data, public=False):
@@ -64,7 +94,7 @@ def main():
         translator = ctranslate2.Translator(str(MODEL / "int8"), device="cpu", compute_type="int8", intra_threads=2)
         texts = set()
         for article in active_articles:
-            texts.update([article["title"], article["description"], *article["topics"], *[block["text"] for block in article["body"]]])
+            texts.update(article_source_texts(article))
         market_texts = set()
         market_feed_available = False
         try:
@@ -78,13 +108,26 @@ def main():
             print(f"Market translation refresh unavailable: {type(error).__name__}", flush=True)
         # Public explanatory pages share the same offline translation cache.
         extra_path = Path(__file__).with_name("translation-extra.json")
+        extra_texts = set()
         if extra_path.exists():
-            texts.update(json.loads(extra_path.read_text()))
+            extra_texts.update(json.loads(extra_path.read_text()))
+            texts.update(extra_texts)
         def key(language, text):
             return hashlib.sha256(f"m2m100-v1:{language}:{text}".encode()).hexdigest()
-        languages = os.environ.get("ODDSFRONT_TRANSLATION_LANGUAGES", ",".join(LANGUAGES)).split(",")
+        configured_languages = os.environ.get("ODDSFRONT_TRANSLATION_LANGUAGES")
+        languages = configured_languages.split(",") if configured_languages else list(LANGUAGES)
         if not languages or any(language not in LANGUAGES for language in languages):
             raise ValueError("Unsupported translation language")
+        if not configured_languages:
+            # Russian is reviewed before the RU social follow-up. Rotate the
+            # remaining offline work by actual coverage deficit so a bounded
+            # service run cannot starve languages near the end of a fixed list.
+            def backlog(language):
+                missing_articles = sum(1 for article in active_articles if language not in article["translations"])
+                missing_texts = sum(1 for text in texts if key(language, text) not in cache)
+                return (missing_articles, missing_texts, -LANGUAGES.index(language))
+            languages = ["ru", *sorted((language for language in LANGUAGES if language != "ru"), key=backlog, reverse=True)]
+            print(json.dumps({"translationOrder": languages}), flush=True)
         for language in languages:
             reviewed = {}
             if language == "ru":
@@ -95,7 +138,21 @@ def main():
                 reviewed = json.loads((DIRECTORY / "russian-editor-cache.json").read_text())
                 cache.update(reviewed)
             target = "pt" if language == "pt-BR" else language
-            pending = [text for text in sorted(texts) if key(language, text) not in cache]
+            # Finish the newest articles in every language before spending the
+            # bounded service window on older archive or map-dictionary work.
+            # A complete article becomes public; a partial translation remains
+            # only in the private cache until all of its fields are ready.
+            dictionary_texts = market_texts | {
+                topic for article in active_articles for topic in article["topics"]
+            } | extra_texts
+            pending = select_pending_texts(
+                active_articles,
+                dictionary_texts,
+                language,
+                cache,
+                key,
+                TRANSLATION_TEXT_BUDGET,
+            )
             # Split at sentence boundaries before tokenization; never truncate a paragraph.
             pieces = []
             owners = []
@@ -138,6 +195,8 @@ def main():
                     return Counter(re.findall(r"\d+", normalized))
                 return text if numbers(text) - numbers(value) else value
             for article in active_articles:
+                if not all(key(language, text) in cache for text in article_source_texts(article)):
+                    continue
                 previous = article["translations"].get(language)
                 article["translations"][language] = {
                     "title": translated_text(article["title"]),
@@ -151,12 +210,13 @@ def main():
                     article["updatedAt"] = datetime.now(timezone.utc).isoformat(timespec="milliseconds").replace("+00:00", "Z")
                     catalog["updatedAt"] = article["updatedAt"]
             dictionary = {} if market_feed_available else catalog.get("marketTranslations", {}).get(language, {}).copy()
-            dictionary.update({text: translated_text(text) for text in market_texts | {topic for article in active_articles for topic in article["topics"]} | (set(json.loads(extra_path.read_text())) if extra_path.exists() else set())})
+            dictionary.update({text: translated_text(text) for text in dictionary_texts if key(language, text) in cache})
             catalog.setdefault("marketTranslations", {})[language] = dictionary
             atomic_json(cache_path, cache)
             atomic_json(catalog_path, catalog)
             export_catalog(catalog)
-            print(json.dumps({"language": language, "newTexts": len(pending), "articles": len(catalog["articles"]), "marketTexts": len(market_texts)}), flush=True)
+            remaining_texts = sum(1 for text in texts if key(language, text) not in cache)
+            print(json.dumps({"language": language, "newTexts": len(pending), "remainingTexts": remaining_texts, "articles": len(catalog["articles"]), "marketTexts": len(market_texts)}), flush=True)
 
 
 if __name__ == "__main__":

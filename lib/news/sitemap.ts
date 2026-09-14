@@ -1,5 +1,6 @@
 import { articleLocales, languageAlternates, newsArticlePath, newsCountryPath, newsPath, newsTopicPath } from "./routing.ts";
 import { NEWS_CATEGORIES, articleCategory } from "./categories.ts";
+import { NEWS_INDEX_PAGE_SIZE } from "./constants.ts";
 import { LOCALES, type Locale, type NewsCatalog } from "./types.ts";
 
 export const SITEMAP_ARTICLE_BATCH_SIZE = 200;
@@ -39,18 +40,26 @@ function urlEntry({
 }
 
 export function sitemapIndex(catalog: NewsCatalog): string {
-  const pages = Math.max(1, Math.ceil(catalog.articles.length / SITEMAP_ARTICLE_BATCH_SIZE));
+  const activeArticles = catalog.articles.filter((article) => !article.withdrawal);
+  const pages = Math.max(1, Math.ceil(activeArticles.length / SITEMAP_ARTICLE_BATCH_SIZE));
   const locations = ["core.xml", ...Array.from({ length: pages }, (_, index) => `articles-${index + 1}.xml`)];
   const entries = locations.map((location) => `<sitemap><loc>${ORIGIN}/sitemaps/${location}</loc><lastmod>${escapeXml(new Date(catalog.updatedAt).toISOString())}</lastmod></sitemap>`).join("");
   return `<?xml version="1.0" encoding="UTF-8"?><sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${entries}</sitemapindex>`;
 }
 
 export function coreSitemap(catalog: NewsCatalog): string {
-  const countries = ["world", ...new Set(catalog.articles.flatMap((article) => article.countries.map((code) => code.toLowerCase())))];
-  const categories = NEWS_CATEGORIES.filter(topic=>catalog.articles.some(article=>articleCategory(article)===topic));
+  const activeArticles = catalog.articles.filter((article) => !article.withdrawal);
+  const countries = [...new Set(activeArticles.flatMap((article) => article.countries.map((code) => code.toLowerCase())))];
+  const categories = NEWS_CATEGORIES.filter(topic=>activeArticles.some(article=>articleCategory(article)===topic));
+  const archivePages = Math.max(1, Math.ceil(activeArticles.length / NEWS_INDEX_PAGE_SIZE));
   const urls = [
     urlEntry({ path: "", updatedAt: catalog.updatedAt, priority: "1.0" }),
-    urlEntry({ path: "/global-conflict-map", updatedAt: catalog.updatedAt, priority: "1.0" }),
+    urlEntry({ path: "/news/about", updatedAt: catalog.updatedAt, priority: "0.6" }),
+    ...Array.from({ length: archivePages }, (_, index) => urlEntry({
+      path: index === 0 ? "/news/archive" : `/news/archive?page=${index + 1}`,
+      updatedAt: catalog.updatedAt,
+      priority: "0.6",
+    })),
     ...LOCALES.flatMap((locale) => [
       urlEntry({ path: newsPath(locale), updatedAt: catalog.updatedAt, priority: "0.9", alternateLinks: alternates("/news") }),
       ...categories.map(topic=>urlEntry({ path:newsTopicPath(topic,locale), updatedAt:catalog.updatedAt, priority:"0.8", alternateLinks:alternates(newsTopicPath(topic,"en")) })),
@@ -61,9 +70,10 @@ export function coreSitemap(catalog: NewsCatalog): string {
 }
 
 export function articleSitemap(catalog: NewsCatalog, page: number): string | null {
+  const activeArticles = catalog.articles.filter((article) => !article.withdrawal);
   const offset = (page - 1) * SITEMAP_ARTICLE_BATCH_SIZE;
-  if (!Number.isInteger(page) || page < 1 || (offset >= catalog.articles.length && page !== 1)) return null;
-  const urls = catalog.articles.slice(offset, offset + SITEMAP_ARTICLE_BATCH_SIZE).flatMap((article) => {
+  if (!Number.isInteger(page) || page < 1 || (offset >= activeArticles.length && page !== 1)) return null;
+  const urls = activeArticles.slice(offset, offset + SITEMAP_ARTICLE_BATCH_SIZE).flatMap((article) => {
     const locales = articleLocales(article);
     const alternateLinks = alternates(newsArticlePath(article, "en"), locales);
     return locales.map((locale) => urlEntry({

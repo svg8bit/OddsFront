@@ -5,7 +5,7 @@ import { newsOverviewProps } from "@/lib/news/index-page";
 import { getNewsArticle, getNewsCatalog } from "@/lib/news/catalog";
 import { normalizeLocale } from "@/lib/news/locale";
 import { articleMetadata, newsMetadata } from "@/lib/news/metadata";
-import { isNewsCountrySegment, newsArticlePath, newsCountryPath } from "@/lib/news/routing";
+import { isNewsCountrySegment, newsArticlePath, newsCountryPath, newsPath } from "@/lib/news/routing";
 export const revalidate = 60;
 type Props = { params: Promise<{ country: string }>; searchParams: Promise<{ lang?: string }> };
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
@@ -22,7 +22,8 @@ export default async function DefaultNewsRoute({ params, searchParams }: Props) 
     if (!article || (locale && locale !== "en" && !article.translations[locale])) notFound();
     permanentRedirect(newsArticlePath(article, locale ?? "en"));
   }
+  if (country === "world") permanentRedirect(newsPath(locale ?? "en"));
   if (locale && locale !== "en") permanentRedirect(newsCountryPath(country, locale));
   const catalog = await getNewsCatalog();
-  return <NewsOverview {...newsOverviewProps(catalog, { country: country === "world" ? "ALL" : country.toUpperCase() })} activeCountry={country === "world" ? "ALL" : country.toUpperCase()}/>;
+  return <NewsOverview {...newsOverviewProps(catalog, { country: country.toUpperCase() })} activeCountry={country.toUpperCase()}/>;
 }

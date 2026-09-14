@@ -7,11 +7,11 @@ export const APP_ICON_PATH = "/brand/oddsfront-icon-v1.svg";
 export const APPLE_ICON_PATH = "/brand/oddsfront-apple-touch-icon-v1.png";
 export const BRAND_COLOR = "#6366F1";
 
-const TITLE = "OddsFront · Global Conflict Prediction Map";
+const TITLE = "Global Conflict Map & Prediction Market Odds | OddsFront";
 const DESCRIPTION =
-  "Live map for tracking active conflict and geopolitics prediction markets.";
+  "Track live geopolitical prediction market odds on an interactive world map, with verified news and probability changes.";
 const SOCIAL_DESCRIPTION =
-  "Track live conflict and geopolitics prediction markets on the OddsFront world map.";
+  "Follow live geopolitical prediction market odds, verified world news, and probability changes on OddsFront.";
 
 export function buildOddsFrontSocialMetadata(path: string): Metadata {
   return {
