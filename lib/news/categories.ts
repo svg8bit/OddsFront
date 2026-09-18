@@ -1,46 +1,40 @@
 import type { Locale, NewsArticle } from "./types.ts";
 
-export const NEWS_CATEGORIES = ["strikes", "invasions", "ceasefires", "diplomacy", "politics", "energy", "security", "humanitarian", "world"] as const;
+export const NEWS_CATEGORIES = ["politics", "geopolitics", "conflicts", "economy", "technology", "health", "climate", "crypto", "internet", "culture", "world"] as const;
 export type NewsCategory = typeof NEWS_CATEGORIES[number];
 
 const LABELS: Record<Locale, readonly string[]> = {
-  en: ["Strikes", "Invasions", "Ceasefires", "Diplomacy", "Politics", "Energy", "Security", "Humanitarian", "World affairs"],
-  ru: ["Удары", "Вторжения", "Перемирия", "Дипломатия", "Политика", "Энергетика", "Безопасность", "Гуманитарные события", "Мировые события"],
-  uk: ["Удари", "Вторгнення", "Перемир’я", "Дипломатія", "Політика", "Енергетика", "Безпека", "Гуманітарні події", "Світові події"],
-  zh: ["军事打击", "入侵", "停火", "外交", "政治", "能源", "安全", "人道事务", "国际事务"],
-  ko: ["공격", "침공", "휴전", "외교", "정치", "에너지", "안보", "인도주의", "국제 정세"],
-  vi: ["Các cuộc tấn công", "Xâm lược", "Ngừng bắn", "Ngoại giao", "Chính trị", "Năng lượng", "An ninh", "Nhân đạo", "Thế giới"],
-  de: ["Angriffe", "Invasionen", "Waffenruhen", "Diplomatie", "Politik", "Energie", "Sicherheit", "Humanitäres", "Weltgeschehen"],
-  es: ["Ataques", "Invasiones", "Altos el fuego", "Diplomacia", "Política", "Energía", "Seguridad", "Ayuda humanitaria", "Mundo"],
-  "pt-BR": ["Ataques", "Invasões", "Cessar-fogo", "Diplomacia", "Política", "Energia", "Segurança", "Ajuda humanitária", "Mundo"],
-  fr: ["Frappes", "Invasions", "Cessez-le-feu", "Diplomatie", "Politique", "Énergie", "Sécurité", "Humanitaire", "Monde"],
-  fa: ["حملات", "تهاجم", "آتش‌بس", "دیپلماسی", "سیاست", "انرژی", "امنیت", "امور بشردوستانه", "رویدادهای جهان"],
-  he: ["תקיפות", "פלישות", "הפסקות אש", "דיפלומטיה", "פוליטיקה", "אנרגיה", "ביטחון", "סוגיות הומניטריות", "אירועי העולם"],
+  en: ["Politics", "Geopolitics", "Conflicts", "Economy", "Technology & AI", "Health", "Climate & disasters", "Crypto", "Internet & memes", "Culture", "World"],
+  ru: ["Политика", "Геополитика", "Конфликты", "Экономика", "Технологии и ИИ", "Здоровье", "Климат и катастрофы", "Крипто", "Интернет и мемы", "Культура", "Мир"],
+  uk: ["Політика", "Геополітика", "Конфлікти", "Економіка", "Технології та ШІ", "Здоров’я", "Клімат і катастрофи", "Крипто", "Інтернет і меми", "Культура", "Світ"],
+  zh: ["政治", "地缘政治", "冲突", "经济", "科技与人工智能", "健康", "气候与灾害", "加密货币", "互联网与迷因", "文化", "世界"],
+  ko: ["정치", "지정학", "분쟁", "경제", "기술·AI", "건강", "기후·재난", "암호화폐", "인터넷·밈", "문화", "세계"],
+  vi: ["Chính trị", "Địa chính trị", "Xung đột", "Kinh tế", "Công nghệ & AI", "Sức khỏe", "Khí hậu & thiên tai", "Crypto", "Internet & meme", "Văn hóa", "Thế giới"],
+  de: ["Politik", "Geopolitik", "Konflikte", "Wirtschaft", "Technologie & KI", "Gesundheit", "Klima & Katastrophen", "Krypto", "Internet & Memes", "Kultur", "Welt"],
+  es: ["Política", "Geopolítica", "Conflictos", "Economía", "Tecnología e IA", "Salud", "Clima y desastres", "Cripto", "Internet y memes", "Cultura", "Mundo"],
+  "pt-BR": ["Política", "Geopolítica", "Conflitos", "Economia", "Tecnologia e IA", "Saúde", "Clima e desastres", "Cripto", "Internet e memes", "Cultura", "Mundo"],
+  fr: ["Politique", "Géopolitique", "Conflits", "Économie", "Technologie & IA", "Santé", "Climat & catastrophes", "Crypto", "Internet & mèmes", "Culture", "Monde"],
+  fa: ["سیاست", "ژئوپلیتیک", "درگیری‌ها", "اقتصاد", "فناوری و هوش مصنوعی", "سلامت", "اقلیم و بلایا", "رمزارز", "اینترنت و میم‌ها", "فرهنگ", "جهان"],
+  he: ["פוליטיקה", "גאופוליטיקה", "סכסוכים", "כלכלה", "טכנולוגיה ובינה מלאכותית", "בריאות", "אקלים ואסונות", "קריפטו", "אינטרנט וממים", "תרבות", "עולם"],
 };
+const ALL: Record<Locale,string>={en:"All news",ru:"Все новости",uk:"Усі новини",zh:"全部新闻",ko:"전체 뉴스",vi:"Tất cả tin tức",de:"Alle Nachrichten",es:"Todas las noticias","pt-BR":"Todas as notícias",fr:"Toutes les actualités",fa:"همه اخبار",he:"כל החדשות"};
+const NAV: Record<Locale,string>={en:"News categories",ru:"Категории новостей",uk:"Категорії новин",zh:"新闻分类",ko:"뉴스 분야",vi:"Chuyên mục tin tức",de:"Nachrichtenkategorien",es:"Categorías de noticias","pt-BR":"Categorias de notícias",fr:"Rubriques",fa:"دسته‌بندی اخبار",he:"קטגוריות חדשות"};
+export function isNewsCategory(value:string):value is NewsCategory{return (NEWS_CATEGORIES as readonly string[]).includes(value);}
+export function categoryLabel(category:NewsCategory,locale:Locale):string{return LABELS[locale][NEWS_CATEGORIES.indexOf(category)];}
+export function allNewsLabel(locale:Locale):string{return ALL[locale];}
+export function newsCategoriesLabel(locale:Locale):string{return NAV[locale];}
 
-const ALL: Record<Locale, string> = { en: "All news", ru: "Все новости", uk: "Усі новини", zh: "全部新闻", ko: "전체 뉴스", vi: "Tất cả tin tức", de: "Alle Nachrichten", es: "Todas las noticias", "pt-BR": "Todas as notícias", fr: "Toutes les actualités", fa: "همه اخبار", he: "כל החדשות" };
-const NAV: Record<Locale, string> = { en: "News categories", ru: "Категории новостей", uk: "Категорії новин", zh: "新闻分类", ko: "뉴스 분야", vi: "Chuyên mục tin tức", de: "Nachrichtenkategorien", es: "Categorías de noticias", "pt-BR": "Categorias de notícias", fr: "Rubriques", fa: "دسته‌بندی اخبار", he: "קטגוריות חדשות" };
-
-export function isNewsCategory(value: string): value is NewsCategory { return (NEWS_CATEGORIES as readonly string[]).includes(value); }
-export function categoryLabel(category: NewsCategory, locale: Locale): string { return LABELS[locale][NEWS_CATEGORIES.indexOf(category)]; }
-export function allNewsLabel(locale: Locale): string { return ALL[locale]; }
-export function newsCategoriesLabel(locale: Locale): string { return NAV[locale]; }
-
-// Classify the English reporting, so the same story keeps its topic in every language.
-// Geography stays article context and never becomes a substitute editorial category.
-export function articleCategory(article: Pick<NewsArticle, "title" | "topics">): NewsCategory {
-  const title = article.title.toLowerCase();
-  const topics = article.topics.join(" ").toLowerCase();
-  const classify = (text: string): NewsCategory | null => {
-    if (/\b(?:ceasefire|cease-fire|truce|peace (?:deal|agreement))\b/.test(text)) return "ceasefires";
-    if (/\b(?:invasion|invad(?:e|es|ed|ing)|incursion|ground offensive)\b/.test(text)) return "invasions";
-    if (/\b(?:airstrikes?|strikes?|struck|attacks?|attacked|bomb(?:ing|ardment)|shelling|missiles?|drones?)\b/.test(text)) return "strikes";
-    if (/\b(?:humanitarian|refugees?|migrants?|famine|hunger|aid|evacuat\w*|floods?|earthquake|eruption|disaster)\b/.test(text)) return "humanitarian";
-    if (/\b(?:oil|energy|gas|refiner\w*|tanker|crude|electricity|opec|pipeline)\b/.test(text)) return "energy";
-    if (/\b(?:diplomac\w*|diplomatic|talks|negotiat\w*|summit|envoy|sanctions?|treaty)\b/.test(text)) return "diplomacy";
-    if (/\b(?:elections?|vot(?:e|es|ing)|parliament|coalition|presiden\w*|minister|government|protests?|court|politic\w*)\b/.test(text)) return "politics";
-    if (/\b(?:security|military|defen[cs]e|nuclear|iaea|nato|arms|weapons?|intelligence|espionage|border)\b/.test(text)) return "security";
-    return null;
-  };
-  return classify(title) ?? classify(topics) ?? "world";
+export function articleCategory(article:Pick<NewsArticle,"title"|"topics">):NewsCategory{
+  const text=`${article.title} ${article.topics.join(" ")}`.toLowerCase();
+  if(/\b(?:virus|viral|outbreak|epidemic|pandemic|disease|vaccine|vaccin|who\b|health|hospital|infection|pathogen|flu\b|covid|mpox)\b/.test(text))return "health";
+  if(/\b(?:artificial intelligence|\bai\b|openai|anthropic|google|apple|microsoft|nvidia|robot|chip|semiconductor|software|technology|tech\b|spaceflight|spacex|cyber)\b/.test(text))return "technology";
+  if(/\b(?:bitcoin|ethereum|crypto|blockchain|stablecoin|defi|solana|token|memecoin|exchange)\b/.test(text))return "crypto";
+  if(/\b(?:meme|viral|social media|tiktok|youtube|instagram|reddit|x\.com|twitter|influencer|internet trend)\b/.test(text))return "internet";
+  if(/\b(?:film|movie|music|artist|actor|celebrity|festival|streaming|culture|gaming|game\b|entertainment)\b/.test(text))return "culture";
+  if(/\b(?:climate|wildfire|hurricane|typhoon|flood|earthquake|eruption|heatwave|storm|disaster|emissions?)\b/.test(text))return "climate";
+  if(/\b(?:inflation|gdp|economy|economic|interest rate|central bank|federal reserve|ecb|tariff|trade|jobs|unemployment|recession|oil price|markets?)\b/.test(text))return "economy";
+  if(/\b(?:airstrike|strike|invasion|ceasefire|war\b|military|missile|drone|attack|shelling|troops|hostage|armed conflict)\b/.test(text))return "conflicts";
+  if(/\b(?:election|vote|voting|parliament|president|prime minister|government|coalition|court|legislation|bill\b|campaign|politic)\b/.test(text))return "politics";
+  if(/\b(?:diplomac|sanction|treaty|summit|foreign minister|nato|united nations|border|territor|geopolit|bilateral|embassy)\b/.test(text))return "geopolitics";
+  return "world";
 }

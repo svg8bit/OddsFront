@@ -6,7 +6,13 @@ import type { NewsArticle } from "./types.ts";
 // Public publisher feeds supply leads, never substitute for article verification.
 export const NEWS_DISCOVERY_FEEDS = [
   { publisher: "BBC", url: "https://feeds.bbci.co.uk/news/world/rss.xml", articleHosts: ["bbc.com", "bbc.co.uk"] },
+  { publisher: "BBC", url: "https://feeds.bbci.co.uk/news/technology/rss.xml", articleHosts: ["bbc.com", "bbc.co.uk"] },
+  { publisher: "BBC", url: "https://feeds.bbci.co.uk/news/health/rss.xml", articleHosts: ["bbc.com", "bbc.co.uk"] },
+  { publisher: "BBC", url: "https://feeds.bbci.co.uk/news/science_and_environment/rss.xml", articleHosts: ["bbc.com", "bbc.co.uk"] },
   { publisher: "The Guardian", url: "https://www.theguardian.com/world/rss", articleHosts: ["theguardian.com"] },
+  { publisher: "The Guardian", url: "https://www.theguardian.com/technology/rss", articleHosts: ["theguardian.com"] },
+  { publisher: "The Guardian", url: "https://www.theguardian.com/business/rss", articleHosts: ["theguardian.com"] },
+  { publisher: "The Guardian", url: "https://www.theguardian.com/science/rss", articleHosts: ["theguardian.com"] },
   { publisher: "Euronews", url: "https://www.euronews.com/rss?level=vertical&name=news", articleHosts: ["euronews.com"] },
   { publisher: "Sky News", url: "https://feeds.skynews.com/feeds/rss/world.xml", articleHosts: ["news.sky.com"] },
   { publisher: "Meduza", url: "https://meduza.io/rss/all", articleHosts: ["meduza.io"] },
@@ -93,7 +99,7 @@ export async function collectNewsFeedDiscovery(fetcher: typeof fetch = fetch, no
   for (let offset = 0; offset < NEWS_DISCOVERY_FEEDS.length; offset += 3) {
     const results = await Promise.all(NEWS_DISCOVERY_FEEDS.slice(offset, offset + 3).map(async feed => {
       try {
-        const response = await fetcher(feed.url, { redirect: "error", signal: AbortSignal.timeout(6_000), headers: { Accept: "application/rss+xml,application/xml,text/xml", "User-Agent": "OddsFront/1.0 (+https://oddsfront.com/news)" } });
+        const response = await fetcher(feed.url, { redirect: "error", signal: AbortSignal.timeout(6_000), headers: { Accept: "application/rss+xml,application/xml,text/xml", "User-Agent": "HomoLudens/1.0" } });
         if (!response.ok || !/xml/i.test(response.headers.get("content-type") ?? "") || Number(response.headers.get("content-length") ?? 0) > MAX_FEED_BYTES || !response.body) throw new Error("Feed unavailable");
         const reader = response.body.getReader();
         const chunks: Uint8Array[] = [];
