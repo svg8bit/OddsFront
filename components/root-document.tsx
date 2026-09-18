@@ -13,9 +13,9 @@ import {
 export const ROOT_METADATA: Metadata = {
   ...buildOddsFrontSocialMetadata("/global-conflict-map"),
   metadataBase: new URL(ODDSFRONT_URL),
-  applicationName: "OddsFront",
-  creator: "OddsFront",
-  publisher: "OddsFront",
+  applicationName: "HomoLudens",
+  creator: "HomoLudens",
+  publisher: "HomoLudens",
   category: "news",
   robots: {
     index: true,
@@ -29,16 +29,14 @@ export const ROOT_METADATA: Metadata = {
     },
   },
   manifest: "/site.webmanifest",
-  appleWebApp: { title: "OddsFront", capable: false },
+  appleWebApp: { title: "HomoLudens", capable: false },
   alternates: { canonical: "/global-conflict-map" },
   icons: {
     icon: [
-      { url: "/brand/oddsfront-favicon-48-v1.png?v=2", type: "image/png", sizes: "48x48" },
-      { url: "/brand/oddsfront-favicon-96-v1.png?v=2", type: "image/png", sizes: "96x96" },
-      { url: `${APP_ICON_PATH}?v=2`, type: "image/svg+xml", sizes: "any" },
+      { url: APP_ICON_PATH, type: "image/svg+xml", sizes: "any" },
     ],
-    shortcut: [{ url: "/favicon.ico?v=oddsfront-2", type: "image/x-icon" }],
-    apple: [{ url: `${APPLE_ICON_PATH}?v=2`, type: "image/png", sizes: "180x180" }],
+    shortcut: [{ url: APP_ICON_PATH, type: "image/svg+xml" }],
+    apple: [{ url: APPLE_ICON_PATH, type: "image/svg+xml" }],
   },
 };
 
@@ -57,8 +55,8 @@ export function RootDocument({
   const organization = {
     "@context": "https://schema.org",
     "@graph": [
-      { "@type": "Organization", "@id": `${ODDSFRONT_URL}/#organization`, name: "OddsFront", url: ODDSFRONT_URL, logo: { "@type": "ImageObject", url: `${ODDSFRONT_URL}/brand/oddsfront-app-512-v1.png`, width: 512, height: 512 }, sameAs: ["https://t.me/oddsfront"] },
-      { "@type": "WebSite", "@id": `${ODDSFRONT_URL}/#website`, name: "OddsFront", url: ODDSFRONT_URL, publisher: { "@id": `${ODDSFRONT_URL}/#organization` }, inLanguage: locale },
+      { "@type": "Organization", "@id": `${ODDSFRONT_URL}/#organization`, name: "HomoLudens", url: ODDSFRONT_URL, logo: { "@type": "ImageObject", url: `${ODDSFRONT_URL}${APP_ICON_PATH}` } },
+      { "@type": "WebSite", "@id": `${ODDSFRONT_URL}/#website`, name: "HomoLudens", url: ODDSFRONT_URL, publisher: { "@id": `${ODDSFRONT_URL}/#organization` }, inLanguage: locale },
     ],
   };
   return (
@@ -66,7 +64,7 @@ export function RootDocument({
       {/* This component is the document shell shared by both root layouts. */}
       {/* eslint-disable-next-line @next/next/no-head-element */}
       <head>
-        <link rel="mask-icon" href="/brand/oddsfront-pinned-tab-v1.svg?v=2" color="#6366F1" />
+        <link rel="mask-icon" href={APP_ICON_PATH} color="#111827" />
         <link rel="preload" href="/fonts/inter-ui-latin-v1.woff2" as="font" type="font/woff2" crossOrigin="anonymous" />
       </head>
       <body>

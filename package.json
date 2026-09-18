@@ -1,10 +1,9 @@
 {
-  "name": "oddsfront",
+  "name": "homoludens",
   "version": "1.0.0",
-  "description": "Live map of conflict and geopolitics prediction markets.",
+  "description": "AI-assisted global news linked to live prediction-market probabilities.",
   "private": true,
   "license": "UNLICENSED",
-  "homepage": "https://oddsfront.com",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/svg8bit/OddsFront.git"

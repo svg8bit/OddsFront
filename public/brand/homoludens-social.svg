@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" role="img" aria-labelledby="t d">
+  <title id="t">HomoLudens</title><desc id="d">The world, priced in probability.</desc>
+  <rect width="1200" height="630" fill="#f4f4ef"/>
+  <g transform="translate(72 72)"><rect width="76" height="76" rx="20" fill="#111827"/><path d="M21 20v36M55 20v36M21 38h34" fill="none" stroke="#f8fafc" stroke-width="7" stroke-linecap="round"/><circle cx="38" cy="38" r="5" fill="#a3ff12"/></g>
+  <text x="72" y="250" font-family="Arial,Helvetica,sans-serif" font-size="96" font-weight="700" fill="#111827">HomoLudens</text>
+  <text x="76" y="330" font-family="Arial,Helvetica,sans-serif" font-size="38" fill="#475569">The world, priced in probability.</text>
+  <line x1="76" y1="410" x2="1124" y2="410" stroke="#d4d4d0"/>
+  <text x="76" y="485" font-family="Arial,Helvetica,sans-serif" font-size="27" fill="#64748b">Politics · Geopolitics · AI · Health · Crypto · Internet</text>
+  <text x="76" y="545" font-family="Arial,Helvetica,sans-serif" font-size="27" font-weight="700" fill="#111827">NEWS × PREDICTION MARKETS</text>
+</svg>
