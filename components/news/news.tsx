@@ -1,16 +1,15 @@
 "use client";
 import Link from "next/link";
 import Image from "next/image";
-import { ArrowLeft, ArrowUpRight, ArrowRight, Search, Send } from "lucide-react";
+import { ArrowLeft, ArrowUpRight, ArrowRight, Search } from "lucide-react";
 import { useEffect, useState, useRef } from "react";
 import { useLocale } from "@/components/locale-provider";
 import { SiteNavigation } from "@/components/site-navigation";
 import { articleText, localeDirection } from "@/lib/news/locale";
 import type { NewsArticle } from "@/lib/news/types";
 import type { ConflictPreviewEvent, ConflictPreviewFeed } from "@/features/global-conflict-map/preview/types";
-import { useLiveConflictFeed } from "@/features/global-conflict-map/preview/use-live-conflict-feed";
 import { relatedMarkets } from "@/lib/news/related-markets";
-import { buildDropsBotTrackUrl, toPolymarketReferralUrl } from "@/lib/polymarket-links";
+import { toPolymarketReferralUrl } from "@/lib/polymarket-links";
 import { CountryFlag } from "@/features/global-conflict-map/preview/country-flag";
 import { availableNewsArticlePath, newsArticlePath, newsPath, newsTopicPath } from "@/lib/news/routing";
 import { NEWS_CATEGORIES, articleCategory, categoryLabel, allNewsLabel, newsCategoriesLabel, type NewsCategory } from "@/lib/news/categories";
@@ -23,9 +22,9 @@ export function articlePath(article: NewsArticle) { return newsArticlePath(artic
 export function NewsChrome({ children }: { children: React.ReactNode }) {
   const { t, locale } = useLocale();
   return <div className={styles.page} dir={localeDirection(locale)}>
-    <header className={styles.header}><div className={styles.headerInner}><Link className={styles.wordmark} href={newsPath(locale)} prefetch={false} dir="ltr"><Image className={styles.brandMark} src="/brand/oddsfront-mark-v1.svg" alt="" width={30} height={23} unoptimized/><strong>OddsFront</strong><span> / {t("news")}</span></Link><SiteNavigation mode="news"/></div></header>
+    <header className={styles.header}><div className={styles.headerInner}><Link className={styles.wordmark} href={newsPath(locale)} prefetch={false} dir="ltr"><Image className={styles.brandMark} src="/brand/homoludens-mark.svg" alt="" width={30} height={30} unoptimized/><strong>HomoLudens</strong><span> / {t("news")}</span></Link><SiteNavigation mode="news"/></div></header>
     <main className={styles.content}>{children}</main>
-    <footer className={styles.footer}><span>© {new Date().getUTCFullYear()} OddsFront</span><a href="https://t.me/oddsfront" target="_blank" rel="noreferrer"><Send size={13}/>Telegram EN</a><a href="https://t.me/oddsfront_ru" target="_blank" rel="noreferrer"><Send size={13}/>Telegram RU</a></footer>
+    <footer className={styles.footer}><span>© {new Date().getUTCFullYear()} HomoLudens</span><span>The world, priced in probability.</span></footer>
   </div>;
 }
 
@@ -127,14 +126,14 @@ function ProbabilitySparkline({ points, title }: { points: HistoryPoint[]; title
 }
 
 function LiveMarketCard({ event, fresh, history = [] }: { event: ConflictPreviewEvent; fresh: boolean; history?: HistoryPoint[] }) {
-  const { t,translate,locale }=useLocale(); const market=toPolymarketReferralUrl(event.marketUrl); const track=buildDropsBotTrackUrl(event.marketUrl);
+  const { t,translate,locale }=useLocale(); const market=toPolymarketReferralUrl(event.marketUrl);
   const weekly=event.priceChange7d===null?null:event.priceChange7d*100;
-  return <article className={styles.marketCard} data-testid="news-related-market"><div className={styles.marketKicker}><span className={fresh?styles.liveDot:undefined}/>{t(fresh?"live":"updated")}<span>{event.countryCodes.slice(0,3).map(code=><CountryFlag key={code} code={code}/>)}</span></div><div className={styles.marketHeadline}>{event.imageUrl?<span className={styles.marketImage} aria-hidden="true"><Image src={`/api/market-image/${encodeURIComponent(event.id)}`} alt="" width={42} height={42} loading="lazy" onError={image=>{image.currentTarget.parentElement?.setAttribute("hidden","");}} data-market-image/></span>:null}<h3>{translate(event.title)}</h3></div><div className={styles.marketMetrics} dir="ltr"><div className={styles.currentProbability}><span>{t("yes")}</span><strong>{event.yesOdds}%</strong></div><div className={styles.marketTrend}><div><span>MAX</span>{weekly===null?null:<strong data-direction={weekly>=0?"up":"down"}>{weekly>=0?"+":""}{weekly.toFixed(1)}% <small>7D</small></strong>}</div><ProbabilitySparkline points={history} title={translate(event.title)}/></div></div><div className={styles.marketVolume}>{t("volume")} <b dir="ltr">{new Intl.NumberFormat(locale,{style:"currency",currency:"USD",notation:"compact",maximumFractionDigits:1}).format(event.marketVolume??event.volume)}</b></div><div className={styles.marketActions}>{track?<a href={track} target="_blank" rel="noreferrer"><Send size={14} aria-hidden="true"/>{t("track")}</a>:null}{market?<a href={market} target="_blank" rel="noreferrer">{t("market")}<ArrowUpRight size={14}/></a>:null}</div></article>;
+  return <article className={styles.marketCard} data-testid="news-related-market"><div className={styles.marketKicker}><span className={fresh?styles.liveDot:undefined}/>{t(fresh?"live":"updated")}<span>{event.countryCodes.slice(0,3).map(code=><CountryFlag key={code} code={code}/>)}</span></div><div className={styles.marketHeadline}>{event.imageUrl?<span className={styles.marketImage} aria-hidden="true"><Image src={`/api/market-image/${encodeURIComponent(event.id)}`} alt="" width={42} height={42} loading="lazy" onError={image=>{image.currentTarget.parentElement?.setAttribute("hidden","");}} data-market-image/></span>:null}<h3>{translate(event.title)}</h3></div><div className={styles.marketMetrics} dir="ltr"><div className={styles.currentProbability}><span>{t("yes")}</span><strong>{event.yesOdds}%</strong></div><div className={styles.marketTrend}><div><span>MAX</span>{weekly===null?null:<strong data-direction={weekly>=0?"up":"down"}>{weekly>=0?"+":""}{weekly.toFixed(1)}% <small>7D</small></strong>}</div><ProbabilitySparkline points={history} title={translate(event.title)}/></div></div><div className={styles.marketVolume}>{t("volume")} <b dir="ltr">{new Intl.NumberFormat(locale,{style:"currency",currency:"USD",notation:"compact",maximumFractionDigits:1}).format(event.marketVolume??event.volume)}</b></div><div className={styles.marketActions}>{market?<a href={market} target="_blank" rel="noreferrer">{t("market")}<ArrowUpRight size={14}/></a>:null}</div></article>;
 }
 
 export function NewsArticleView({ article, initialFeed }: { article: NewsArticle; initialFeed: ConflictPreviewFeed }) {
   useArticleReadership(article.slug);
-  const { locale,t }=useLocale(); const text=articleText(article,locale); const feed=useLiveConflictFeed(initialFeed,false); const events=relatedMarkets(article,feed.events);
+  const { locale,t }=useLocale(); const text=articleText(article,locale); const feed=initialFeed; const events=relatedMarkets(article,feed.events);
   const [histories,setHistories]=useState<Record<string,HistoryPoint[]>>({});
   const eventIds=events.map(event=>event.id).join(",");
   useEffect(()=>{if(!eventIds)return;const controller=new AbortController();fetch(`/api/market-history?eventIds=${encodeURIComponent(eventIds)}`,{signal:controller.signal}).then(response=>response.ok?response.json():null).then(data=>{if(data?.histories&&!controller.signal.aborted)setHistories(Object.fromEntries(Object.entries(data.histories).map(([id,value])=>[id,Array.isArray((value as {points?:unknown}).points)?(value as {points:HistoryPoint[]}).points:[]])));}).catch(()=>{});return()=>controller.abort();},[eventIds]);

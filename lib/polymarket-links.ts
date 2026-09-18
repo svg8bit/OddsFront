@@ -1,4 +1,4 @@
-export const POLYMARKET_REFERRAL_CODE = "drops1";
+export const POLYMARKET_REFERRAL_CODE = (process.env.NEXT_PUBLIC_POLYMARKET_REFERRAL_CODE ?? "").trim();
 export const DROPSBOT_TRACK_PREFIX = "TRACKpm_";
 export const TELEGRAM_START_MAX_LENGTH = 64;
 export const MAX_DROPSBOT_TRACK_SLUG_LENGTH =
@@ -33,7 +33,8 @@ export function getPolymarketEventSlug(value: unknown): string | null {
 
 export function buildPolymarketEventUrl(slug: unknown): string | null {
   if (typeof slug !== "string" || !EVENT_SLUG_PATTERN.test(slug)) return null;
-  return `https://polymarket.com/event/${slug}?via=${POLYMARKET_REFERRAL_CODE}`;
+  const base = `https://polymarket.com/event/${slug}`;
+  return /^[A-Za-z0-9_-]{1,64}$/.test(POLYMARKET_REFERRAL_CODE) ? `${base}?via=${encodeURIComponent(POLYMARKET_REFERRAL_CODE)}` : base;
 }
 
 export function toPolymarketReferralUrl(value: unknown): string | null {

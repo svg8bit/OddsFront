@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getConflictPreviewFeed } from "@/lib/polymarket-conflict-preview";
+import { getNewsMarketFeed } from "@/lib/polymarket-news-markets";
 
 export const dynamic = "force-dynamic";
 const CLOB_HISTORY_URL = "https://clob.polymarket.com/prices-history";
@@ -35,8 +36,9 @@ async function fetchHistory(token: string): Promise<HistoryPoint[]> {
 export async function GET(request: Request) {
   const ids = [...new Set((new URL(request.url).searchParams.get("eventIds") ?? "").split(",").filter((id) => /^polymarket-\d+$/.test(id)))].slice(0, 4);
   if (!ids.length) return NextResponse.json({ histories: {} }, { status: 400, headers: { "Cache-Control": "no-store" } });
-  const feed = await getConflictPreviewFeed();
-  const selected = ids.map((id) => feed.events.find((event) => event.id === id)).filter((event) => event?.yesTokenId);
+  const [conflictFeed, newsFeed] = await Promise.all([getConflictPreviewFeed(), getNewsMarketFeed()]);
+  const pool = [...newsFeed.events, ...conflictFeed.events];
+  const selected = ids.map((id) => pool.find((event) => event.id === id)).filter((event) => event?.yesTokenId);
   const histories = Object.fromEntries(await Promise.all(selected.map(async (event) => {
     const points = await fetchHistory(event!.yesTokenId!);
     const last = points.at(-1);

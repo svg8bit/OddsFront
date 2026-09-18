@@ -1,16 +1,17 @@
 import type { Metadata } from "next";
 
-import GlobalConflictMapPage from "@/app/(default)/global-conflict-map/page";
+import { NewsOverview } from "@/components/news/news";
+import { getNewsCatalog } from "@/lib/news/catalog";
+import { newsOverviewProps } from "@/lib/news/index-page";
 import { buildOddsFrontSocialMetadata } from "@/lib/oddsfront-site";
 
 export const metadata: Metadata = {
   ...buildOddsFrontSocialMetadata("/"),
-  alternates: {
-    canonical: "/",
-  },
+  alternates: { canonical: "/" },
 };
+export const revalidate = 60;
 
-export const dynamic = "force-static";
-export const revalidate = 300;
-
-export default GlobalConflictMapPage;
+export default async function HomePage() {
+  const catalog = await getNewsCatalog();
+  return <NewsOverview {...newsOverviewProps(catalog)} />;
+}
