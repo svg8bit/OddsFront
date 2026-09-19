@@ -16,7 +16,7 @@ import { availableNewsArticlePath, switchNewsLocalePath } from "../lib/news/rout
 import { researchProblems, researchExclusions, researchPrompt } from "../lib/news/research";
 import { NEWS_SOURCES } from "../lib/news/sources";
 import { NEWS_DISCOVERY_FEEDS } from "../lib/news/feed-discovery";
-import { isPublishableEditionSize, shouldResearchEdition } from "../lib/news/edition-policy";
+import { NEWS_MAX_RESEARCH_ROUNDS, NEWS_RESEARCH_BATCH_SIZE, isPublishableEditionSize, shouldResearchEdition, usageLimitRetryMs } from "../lib/news/edition-policy";
 import { buildIndexNowPlan, buildIndexNowSnapshot, indexNowBatches } from "../lib/news/indexnow";
 import { NEWS_SITEMAP_URL_LIMIT, newsSitemap, newsSitemapIndex } from "../lib/news/news-sitemap";
 import { newsRss } from "../lib/news/rss";
@@ -119,18 +119,19 @@ test("configured RSS coverage completes discovery without admitting feeds as art
   expect(researchProblems({...report,sources:report.sources.map(source=>({...source,candidatesReviewed:0}))})).toContain("Research inspected no current candidates");
 });
 
-test("research excludes every catalog story beyond eighty without repeating institutional background", () => {
+test("research excludes every catalog story with a compact title-only semantic index", () => {
   const articles = Array.from({length:125}, (_, index) => ({...seed.articles[0], title:`Development exclusion ${index}`, sources:[
     {...seed.articles[0].sources[0], kind:"media" as const, url:`https://www.bbc.com/news/development-${index}`},
     {...seed.articles[0].sources[0], kind:"official" as const, url:"https://www.un.org/development-background"},
   ]})) as NewsArticle[];
   const index = researchExclusions(articles);
   expect(index).toHaveLength(125);
-  expect(index[124]).toEqual({title:"Development exclusion 124",sources:["https://www.bbc.com/news/development-124"]});
+  expect(index[124]).toBe("Development exclusion 124");
   const feedback = [{title:"Development rejected candidate",reasons:["Already published story"],mediaSources:["https://www.bbc.com/news/development-rejected"]}];
   const prompt = researchPrompt(articles,1,new Date(),feedback);
   expect(prompt).toContain(JSON.stringify(index));
   expect(prompt).toContain(JSON.stringify(feedback));
+  expect(prompt).not.toContain("https://www.bbc.com/news/development-124");
   expect(prompt).not.toContain("https://www.un.org/development-background");
 });
 
@@ -237,6 +238,9 @@ test("editions stop at ten and preserve the two-hour deadline and research coold
   expect(shouldResearchEdition({ ...ready, prepared: 9, dueAt: now - 1 })).toBe(true);
   expect(shouldResearchEdition({ ...ready, prepared: 9, retryAfter: now + 1 })).toBe(false);
   expect([9, 10, 11, 15, 20].map(isPublishableEditionSize)).toEqual([false, true, false, false, false]);
+  expect(NEWS_RESEARCH_BATCH_SIZE).toBe(10);
+  expect(NEWS_MAX_RESEARCH_ROUNDS).toBe(3);
+  expect([1, 2, 3, 4].map(usageLimitRetryMs)).toEqual([6, 12, 24, 24].map(hours => hours * 60 * 60_000));
 });
 
 test("reduced editions retain surplus drafts and exact identity across export retries", async () => {
