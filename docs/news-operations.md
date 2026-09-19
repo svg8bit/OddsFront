@@ -1,12 +1,17 @@
 # OddsFront News operations
 
-Research uses a complete compact exclusion index of published, staged and
-cover-rejected stories, including their media URLs. Institutional background is
-omitted from that index because it can legitimately support a different event.
+Research uses a complete compact title index of published, staged and
+cover-rejected stories. Canonical media URLs are filtered against the full
+catalog before the model is invoked, while the deterministic validator still
+checks every draft against titles, leads and canonical URLs.
 The latest 24 validation rejections are retained privately between attempts.
 After two consecutive rounds add no usable article, the same private edition
 waits 30 minutes before further model calls. Publisher timer retries respect
 this cooldown; the minimum edition and cover requirements remain unchanged.
+Each normal round requests the full ten-story edition and uses at most three
+rounds only when validation or cover checks require replacements. A hard
+subscription-usage refusal backs off for 6 hours, then 12 hours and at most 24
+hours, while a forced operator run can probe recovery sooner.
 
 Novelty checks compare canonical media URLs (ignoring tracking parameters),
 word-normalized article and source headlines, and strongly overlapping leads.

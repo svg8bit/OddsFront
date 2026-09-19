@@ -11,7 +11,7 @@ import {
 } from "@/lib/oddsfront-site";
 
 export const ROOT_METADATA: Metadata = {
-  ...buildOddsFrontSocialMetadata("/global-conflict-map"),
+  ...buildOddsFrontSocialMetadata("/"),
   metadataBase: new URL(ODDSFRONT_URL),
   applicationName: "OddsFront",
   creator: "OddsFront",
@@ -30,7 +30,22 @@ export const ROOT_METADATA: Metadata = {
   },
   manifest: "/site.webmanifest",
   appleWebApp: { title: "OddsFront", capable: false },
-  alternates: { canonical: "/global-conflict-map" },
+  alternates: { canonical: "/" },
+  verification: {
+    google: process.env.ODDSFRONT_GOOGLE_SITE_VERIFICATION || undefined,
+    yandex: process.env.ODDSFRONT_YANDEX_SITE_VERIFICATION || undefined,
+    other: {
+      ...(process.env.ODDSFRONT_BING_SITE_VERIFICATION
+        ? { "msvalidate.01": process.env.ODDSFRONT_BING_SITE_VERIFICATION }
+        : {}),
+      ...(process.env.ODDSFRONT_NAVER_SITE_VERIFICATION
+        ? { "naver-site-verification": process.env.ODDSFRONT_NAVER_SITE_VERIFICATION }
+        : {}),
+      ...(process.env.ODDSFRONT_BAIDU_SITE_VERIFICATION
+        ? { "baidu-site-verification": process.env.ODDSFRONT_BAIDU_SITE_VERIFICATION }
+        : {}),
+    },
+  },
   icons: {
     icon: [
       { url: "/brand/oddsfront-favicon-48-v1.png?v=2", type: "image/png", sizes: "48x48" },
@@ -57,8 +72,8 @@ export function RootDocument({
   const organization = {
     "@context": "https://schema.org",
     "@graph": [
-      { "@type": "Organization", "@id": `${ODDSFRONT_URL}/#organization`, name: "OddsFront", url: ODDSFRONT_URL, logo: { "@type": "ImageObject", url: `${ODDSFRONT_URL}/brand/oddsfront-app-512-v1.png`, width: 512, height: 512 }, sameAs: ["https://t.me/oddsfront"] },
-      { "@type": "WebSite", "@id": `${ODDSFRONT_URL}/#website`, name: "OddsFront", url: ODDSFRONT_URL, publisher: { "@id": `${ODDSFRONT_URL}/#organization` }, inLanguage: locale },
+      { "@type": "Organization", "@id": `${ODDSFRONT_URL}/#organization`, name: "OddsFront", url: ODDSFRONT_URL, logo: { "@type": "ImageObject", url: `${ODDSFRONT_URL}/brand/oddsfront-app-512-v1.png`, width: 512, height: 512 }, sameAs: ["https://t.me/oddsfront", "https://t.me/oddsfront_ru"] },
+      { "@type": "WebSite", "@id": `${ODDSFRONT_URL}/#website`, name: "OddsFront", url: ODDSFRONT_URL, description: "Live geopolitical prediction market odds and verified world news.", publisher: { "@id": `${ODDSFRONT_URL}/#organization` }, inLanguage: locale },
     ],
   };
   return (

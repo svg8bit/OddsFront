@@ -16,7 +16,11 @@ import { availableNewsArticlePath, switchNewsLocalePath } from "../lib/news/rout
 import { researchProblems, researchExclusions, researchPrompt } from "../lib/news/research";
 import { NEWS_SOURCES } from "../lib/news/sources";
 import { NEWS_DISCOVERY_FEEDS } from "../lib/news/feed-discovery";
-import { isPublishableEditionSize, shouldResearchEdition } from "../lib/news/edition-policy";
+import { NEWS_MAX_RESEARCH_ROUNDS, NEWS_RESEARCH_BATCH_SIZE, isPublishableEditionSize, shouldResearchEdition, usageLimitRetryMs } from "../lib/news/edition-policy";
+import { buildIndexNowPlan, buildIndexNowSnapshot, indexNowBatches } from "../lib/news/indexnow";
+import { NEWS_SITEMAP_URL_LIMIT, newsSitemap, newsSitemapIndex } from "../lib/news/news-sitemap";
+import { newsRss } from "../lib/news/rss";
+import { articleSitemap, coreSitemap } from "../lib/news/sitemap";
 
 function draft():NewsDraft {
   return {publishable:true,rejectionReason:"",alert:{eligible:false,kind:"none",actorCountries:[],targetCountries:[]},title:"Test fixture: regional diplomatic review",description:"Development-only publication validation fixture.",countries:["UA"],topics:["diplomacy"],
@@ -24,6 +28,54 @@ function draft():NewsDraft {
     sources:[{id:"media",publisher:"BBC",url:"https://www.bbc.com/news/world/test-fixture",kind:"media",title:"Development source",publishedAt:new Date().toISOString(),evidence:"Source evidence for a development fixture. ".repeat(8)},{id:"official",publisher:"UN",url:"https://www.un.org/test-fixture",kind:"official",title:"Primary development source",publishedAt:new Date().toISOString(),evidence:"Institutional evidence describing the source record for validation. ".repeat(5)}],
     factChecks:["The meeting occurred","The timetable is unresolved","There is no announced agreement"].map(claim=>({claim,sourceIds:["media","official"]}))};
 }
+
+test("search discovery stays bounded, delta-based, and excludes withdrawn URLs", () => {
+  const now = new Date("2026-09-14T12:00:00Z");
+  const articles = Array.from({ length: NEWS_SITEMAP_URL_LIMIT + 1 }, (_, index) => ({
+    ...seed.articles[0],
+    id: `search-discovery-${index}`,
+    slug: `search-discovery-${index}`,
+    publishedAt: now.toISOString(),
+    updatedAt: now.toISOString(),
+  }));
+  const catalog = { ...seed, updatedAt: now.toISOString(), articles } as NewsCatalog;
+  const index = newsSitemapIndex(catalog, now.valueOf());
+  expect(index).toContain("https://oddsfront.com/news-sitemaps/en-1.xml");
+  expect(index).toContain("https://oddsfront.com/news-sitemaps/en-2.xml");
+  expect(index).toContain("https://oddsfront.com/news-sitemaps/pt-br-1.xml");
+  const first = newsSitemap(catalog, "en", 1, now.valueOf())!;
+  const second = newsSitemap(catalog, "en", 2, now.valueOf())!;
+  expect(first.match(/<news:news>/g)).toHaveLength(NEWS_SITEMAP_URL_LIMIT);
+  expect(second.match(/<news:news>/g)).toHaveLength(1);
+  expect(newsSitemap(catalog, "zh", 1, now.valueOf())).toContain("<news:language>zh-cn</news:language>");
+  const englishOnly = structuredClone(catalog);
+  englishOnly.articles.forEach((article) => { article.translations = {}; });
+  expect(newsSitemapIndex(englishOnly, now.valueOf())).not.toContain("/news-sitemaps/fr-1.xml");
+  expect(newsSitemap(englishOnly, "fr", 1, now.valueOf())).not.toContain("<url>");
+
+  const core = coreSitemap(catalog);
+  expect(core).toContain("https://oddsfront.com/news/about");
+  expect(core).toContain("https://oddsfront.com/news/archive?page=2");
+  expect(core).not.toContain("https://oddsfront.com/global-conflict-map");
+  expect(core).not.toContain("https://oddsfront.com/news/world");
+  expect(newsRss(catalog, "en")).toContain('<atom:link href="https://pubsubhubbub.appspot.com/" rel="hub"/>');
+
+  const initialCatalog = { ...catalog, articles: articles.slice(0, 2) } as NewsCatalog;
+  const snapshot = buildIndexNowSnapshot(initialCatalog);
+  expect(buildIndexNowPlan(initialCatalog, null).urls).toContain("https://oddsfront.com/global-conflict-map");
+  expect(buildIndexNowPlan(initialCatalog, snapshot).urls).toEqual([]);
+  const changedCatalog = structuredClone(initialCatalog);
+  changedCatalog.articles[0].updatedAt = "2026-09-14T12:01:00Z";
+  const plan = buildIndexNowPlan(changedCatalog, snapshot);
+  expect(plan.changedArticles).toBe(1);
+  expect(plan.urls).toContain(`https://oddsfront.com/en/news/${changedCatalog.articles[0].slug}`);
+  expect(plan.urls.some((url) => url.includes("/global-conflict-map"))).toBe(false);
+  expect(indexNowBatches(Array.from({ length: 10_001 }, (_, value) => String(value))).map((batch) => batch.length)).toEqual([10_000, 1]);
+
+  const withdrawn = structuredClone(initialCatalog);
+  withdrawn.articles[0].withdrawal = { at: now.toISOString(), duplicateOf: withdrawn.articles[1].id };
+  expect(articleSitemap(withdrawn, 1)).not.toContain(`/en/news/${withdrawn.articles[0].slug}`);
+});
 
 test("publication rejects unsupported sources, malformed data, copied prose and stale reporting",()=>{
   const valid=draft();expect(validateNewsDraft(valid,[])).toEqual([]);
@@ -67,18 +119,19 @@ test("configured RSS coverage completes discovery without admitting feeds as art
   expect(researchProblems({...report,sources:report.sources.map(source=>({...source,candidatesReviewed:0}))})).toContain("Research inspected no current candidates");
 });
 
-test("research excludes every catalog story beyond eighty without repeating institutional background", () => {
+test("research excludes every catalog story with a compact title-only semantic index", () => {
   const articles = Array.from({length:125}, (_, index) => ({...seed.articles[0], title:`Development exclusion ${index}`, sources:[
     {...seed.articles[0].sources[0], kind:"media" as const, url:`https://www.bbc.com/news/development-${index}`},
     {...seed.articles[0].sources[0], kind:"official" as const, url:"https://www.un.org/development-background"},
   ]})) as NewsArticle[];
   const index = researchExclusions(articles);
   expect(index).toHaveLength(125);
-  expect(index[124]).toEqual({title:"Development exclusion 124",sources:["https://www.bbc.com/news/development-124"]});
+  expect(index[124]).toBe("Development exclusion 124");
   const feedback = [{title:"Development rejected candidate",reasons:["Already published story"],mediaSources:["https://www.bbc.com/news/development-rejected"]}];
   const prompt = researchPrompt(articles,1,new Date(),feedback);
   expect(prompt).toContain(JSON.stringify(index));
   expect(prompt).toContain(JSON.stringify(feedback));
+  expect(prompt).not.toContain("https://www.bbc.com/news/development-124");
   expect(prompt).not.toContain("https://www.un.org/development-background");
 });
 
@@ -185,6 +238,9 @@ test("editions stop at ten and preserve the two-hour deadline and research coold
   expect(shouldResearchEdition({ ...ready, prepared: 9, dueAt: now - 1 })).toBe(true);
   expect(shouldResearchEdition({ ...ready, prepared: 9, retryAfter: now + 1 })).toBe(false);
   expect([9, 10, 11, 15, 20].map(isPublishableEditionSize)).toEqual([false, true, false, false, false]);
+  expect(NEWS_RESEARCH_BATCH_SIZE).toBe(10);
+  expect(NEWS_MAX_RESEARCH_ROUNDS).toBe(3);
+  expect([1, 2, 3, 4].map(usageLimitRetryMs)).toEqual([6, 12, 24, 24].map(hours => hours * 60 * 60_000));
 });
 
 test("reduced editions retain surplus drafts and exact identity across export retries", async () => {

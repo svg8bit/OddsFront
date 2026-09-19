@@ -4,6 +4,7 @@ import { articleText, countryName } from "./locale.ts";
 import { message } from "./messages.ts";
 import { articleLocales, languageAlternates, newsArticlePath, newsCountryPath, newsPath, newsTopicPath } from "./routing.ts";
 import { articleCategory, categoryLabel, type NewsCategory } from "./categories.ts";
+import { newsDescription } from "./seo.ts";
 import type { Locale, NewsArticle } from "./types.ts";
 
 const OPEN_GRAPH_LOCALES: Record<Locale, string> = {
@@ -15,8 +16,8 @@ export function newsMetadata(locale: Locale, country?: string): Metadata {
   const englishPath = country ? `/news/${country}` : "/news";
   const canonical = country ? newsCountryPath(country, locale) : newsPath(locale);
   const label = !country || country === "world" ? message(locale, "latest") : countryName(country.toUpperCase(), locale);
-  const title = `${label} — ${message(locale, "news")} | OddsFront`;
-  const description = message(locale, "description");
+  const title = country ? `${label} — ${message(locale, "news")} | OddsFront` : `${label} | OddsFront`;
+  const description = country ? `${label}. ${newsDescription(locale)}` : newsDescription(locale);
   return {
     title, description,
     alternates: { canonical, languages: languageAlternates(englishPath), ...(country ? {} : { types: { "application/rss+xml": newsPath(locale,"/rss.xml") } }) },
@@ -53,12 +54,22 @@ export function articleStructuredData(article: NewsArticle, locale: Locale) {
   const canonical = `${ODDSFRONT_URL}${newsArticlePath(article, locale)}`;
   const image = `${ODDSFRONT_URL}/social/news/${locale.toLowerCase()}/${article.slug}?v=${encodeURIComponent(article.updatedAt)}`;
   return {
-    "@context": "https://schema.org", "@type": "NewsArticle", headline: text.title, description: text.description,
-    image: [image], datePublished: article.publishedAt, dateModified: article.updatedAt, inLanguage: locale,
-    isAccessibleForFree: true, articleSection: categoryLabel(articleCategory(article),locale), keywords: article.topics.join(", "),
-    author: { "@type": "Organization", name: article.author, url: `${ODDSFRONT_URL}/news` },
-    publisher: { "@type": "Organization", name: "OddsFront", url: ODDSFRONT_URL, sameAs: ["https://t.me/oddsfront","https://t.me/oddsfront_ru"], logo: { "@type": "ImageObject", url: `${ODDSFRONT_URL}/brand/oddsfront-app-512-v1.png`, width: 512, height: 512 } },
-    mainEntityOfPage: canonical, citation: article.sources.map((source) => source.url),
+    "@context": "https://schema.org",
+    "@graph": [{
+      "@type": "NewsArticle", "@id": `${canonical}#article`, headline: text.title, description: text.description,
+      image: [image], datePublished: article.publishedAt, dateModified: article.updatedAt, inLanguage: locale,
+      isAccessibleForFree: true, articleSection: categoryLabel(articleCategory(article),locale), keywords: article.topics.join(", "),
+      author: { "@type": "Organization", name: article.author, url: `${ODDSFRONT_URL}/news/about` },
+      publisher: { "@type": "Organization", "@id": `${ODDSFRONT_URL}/#organization`, name: "OddsFront", url: ODDSFRONT_URL, sameAs: ["https://t.me/oddsfront","https://t.me/oddsfront_ru"], logo: { "@type": "ImageObject", url: `${ODDSFRONT_URL}/brand/oddsfront-app-512-v1.png`, width: 512, height: 512 } },
+      mainEntityOfPage: { "@type": "WebPage", "@id": canonical }, citation: article.sources.map((source) => source.url),
+    }, {
+      "@type": "BreadcrumbList",
+      itemListElement: [
+        { "@type": "ListItem", position: 1, name: "OddsFront", item: ODDSFRONT_URL },
+        { "@type": "ListItem", position: 2, name: message(locale, "news"), item: `${ODDSFRONT_URL}${newsPath(locale)}` },
+        { "@type": "ListItem", position: 3, name: text.title, item: canonical },
+      ],
+    }],
   };
 }
 
@@ -66,10 +77,30 @@ export function topicMetadata(topic: NewsCategory, locale: Locale): Metadata {
   const base = newsMetadata(locale);
   const label = categoryLabel(topic,locale);
   const title = `${label} — ${message(locale,"news")} | OddsFront`;
-  const description = `${label}. ${message(locale,"description")}`;
+  const description = `${label}. ${newsDescription(locale)}`;
   const canonical = newsTopicPath(topic,locale);
   return { ...base, title, description, alternates: { canonical, languages: languageAlternates(newsTopicPath(topic,"en")) },
     openGraph: { ...base.openGraph, title, description, url:canonical }, twitter: { ...base.twitter, title, description } };
+}
+
+export function newsUtilityMetadata(page: "about" | "archive", pageNumber = 1): Metadata {
+  const base = newsMetadata("en");
+  const archive = page === "archive";
+  const title = archive
+    ? `${pageNumber > 1 ? `News archive — page ${pageNumber}` : "News archive"} | OddsFront`
+    : "About the OddsFront newsdesk | OddsFront";
+  const description = archive
+    ? "Browse previous OddsFront world news reports, original sources, and related geopolitical prediction market context."
+    : "How OddsFront verifies, sources, translates, corrects, and connects world news to relevant prediction markets.";
+  const canonical = archive && pageNumber > 1 ? `/news/archive?page=${pageNumber}` : `/news/${page}`;
+  return {
+    ...base,
+    title,
+    description,
+    alternates: { canonical },
+    openGraph: { ...base.openGraph, title, description, url: canonical },
+    twitter: { ...base.twitter, title, description },
+  };
 }
 
 export function topicStructuredData(topic: NewsCategory, locale: Locale, articles: NewsArticle[]) {

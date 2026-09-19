@@ -49,8 +49,10 @@ export type NewsResearchRejection = { title: string; reasons: string[]; mediaSou
 
 export function researchExclusions(existing: NewsArticle[]) {
   // The validator checks the entire catalog. Keep the editor's exclusion index
-  // equally complete, but omit reusable institutional background and prose.
-  return existing.map(article => ({ title: article.title, sources: [...new Set(article.sources.filter(source => source.kind === "media").map(source => source.url))] }));
+  // equally complete. Feed discovery already removes every known canonical URL,
+  // so titles are sufficient semantic context here and avoid retransmitting a
+  // growing URL ledger to the subscription writer on every edition.
+  return existing.map(article => article.title);
 }
 
 export function researchPrompt(existing: NewsArticle[], maxArticles: number, date = new Date(), rejected: NewsResearchRejection[] = [], discovery?: NewsFeedDiscovery) {

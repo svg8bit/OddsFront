@@ -45,6 +45,38 @@ test("assigned Vercel aliases redirect to the canonical host", async ({ request 
   }
 });
 
+test("canonical and search discovery endpoints remain crawlable", async ({ request, page }) => {
+  const duplicate = await request.get("/global-conflict-map", { maxRedirects: 0 });
+  expect(duplicate.status()).toBe(308);
+  expect(duplicate.headers().location).toBe("https://oddsfront.com/");
+  for (const [path, canonical] of [["/news/world", "/news"], ["/ru/news/world", "/ru/news"]]) {
+    const response = await request.get(path, { maxRedirects: 0 });
+    expect(response.status()).toBe(308);
+    expect(response.headers().location).toContain(canonical);
+  }
+
+  const root = await (await request.get("/")).text();
+  expect(root).toContain('rel="canonical" href="https://oddsfront.com"');
+  expect(root).toContain("Global Conflict Map &amp; Prediction Market Odds | OddsFront");
+
+  const newsIndex = await (await request.get("/news-sitemap.xml")).text();
+  expect(newsIndex).toContain("https://oddsfront.com/news-sitemaps/en-1.xml");
+  const newsPart = await request.get("/news-sitemaps/en-1.xml");
+  expect(newsPart.ok()).toBe(true);
+  expect(await newsPart.text()).toContain('xmlns:news="http://www.google.com/schemas/sitemap-news/0.9"');
+  const core = await (await request.get("/sitemaps/core.xml")).text();
+  expect(core).not.toContain("https://oddsfront.com/global-conflict-map");
+  expect(core).not.toContain("https://oddsfront.com/news/world");
+  const rss = await (await request.get("/news/rss.xml")).text();
+  expect(rss).toContain('rel="hub"');
+  expect(rss).toContain("https://pubsubhubbub.appspot.com/");
+
+  await page.goto("/news");
+  await expect(page.getByRole("contentinfo").getByRole("link", { name: "About this newsdesk" })).toHaveAttribute("href", "/news/about");
+  await expect(page.getByRole("contentinfo").getByRole("link", { name: "Archive" })).toHaveAttribute("href", "/news/archive");
+  await expect(page.getByRole("contentinfo").getByRole("link", { name: "RSS feed" })).toHaveAttribute("href", "/news/rss.xml");
+});
+
 test("news remains lightweight and preserves language with topic navigation",async({page})=>{
   const requests:string[]=[];page.on("request",request=>requests.push(request.url()));
   await page.goto("/news");await expect(page.getByRole("heading",{level:1})).toBeVisible();
@@ -131,6 +163,8 @@ test("localized articles expose reciprocal search metadata and a branded 1200x63
   const html=await response.text();
   expect(html).toMatch(/<html[^>]+lang="ru"[^>]+dir="ltr"/);
   expect(html).toContain(`rel="canonical" href="https://oddsfront.com${path}"`);
+  expect(html).toContain('"@type":"NewsArticle"');
+  expect(html).toContain('"@type":"BreadcrumbList"');
   for(const language of [...LOCALES,"x-default"])expect(html).toContain(`hrefLang="${language}"`);
   const imagePath=html.match(/<meta property="og:image" content="https:\/\/oddsfront\.com([^\"]+)/)?.[1]?.replaceAll("&amp;","&");
   expect(imagePath).toBeTruthy();

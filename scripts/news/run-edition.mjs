@@ -1,4 +1,4 @@
-import { NEWS_EDITION_SIZE, NEWS_MINIMUM_EDITION_SIZE, NEWS_EDITION_INTERVAL_MS, NEWS_RESEARCH_BATCH_SIZE, NEWS_RESEARCH_TIMEOUT_MS, NEWS_RESEARCH_RETRY_MS, isPublishableEditionSize, shouldResearchEdition } from "../../lib/news/edition-policy.ts";
+import { NEWS_EDITION_SIZE, NEWS_MINIMUM_EDITION_SIZE, NEWS_EDITION_INTERVAL_MS, NEWS_RESEARCH_BATCH_SIZE, NEWS_MAX_RESEARCH_ROUNDS, NEWS_RESEARCH_TIMEOUT_MS, NEWS_RESEARCH_RETRY_MS, isPublishableEditionSize, shouldResearchEdition, usageLimitRetryMs } from "../../lib/news/edition-policy.ts";
 import { readFile, mkdir, writeFile, rename } from "node:fs/promises";
 import { spawnSync } from "node:child_process";
 import path from "node:path";
@@ -135,7 +135,7 @@ if (!force && pending.retryAfter > Date.now() && !isPublishableEditionSize(prepa
 // Research may return a partial result. Persist it privately and keep filling
 // the same edition; never expose five stories as a successful complete edition.
 let stalledRounds = 0;
-for (let attempt = 1; attempt <= 6 && !pending.publishedAt && shouldResearchEdition({ prepared: prepared.length, dueAt, now: Date.now(), retryAfter: force ? 0 : pending.retryAfter }); attempt++) {
+for (let attempt = 1; attempt <= NEWS_MAX_RESEARCH_ROUNDS && !pending.publishedAt && shouldResearchEdition({ prepared: prepared.length, dueAt, now: Date.now(), retryAfter: force ? 0 : pending.retryAfter }); attempt++) {
   const before = prepared.length;
   const run = spawnSync(process.execPath, ["scripts/news/publish.ts"], { stdio: "inherit", env: { ...process.env,
     ODDSFRONT_NEWS_DIRECTORY: pendingDirectory, ODDSFRONT_NEWS_PUBLIC_DIRECTORY: path.join(pendingDirectory, "public"),
@@ -146,10 +146,19 @@ for (let attempt = 1; attempt <= 6 && !pending.publishedAt && shouldResearchEdit
   rounds.push({ attempt, exitCode: run.status, prepared: prepared.length });
   if (run.status === 75) {
     // A provider quota refusal cannot be repaired by another immediate model
-    // call. Probe recovery at most once per thirty minutes, retaining drafts.
-    pending = { ...pending, retryAfter: Date.now() + NEWS_RESEARCH_RETRY_MS, retryReason: "subscription-usage-unavailable" };
+    // call. Back off hard-limit probes while retaining every verified draft.
+    const usageLimitFailures = (pending.usageLimitFailures || 0) + 1;
+    pending = { ...pending, usageLimitFailures, retryAfter: Date.now() + usageLimitRetryMs(usageLimitFailures), retryReason: "subscription-usage-unavailable" };
     await atomic(pendingFile, pending);
     break;
+  }
+  if (pending.retryReason === "subscription-usage-unavailable" || pending.usageLimitFailures) {
+    const recovered = { ...pending };
+    delete recovered.retryAfter;
+    delete recovered.retryReason;
+    delete recovered.usageLimitFailures;
+    pending = recovered;
+    await atomic(pendingFile, pending);
   }
   stalledRounds = prepared.length > before ? 0 : stalledRounds + 1;
   if (stalledRounds >= 2) {
@@ -205,6 +214,7 @@ if (process.argv.includes("--with-followups")) {
   for (const [command, args, timeout] of [
     ["/root/OddsFront/.local/translation-venv/bin/python", ["scripts/news/translate.py"], 55 * 60_000],
     [process.execPath, ["scripts/news/indexnow.mjs"], 60_000],
+    [process.execPath, ["scripts/news/websub.mjs"], 60_000],
   ]) {
     const result = spawnSync(command, args, { stdio: "inherit", env: process.env, timeout });
     if (result.status !== 0) console.error(JSON.stringify({ status: "followup-failed", command: path.basename(command), exitCode: result.status }));

@@ -106,7 +106,14 @@ const nextConfig: NextConfig = {
       permanent: true,
     }));
 
-    return canonicalHostRedirects;
+    return [
+      {
+        source: "/global-conflict-map",
+        destination: CANONICAL_ORIGIN,
+        permanent: true,
+      },
+      ...canonicalHostRedirects,
+    ];
   },
   async headers() {
     return [
