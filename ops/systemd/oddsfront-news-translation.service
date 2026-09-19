@@ -1,0 +1,26 @@
+[Unit]
+Description=OddsFront asynchronous local news translation worker
+After=network-online.target oddsfront-news.service
+Wants=network-online.target
+ConditionPathExists=/root/OddsFront/scripts/news/translate.py
+
+[Service]
+Type=oneshot
+WorkingDirectory=/root/OddsFront
+ExecStart=/root/OddsFront/.local/translation-venv/bin/python scripts/news/translate.py
+ExecStartPost=-/usr/local/bin/node scripts/news/indexnow.mjs
+ExecStartPost=-/usr/local/bin/node scripts/news/websub.mjs
+Environment=NODE_ENV=production
+Environment=PATH=/usr/local/bin:/usr/bin:/bin
+Nice=10
+CPUQuota=200%
+MemoryMax=2G
+TasksMax=128
+PrivateTmp=true
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/root/OddsFront/.local/news /opt/oddsfront-market-feed/news /root/.codex
+InaccessiblePaths=-/opt/arctrenches -/opt/arctrenches-legacy-6c13c07 -/root/DropsAnalytics -/root/DropsAnalytics-worktrees -/opt/sunder -/root/.ssh -/etc/oddsfront-market-feed.env
+UMask=0077
+TimeoutStartSec=90min

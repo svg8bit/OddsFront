@@ -3,7 +3,7 @@ import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
-import { createCodexWriterInvocation, executeSubscriptionCodex } from "../lib/news/writer";
+import { createCodexWriterInvocation, executeSubscriptionCodex, NEWS_WRITER_MODEL } from "../lib/news/writer";
 
 test("subscription research keeps search but cannot load host accounts or paid API credentials", () => {
   const invocation = createCodexWriterInvocation({ schemaPath: "schema.json", outputPath: "article.json", env: { PATH: "/usr/bin", OPENAI_API_KEY: "test-only-not-a-key", OPENAI_BASE_URL: "https://example.invalid" } });
@@ -11,12 +11,16 @@ test("subscription research keeps search but cannot load host accounts or paid A
   expect(invocation.args).toContain("--search");
   expect(invocation.args).toContain("read-only");
   expect(invocation.args).toContain("skip_host_skill_discovery");
+  expect(invocation.args[invocation.args.indexOf("--model") + 1]).toBe(NEWS_WRITER_MODEL);
+  expect(invocation.args).toContain('model_reasoning_effort="medium"');
   for (const feature of ["plugins", "apps", "multi_agent", "shell_tool"]) {
     expect(invocation.args[invocation.args.indexOf(feature) - 1]).toBe("--disable");
   }
   const translator = createCodexWriterInvocation({ schemaPath: "schema.json", outputPath: "article.json", purpose: "translation", env: {} });
   expect(translator.args).not.toContain("--search");
   expect(translator.args).toContain('web_search="disabled"');
+  expect(translator.args[translator.args.indexOf("--model") + 1]).toBe(NEWS_WRITER_MODEL);
+  expect(translator.args).toContain('model_reasoning_effort="low"');
 });
 
 test("writer records usage without article text or credentials and removes its temporary directory", async () => {
@@ -31,7 +35,7 @@ test("writer records usage without article text or credentials and removes its t
     });
     expect(JSON.parse(result)).toEqual({ translation: "fixture" });
     const usage = JSON.parse(await readFile(usageFile, "utf8"));
-    expect(usage).toMatchObject({ purpose: "translation", inputTokens: 100, cachedInputTokens: 30, outputTokens: 20 });
+    expect(usage).toMatchObject({ purpose: "translation", model: NEWS_WRITER_MODEL, inputTokens: 100, cachedInputTokens: 30, outputTokens: 20 });
     expect(JSON.stringify(usage)).not.toContain("private test input");
     await expect(readFile(join(temporary, "article.json"))).rejects.toMatchObject({ code: "ENOENT" });
   } finally { await rm(directory, { recursive: true, force: true }); }

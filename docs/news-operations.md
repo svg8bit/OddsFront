@@ -149,17 +149,19 @@ read-only research process. It consumes subscription usage. Paid API variables
 are removed and there is no paid fallback. Publication occurs only in the local
 validated runner; the research process has no publication credentials.
 
-The publisher explicitly selects `gpt-5.6-sol` with medium reasoning for research
-and Russian editorial translation, and low reasoning for social market matching.
+The publisher explicitly selects the lower-cost `gpt-5.6-luna`. Research keeps
+medium reasoning behind the unchanged source, evidence, novelty and cover gates;
+Russian editorial translation and social market matching use low reasoning.
 Only research enables live web search. Host skill discovery, plugins, account
 connectors, shell access and agent delegation are disabled for these invocations;
 shared Codex configuration is not modified. Successful invocations append token
 counts, cached input, purpose and duration timestamps to private
 `writer-usage.jsonl` files without storing article text or credentials there.
 A provider usage-limit refusal stops the research round immediately and defers
-the next attempt for thirty minutes while retaining the staged edition. Timer
-checks during that pause make no model calls; one refusal ends the next attempt
-immediately. There is no paid fallback or automatic maintenance-agent wakeup.
+the next attempt for 6 hours, then 12 hours and at most 24 hours while retaining
+the staged edition. Timer checks during that pause make no model calls; one
+refusal ends the next attempt immediately. There is no paid fallback or
+automatic maintenance-agent wakeup.
 The five-hour selector makes no model call when no market candidates exist; it uses
 the existing verified-article country/topic ordering and publishes news only.
 When matching is needed, article context is supplied once per article and market
@@ -177,6 +179,14 @@ The Google translation endpoint used by ColdMath rejects automated requests
 from this host; it is not bypassed. Model and private caches are excluded from Git.
 The separate Python environment is `/root/OddsFront/.local/translation-venv`;
 the model is `/root/OddsFront/.local/translation-model`.
+
+English publication sends IndexNow and WebSub immediately, then queues
+`oddsfront-news-translation.service` without waiting for it. The isolated local
+worker may use two CPU cores, keeps the same private cache, and translates all
+text needed to finish the newest articles before using a later pass for archive
+or map-dictionary backlog. It exports only complete per-language articles, then
+sends another IndexNow delta and WebSub notification for the newly available
+localized URLs. Translation never delays the next English sitemap update.
 
 Pinned packages: ctranslate2 4.8.2, transformers 4.57.6, sentencepiece 0.2.1,
 PyTorch 2.7.1+cpu. A model cache hit does not repeat inference. Translations are

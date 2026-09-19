@@ -13,6 +13,11 @@ URL, reciprocal `hreflang` entries, `x-default`, localized social metadata, and
 - `/sitemap.xml` links to `/sitemaps/core.xml` and bounded article sitemap
   parts. Withdrawn articles are excluded. The core sitemap includes the
   crawlable news archive, archive pagination, and the newsdesk page.
+- General sitemaps list one high-value English `<loc>` per article, listing,
+  topic and country page, with every complete localized version attached as a
+  reciprocal `hreflang` alternate. HTML pages retain the same reciprocal links.
+  This keeps the submitted crawl inventory focused instead of multiplying it by
+  every language, while search engines can still discover and serve each locale.
 - `/news-sitemap.xml` is the Google News sitemap index. It splits the last 48
   hours by language and then into parts of no more than 1,000 news URLs under
   `/news-sitemaps/{locale}-{part}.xml`. Simplified Chinese uses Google News's
