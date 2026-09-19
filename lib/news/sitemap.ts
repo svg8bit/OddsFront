@@ -60,11 +60,9 @@ export function coreSitemap(catalog: NewsCatalog): string {
       updatedAt: catalog.updatedAt,
       priority: "0.6",
     })),
-    ...LOCALES.flatMap((locale) => [
-      urlEntry({ path: newsPath(locale), updatedAt: catalog.updatedAt, priority: "0.9", alternateLinks: alternates("/news") }),
-      ...categories.map(topic=>urlEntry({ path:newsTopicPath(topic,locale), updatedAt:catalog.updatedAt, priority:"0.8", alternateLinks:alternates(newsTopicPath(topic,"en")) })),
-      ...countries.map((country) => urlEntry({ path: newsCountryPath(country, locale), updatedAt: catalog.updatedAt, priority: "0.8", alternateLinks: alternates(`/news/${country}`) })),
-    ]),
+    urlEntry({ path: newsPath("en"), updatedAt: catalog.updatedAt, priority: "0.9", alternateLinks: alternates("/news") }),
+    ...categories.map(topic=>urlEntry({ path:newsTopicPath(topic,"en"), updatedAt:catalog.updatedAt, priority:"0.8", alternateLinks:alternates(newsTopicPath(topic,"en")) })),
+    ...countries.map((country) => urlEntry({ path: newsCountryPath(country, "en"), updatedAt: catalog.updatedAt, priority: "0.8", alternateLinks: alternates(`/news/${country}`) })),
   ];
   return sitemapDocument(urls.join(""));
 }
@@ -73,16 +71,16 @@ export function articleSitemap(catalog: NewsCatalog, page: number): string | nul
   const activeArticles = catalog.articles.filter((article) => !article.withdrawal);
   const offset = (page - 1) * SITEMAP_ARTICLE_BATCH_SIZE;
   if (!Number.isInteger(page) || page < 1 || (offset >= activeArticles.length && page !== 1)) return null;
-  const urls = activeArticles.slice(offset, offset + SITEMAP_ARTICLE_BATCH_SIZE).flatMap((article) => {
+  const urls = activeArticles.slice(offset, offset + SITEMAP_ARTICLE_BATCH_SIZE).map((article) => {
     const locales = articleLocales(article);
     const alternateLinks = alternates(newsArticlePath(article, "en"), locales);
-    return locales.map((locale) => urlEntry({
-      path: newsArticlePath(article, locale),
+    return urlEntry({
+      path: newsArticlePath(article, "en"),
       updatedAt: article.updatedAt,
       priority: "0.8",
       alternateLinks,
-      image: `${ORIGIN}/social/news/${locale.toLowerCase()}/${article.slug}?v=${encodeURIComponent(article.updatedAt)}`,
-    }));
+      image: `${ORIGIN}/social/news/en/${article.slug}?v=${encodeURIComponent(article.updatedAt)}`,
+    });
   });
   return sitemapDocument(urls.join(""));
 }

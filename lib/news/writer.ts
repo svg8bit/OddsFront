@@ -9,6 +9,11 @@ export type WriterUsage = { inputTokens: number; cachedInputTokens: number; outp
 export type CodexProcessRunner = (input: { invocation: CodexWriterInvocation; prompt: string; cwd: string; timeoutMs: number }) => Promise<WriterUsage | void>;
 export class CodexUsageLimitError extends Error {}
 const PAID_API_ENV_KEYS = new Set(["OPENAI_API_KEY", "OPENAI_BASE_URL", "OPENAI_ORG_ID", "OPENAI_ORGANIZATION", "OPENAI_PROJECT_ID"]);
+export const NEWS_WRITER_MODEL = "gpt-5.6-luna";
+
+function reasoningEffort(purpose: WriterPurpose | undefined) {
+  return !purpose || purpose === "research" ? "medium" : "low";
+}
 export function createCodexWriterInvocation(input: {
   schemaPath: string;
   outputPath: string;
@@ -25,8 +30,8 @@ export function createCodexWriterInvocation(input: {
     "exec",
     "--ephemeral",
     "--ignore-user-config",
-    "--model", input.model || "gpt-5.6-sol",
-    "-c", `model_reasoning_effort="${input.purpose === "selection" ? "low" : "medium"}"`,
+    "--model", input.model || NEWS_WRITER_MODEL,
+    "-c", `model_reasoning_effort="${reasoningEffort(input.purpose)}"`,
     // A news editor needs public search, not hundreds of host skills, account
     // connectors, shell tools or other agents. Do not change shared host config.
     "--enable", "skip_host_skill_discovery",
@@ -111,12 +116,13 @@ export async function executeSubscriptionCodex(input: {
   const schemaPath = path.join(workdir, "article.schema.json");
   const outputPath = path.join(workdir, "article.json");
   const startedAt = new Date().toISOString();
+  const model = input.model || NEWS_WRITER_MODEL;
   try {
     await writeFile(schemaPath, JSON.stringify(input.schema), "utf8");
     const invocation = createCodexWriterInvocation({
       schemaPath,
       outputPath,
-      model: input.model,
+      model,
       purpose: input.purpose,
       env: input.env,
     });
@@ -126,7 +132,7 @@ export async function executeSubscriptionCodex(input: {
       cwd: workdir,
       timeoutMs: input.timeoutMs || 240_000,
     });
-    if (input.usageFile) await appendFile(input.usageFile, `${JSON.stringify({ startedAt, finishedAt: new Date().toISOString(), purpose: input.purpose || "research", model: input.model || "gpt-5.6-sol", promptBytes: Buffer.byteLength(input.prompt), ...usage })}\n`, { mode: 0o600 }).catch(() => {
+    if (input.usageFile) await appendFile(input.usageFile, `${JSON.stringify({ startedAt, finishedAt: new Date().toISOString(), purpose: input.purpose || "research", model, promptBytes: Buffer.byteLength(input.prompt), ...usage })}\n`, { mode: 0o600 }).catch(() => {
       console.warn("Writer usage logging unavailable; retaining the completed editorial result.");
     });
     return await readFile(outputPath, "utf8");

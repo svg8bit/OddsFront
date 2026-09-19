@@ -41,6 +41,11 @@ def select_pending_texts(active_articles, dictionary_texts, language, cache, cac
         article_pending.update(missing)
         if len(article_pending) >= budget:
             break
+    # Fresh, complete article translations are the search and readership
+    # priority. Do not delay their per-language export by filling the same
+    # inference pass with map labels or archive dictionary work.
+    if article_pending:
+        return sorted(article_pending)
     remaining = max(0, budget - len(article_pending))
     dictionary_pending = [
         text for text in sorted(dictionary_texts - article_pending)
@@ -170,8 +175,8 @@ def main():
                             owners.append(text)
             translated = {text: [] for text in pending}
             expected_pieces = Counter(owners)
-            for start in range(0, len(pieces), 16):
-                batch = pieces[start:start+16]
+            for start in range(0, len(pieces), 32):
+                batch = pieces[start:start+32]
                 results = translator.translate_batch(batch, target_prefix=[[f"__{target}__"] for _ in batch], beam_size=2, max_batch_size=512, batch_type="tokens", max_decoding_length=320, max_input_length=512, no_repeat_ngram_size=4)
                 for index, result in enumerate(results):
                     tokens = [token for token in result.hypotheses[0] if not token.startswith("__") and token not in ["</s>", "<s>"]]

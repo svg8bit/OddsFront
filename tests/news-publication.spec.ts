@@ -20,7 +20,7 @@ import { NEWS_MAX_RESEARCH_ROUNDS, NEWS_RESEARCH_BATCH_SIZE, isPublishableEditio
 import { buildIndexNowPlan, buildIndexNowSnapshot, indexNowBatches } from "../lib/news/indexnow";
 import { NEWS_SITEMAP_URL_LIMIT, newsSitemap, newsSitemapIndex } from "../lib/news/news-sitemap";
 import { newsRss } from "../lib/news/rss";
-import { articleSitemap, coreSitemap } from "../lib/news/sitemap";
+import { articleSitemap, coreSitemap, SITEMAP_ARTICLE_BATCH_SIZE } from "../lib/news/sitemap";
 
 function draft():NewsDraft {
   return {publishable:true,rejectionReason:"",alert:{eligible:false,kind:"none",actorCountries:[],targetCountries:[]},title:"Test fixture: regional diplomatic review",description:"Development-only publication validation fixture.",countries:["UA"],topics:["diplomacy"],
@@ -56,8 +56,14 @@ test("search discovery stays bounded, delta-based, and excludes withdrawn URLs",
   const core = coreSitemap(catalog);
   expect(core).toContain("https://oddsfront.com/news/about");
   expect(core).toContain("https://oddsfront.com/news/archive?page=2");
+  expect(core).toContain('hreflang="ru" href="https://oddsfront.com/ru/news"');
+  expect(core).not.toContain("<loc>https://oddsfront.com/ru/news</loc>");
   expect(core).not.toContain("https://oddsfront.com/global-conflict-map");
   expect(core).not.toContain("https://oddsfront.com/news/world");
+  const articlePart = articleSitemap(catalog, 1)!;
+  expect(articlePart.match(/<url>/g)).toHaveLength(SITEMAP_ARTICLE_BATCH_SIZE);
+  expect(articlePart).toContain('hreflang="ru"');
+  expect(articlePart).not.toContain("<loc>https://oddsfront.com/ru/news/");
   expect(newsRss(catalog, "en")).toContain('<atom:link href="https://pubsubhubbub.appspot.com/" rel="hub"/>');
 
   const initialCatalog = { ...catalog, articles: articles.slice(0, 2) } as NewsCatalog;
