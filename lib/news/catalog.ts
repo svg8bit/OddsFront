@@ -20,7 +20,14 @@ export const getNewsCatalog = cache(async (): Promise<NewsCatalog> => {
   // Defer live reads until a request, before feed retries can catch Next's
   // prerender bailout. Build-time workers must never retain a live snapshot.
   await connection();
-  return getLiveCatalog();
+  try {
+    return await getLiveCatalog();
+  } catch {
+    // A failed external feed must not take the public news archive offline.
+    // The checked-in catalog is the disaster-recovery copy updated by the
+    // local publication job and deployed with the frontend.
+    return seed as NewsCatalog;
+  }
 });
 
 export const getNewsArticle = cache(async (slug: string): Promise<NewsArticle | null> => {
