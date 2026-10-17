@@ -79,7 +79,10 @@ validated public destinations.
   minutes. They read no request data (`?lang=` and `?page=` are redirected by
   `proxy.ts`), embed no live market snapshot and fetch the catalog without
   `no-store`, so one render per window replaces one render per crawler hit.
-  Browsers still load the current market snapshot and news edition on entry.
+  Browsers still load the current market snapshot and news edition on entry;
+- an unreachable news feed costs one two-second attempt per worker per five
+  minutes; meanwhile news routes serve the bundled seed (or a 404 for unknown
+  slugs) with a five-minute window instead of failing.
 
 The lightweight loader owns one event-feed subscription independently of the
 deferred map bundle. It refreshes immediately on entry, pageshow, focus,

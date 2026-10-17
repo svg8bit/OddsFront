@@ -66,10 +66,11 @@ page out of Incremental Static Regeneration. Rendered news pages, sitemaps and
 feeds are cached by their `revalidate` exports (listings 30 minutes; articles,
 country and topic pages and general sitemaps 1 hour; Google News sitemap and
 RSS 15 minutes), so a new edition reaches cached HTML within that window while
-browsers refresh the visible edition immediately. A failed catalog read during
-regeneration keeps the previous page. A build machine that cannot reach the
-feed (Vercel preview builds) prerenders a seed placeholder whose window is one
-second, so the first real request regenerates it from the live feed. Browser
+browsers refresh the visible edition immediately. A build machine that cannot
+reach the feed (Vercel preview builds) prerenders a seed placeholder whose
+window is one second, so the first real request regenerates it from the live
+feed; a runtime outage produces seed placeholders with a five-minute window
+(see "Service operation" below). Browser
 news refreshes retain the newer edition on failed or older responses. Article
 publication requires neither a commit nor a deployment. `/news/archive`, country
 routes, RSS and the sitemap derive from the same catalog.
@@ -250,9 +251,16 @@ account, freshness, duplicate or pending-send checks. Normal timers omit it.
 Public catalog and detail files are explicitly chmodded to `0644` before
 atomic rename, including under the service's `UMask=0077`. Private staging,
 state and evidence stay `0600`. Vercel caches only successful live catalog
-results, retains the previous cache on refresh failure and returns 503 from
-an uncached polling request during an outage, never a successful one-story
-seed response. Seed data is used only when no runtime feed is configured.
+results and a warm worker retains its last good catalog through refresh
+failures. Feed requests make one attempt with a two-second timeout; after a
+failure the worker skips the feed for five minutes (`lib/news/feed-health.ts`).
+A cold worker that cannot read the feed serves the bundled seed catalog with a
+five-minute window instead of failing: listings, topic, country and archive
+pages, sitemaps, RSS, `/api/news` and `/api/localization` answer from the seed,
+article pages and social images answer 404 for slugs the seed does not know,
+and readership posts answer 503 without contacting the feed. Browsers never
+replace a newer edition with the older seed. The first regeneration after the
+window reads the feed again, so the site recovers on its own.
 
 ## Verification and rollback
 

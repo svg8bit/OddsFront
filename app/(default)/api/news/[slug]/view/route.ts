@@ -1,5 +1,6 @@
 import { createHmac } from "node:crypto";
 import { NextRequest } from "next/server";
+import { FEED_TIMEOUT_MS, feedCoolingDown, rememberFeedFailure, rememberFeedSuccess } from "@/lib/news/feed-health";
 
 const SLUG = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const SESSION = /^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i;
@@ -33,6 +34,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   const rawUrl = process.env.ODDSFRONT_MARKET_FEED_URL;
   const token = process.env.ODDSFRONT_MARKET_FEED_TOKEN;
   if (!rawUrl || !token) return reply(503);
+  // A feed that just failed is not retried for every reader; see feed-health.
+  if (feedCoolingDown()) return reply(503);
   try {
     const url = new URL(rawUrl);
     if (url.protocol !== "https:" || url.username || url.password) return reply(503);
@@ -42,8 +45,9 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     const response = await fetch(url, {
       method: "POST", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
       body: JSON.stringify({ reader: digest(`news-reader:${sessionId}`), network: digest(`news-network:${Math.floor(Date.now()/86_400_000)}:${address}`) }),
-      cache: "no-store", signal: AbortSignal.timeout(4_000),
+      cache: "no-store", signal: AbortSignal.timeout(FEED_TIMEOUT_MS),
     });
+    rememberFeedSuccess();
     return reply(response.ok ? 204 : response.status === 404 ? 404 : response.status === 429 ? 429 : 503);
-  } catch { return reply(503); }
+  } catch { rememberFeedFailure(); return reply(503); }
 }

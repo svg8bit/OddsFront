@@ -3,6 +3,7 @@ import { readLiveNewsCatalog } from "../lib/news/feed-reader";
 import { isNewsPublisher } from "../lib/news/sources";
 import seed from "../lib/news/catalog.seed.json";
 import { createNewsCatalogCache } from "../lib/news/catalog-cache";
+import { FEED_RETRY_SECONDS, FEED_TIMEOUT_MS, feedCoolingDown, rememberFeedFailure, rememberFeedSuccess } from "../lib/news/feed-health";
 import { newsIndexPage, newsOverviewProps, NEWS_INDEX_PAGE_SIZE } from "../lib/news/index-page";
 import type { NewsCatalog } from "../lib/news/types";
 
@@ -52,13 +53,32 @@ test("public pages remain bounded while full-archive search, popularity and arti
   expect(catalog.articles).toHaveLength(1_000);
 });
 
-test("a temporary upstream failure retries the live catalog instead of returning seed data", async () => {
+test("a failed live read is reported after one attempt and the next read recovers without seed data", async () => {
   let calls = 0;
   const catalog = { ...seed, updatedAt: new Date().toISOString(), articles: [seed.articles[0], { ...seed.articles[0], id: "qa-second", slug: "qa-second" }] };
   const request: typeof fetch = async () => ++calls === 1 ? new Response("unavailable", { status: 503 }) : Response.json(catalog);
+  await expect(readLiveNewsCatalog("https://feed.example/v1/market-strip", "qa-only", request)).rejects.toThrow("Live news feed unavailable");
+  expect(calls).toBe(1);
   const result = await readLiveNewsCatalog("https://feed.example/v1/market-strip", "qa-only", request);
   expect(result.articles).toHaveLength(2); expect(calls).toBe(2);
-  await expect(readLiveNewsCatalog("https://feed.example", "qa-only", async () => new Response("unavailable", { status: 503 }))).rejects.toThrow("Live news feed unavailable");
+  const started = Date.now();
+  await expect(readLiveNewsCatalog("https://feed.example", "qa-only", (_url, init) => new Promise((_resolve, reject) => init?.signal?.addEventListener("abort", () => reject(init.signal?.reason))), undefined, 50)).rejects.toThrow("Live news feed unavailable");
+  expect(Date.now() - started).toBeLessThan(1_000);
+});
+
+test("one feed failure pauses further feed requests for the retry period", () => {
+  let now = 1_000_000;
+  rememberFeedSuccess();
+  expect(feedCoolingDown(now)).toBe(false);
+  rememberFeedFailure(now);
+  expect(feedCoolingDown(now)).toBe(true);
+  now += FEED_RETRY_SECONDS * 1_000 - 1;
+  expect(feedCoolingDown(now)).toBe(true);
+  now += 1;
+  expect(feedCoolingDown(now)).toBe(false);
+  rememberFeedFailure(now); rememberFeedSuccess();
+  expect(feedCoolingDown(now)).toBe(false);
+  expect(FEED_TIMEOUT_MS).toBeLessThanOrEqual(2_000);
 });
 
 test("the requested publishers are accepted without allowing impersonating hosts", () => {
