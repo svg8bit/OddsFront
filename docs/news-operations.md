@@ -172,12 +172,34 @@ are retained as private rejections and replaced during the next research round.
 
 ## Writer and translation costs
 
-The writer uses the existing Codex ChatGPT subscription through an ephemeral,
-read-only research process. It consumes subscription usage. Paid API variables
-are removed and there is no paid fallback. Publication occurs only in the local
+The writer runs on one of the owner's subscriptions through an ephemeral,
+read-only process selected by `ODDSFRONT_WRITER`: `claude` (default since
+2026-10-17, when the Codex subscription was exhausted until 14 November) or
+`codex`. Paid API variables (`OPENAI_*`, `ANTHROPIC_API_KEY`,
+`ANTHROPIC_AUTH_TOKEN`, `ANTHROPIC_BASE_URL`) are removed from the child
+environment, so there is no paid fallback. Publication occurs only in the local
 validated runner; the research process has no publication credentials.
 
-The publisher explicitly selects the lower-cost `gpt-5.6-luna`. Research keeps
+The Claude backend calls the installed `claude` CLI non-interactively
+(`-p --output-format json --json-schema …`) with the prompt on stdin and a
+temporary working directory, and writes the CLI's `structured_output` to the
+file the callers read. Research uses `ODDSFRONT_WRITER_MODEL` (default
+`sonnet`), up to 80 turns and only the `WebSearch`/`WebFetch` tools; translation
+and social selection use `ODDSFRONT_WRITER_CHEAP_MODEL` (default `haiku`), six
+turns and no tools. `--strict-mcp-config` with an empty server list,
+`--setting-sources ""` and `--no-session-persistence` keep the host's MCP
+servers, settings, memory and session files out of the call (about 7k input
+tokens for a trivial prompt instead of about 52k). The usage record keeps the
+same shape as before (`cache_creation` plus `cache_read` become
+`cachedInputTokens`) and adds `backend`, `totalCostUsd` and `turns`. A
+non-zero exit, `is_error`, HTTP 429 or a message mentioning a usage or rate
+limit is treated as the same usage-limit refusal as a Codex quota message, so
+the 6/12/24-hour back-off below applies to both backends; `error_max_turns`
+fails the round like any other research error. The units put
+`/root/.local/bin` on `PATH` and make `/root/.claude` writable because the CLI
+keeps its login and state there.
+
+With the Codex backend the publisher explicitly selects the lower-cost `gpt-5.6-luna`. Research keeps
 medium reasoning behind the unchanged source, evidence, novelty and cover gates;
 Russian editorial translation and social market matching use low reasoning.
 Only research enables live web search. Host skill discovery, plugins, account

@@ -11,7 +11,7 @@ ExecStart=/root/OddsFront/.local/translation-venv/bin/python scripts/news/transl
 ExecStartPost=-/usr/bin/env node scripts/news/indexnow.mjs
 ExecStartPost=-/usr/bin/env node scripts/news/websub.mjs
 Environment=NODE_ENV=production
-Environment=PATH=/usr/local/bin:/usr/bin:/bin
+Environment=PATH=/root/.local/bin:/usr/local/bin:/usr/bin:/bin
 Nice=10
 CPUQuota=200%
 MemoryMax=2G
@@ -20,7 +20,7 @@ PrivateTmp=true
 NoNewPrivileges=true
 ProtectSystem=strict
 ProtectHome=read-only
-ReadWritePaths=/root/OddsFront/.local/news /opt/oddsfront-market-feed/news /root/.codex
+ReadWritePaths=/root/OddsFront/.local/news /opt/oddsfront-market-feed/news /root/.codex /root/.claude
 InaccessiblePaths=-/opt/arctrenches -/opt/arctrenches-legacy-6c13c07 -/root/DropsAnalytics -/root/DropsAnalytics-worktrees -/opt/sunder -/root/.ssh -/etc/oddsfront-market-feed.env
 UMask=0077
 TimeoutStartSec=90min

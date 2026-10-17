@@ -9,7 +9,7 @@ Type=oneshot
 WorkingDirectory=/root/OddsFront
 ExecStart=/usr/bin/env node scripts/news/telegram.ts --send
 Environment=NODE_ENV=production
-Environment=PATH=/usr/local/bin:/usr/bin:/bin
+Environment=PATH=/root/.local/bin:/usr/local/bin:/usr/bin:/bin
 EnvironmentFile=/root/OddsFront/.local/telegram.env
 Nice=10
 CPUQuota=100%
@@ -19,7 +19,7 @@ PrivateTmp=true
 NoNewPrivileges=true
 ProtectSystem=strict
 ProtectHome=read-only
-ReadWritePaths=/root/OddsFront/.local/news /root/.codex
+ReadWritePaths=/root/OddsFront/.local/news /root/.codex /root/.claude
 InaccessiblePaths=-/opt/arctrenches -/opt/arctrenches-legacy-6c13c07 -/root/DropsAnalytics-worktrees -/opt/sunder -/root/.ssh
 UMask=0077
 TimeoutStartSec=5min
