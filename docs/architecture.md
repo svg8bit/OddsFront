@@ -72,7 +72,14 @@ validated public destinations.
 - activity data is short-lived and clients add jitter to avoid synchronized
   bursts;
 - API routes return explicit stale or unavailable modes instead of inventing
-  live data.
+  live data;
+- news HTML, sitemaps and RSS are Incremental Static Regeneration routes:
+  listings revalidate every 30 minutes, articles, country and topic pages and
+  general sitemaps every hour, the Google News sitemap and RSS every 15
+  minutes. They read no request data (`?lang=` and `?page=` are redirected by
+  `proxy.ts`), embed no live market snapshot and fetch the catalog without
+  `no-store`, so one render per window replaces one render per crawler hit.
+  Browsers still load the current market snapshot and news edition on entry.
 
 The lightweight loader owns one event-feed subscription independently of the
 deferred map bundle. It refreshes immediately on entry, pageshow, focus,

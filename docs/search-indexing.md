@@ -12,7 +12,8 @@ URL, reciprocal `hreflang` entries, `x-default`, localized social metadata, and
   advertises both sitemap indexes.
 - `/sitemap.xml` links to `/sitemaps/core.xml` and bounded article sitemap
   parts. Withdrawn articles are excluded. The core sitemap includes the
-  crawlable news archive, archive pagination, and the newsdesk page.
+  crawlable news archive, archive pagination (`/news/archive/<page>`; legacy
+  `?page=` links redirect permanently), and the newsdesk page.
 - General sitemaps list one high-value English `<loc>` per article, listing,
   topic and country page, with every complete localized version attached as a
   reciprocal `hreflang` alternate. HTML pages retain the same reciprocal links.

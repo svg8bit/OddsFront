@@ -1,6 +1,6 @@
 import { articleCategory, type NewsCategory } from "./categories.ts";
 import { NEWS_INDEX_PAGE_SIZE } from "./constants.ts";
-import { articleLocales, newsArticlePath, newsCountryPath, newsPath, newsTopicPath } from "./routing.ts";
+import { articleLocales, newsArchivePath, newsArticlePath, newsCountryPath, newsPath, newsTopicPath } from "./routing.ts";
 import { LOCALES, type Locale, type NewsCatalog } from "./types.ts";
 
 const ORIGIN = "https://oddsfront.com";
@@ -63,7 +63,7 @@ function addListingUrls(urls: Set<string>, articles: IndexNowArticleSnapshot[]) 
 function addArchiveUrls(urls: Set<string>, articleCount: number) {
   const pages = Math.max(1, Math.ceil(articleCount / NEWS_INDEX_PAGE_SIZE));
   for (let page = 1; page <= pages; page++) {
-    urls.add(`${ORIGIN}/news/archive${page === 1 ? "" : `?page=${page}`}`);
+    urls.add(`${ORIGIN}${newsArchivePath(page)}`);
   }
 }
 

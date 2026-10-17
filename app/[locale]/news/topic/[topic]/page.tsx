@@ -8,7 +8,8 @@ import { normalizeLocale } from "@/lib/news/locale";
 import { topicMetadata, topicStructuredData } from "@/lib/news/metadata";
 
 type Props = { params:Promise<{ locale:string; topic:string }> };
-export const revalidate=60;
+export const revalidate=3600;
+export function generateStaticParams(): { topic: string }[] { return []; }
 export async function generateMetadata({params}:Props):Promise<Metadata> {
   const {locale:segment,topic}=await params;const locale=normalizeLocale(segment);
   return locale&&locale!=="en"&&isNewsCategory(topic)?topicMetadata(topic,locale):{};

@@ -1,7 +1,8 @@
 import { getNewsCatalog } from "@/lib/news/catalog";
 import { articleSitemap, coreSitemap } from "@/lib/news/sitemap";
 
-export const revalidate = 300;
+export const revalidate = 3600;
+export function generateStaticParams(): { part: string }[] { return []; }
 
 export async function GET(
   _request: Request,
@@ -17,5 +18,5 @@ export async function GET(
       : null;
   return body === null
     ? new Response(null, { status: 404, headers: { "Cache-Control": "no-store" } })
-    : new Response(body, { headers: { "Content-Type": "application/xml; charset=utf-8", "Cache-Control": "public, max-age=60, s-maxage=300, stale-while-revalidate=3600" } });
+    : new Response(body, { headers: { "Content-Type": "application/xml; charset=utf-8", "Cache-Control": "public, max-age=60, s-maxage=3600, stale-while-revalidate=86400" } });
 }

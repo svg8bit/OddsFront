@@ -15,8 +15,10 @@ export async function GET(request: Request) {
       query: params.get("q") ?? undefined, locale: normalizeLocale(params.get("lang")) ?? "en",
     }), { headers: {
       "Cache-Control": "no-store",
-      "CDN-Cache-Control": "public, max-age=30, stale-while-revalidate=30, stale-if-error=900",
-      "Vercel-CDN-Cache-Control": "public, max-age=30, stale-while-revalidate=30, stale-if-error=900",
+      // Browsers refresh listings once a minute; the shared edge copy of each
+      // query lasts two minutes, so an edition is at most that old on screen.
+      "CDN-Cache-Control": "public, max-age=120, stale-while-revalidate=600, stale-if-error=900",
+      "Vercel-CDN-Cache-Control": "public, max-age=120, stale-while-revalidate=600, stale-if-error=900",
     } });
   } catch {
     return Response.json({ error: "news_temporarily_unavailable" }, { status: 503, headers: { "Cache-Control": "no-store", "Retry-After": "30" } });

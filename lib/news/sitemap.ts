@@ -1,4 +1,4 @@
-import { articleLocales, languageAlternates, newsArticlePath, newsCountryPath, newsPath, newsTopicPath } from "./routing.ts";
+import { articleLocales, languageAlternates, newsArchivePath, newsArticlePath, newsCountryPath, newsPath, newsTopicPath } from "./routing.ts";
 import { NEWS_CATEGORIES, articleCategory } from "./categories.ts";
 import { NEWS_INDEX_PAGE_SIZE } from "./constants.ts";
 import { LOCALES, type Locale, type NewsCatalog } from "./types.ts";
@@ -56,7 +56,7 @@ export function coreSitemap(catalog: NewsCatalog): string {
     urlEntry({ path: "", updatedAt: catalog.updatedAt, priority: "1.0" }),
     urlEntry({ path: "/news/about", updatedAt: catalog.updatedAt, priority: "0.6" }),
     ...Array.from({ length: archivePages }, (_, index) => urlEntry({
-      path: index === 0 ? "/news/archive" : `/news/archive?page=${index + 1}`,
+      path: newsArchivePath(index + 1),
       updatedAt: catalog.updatedAt,
       priority: "0.6",
     })),

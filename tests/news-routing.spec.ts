@@ -24,6 +24,18 @@ test("legacy country article URLs redirect once to the correct language and pres
     [`/ru/news/${country}/${article.slug}`, `/ru/news/${article.slug}`],
     [`/ru/news/ru/${article.slug}`, `/ru/news/${article.slug}`],
     [`/news/${article.slug}`, `/en/news/${article.slug}`],
+    [`/news/${article.slug}?lang=ru`, `/ru/news/${article.slug}`],
+    [`/ru/news/${article.slug}?lang=de`, `/de/news/${article.slug}`],
+    ["/news?lang=ru", "/ru/news"],
+    ["/news?lang=pt-BR", "/pt-br/news"],
+    ["/news?lang=en", "/news"],
+    [`/news/${country}?lang=ru`, `/ru/news/${country}`],
+    ["/news/topic/strikes?lang=ru", "/ru/news/topic/strikes"],
+    ["/news/about?lang=ru", "/news/about"],
+    ["/en/news", "/news"],
+    [`/en/news/${country}`, `/news/${country}`],
+    ["/news/world", "/news"],
+    ["/ru/news/world", "/ru/news"],
   ]) {
     const response = await request.get(oldPath, { maxRedirects: 0 });
     expect(response.status(), oldPath).toBe(308);
@@ -33,6 +45,21 @@ test("legacy country article URLs redirect once to the correct language and pres
   for (const path of ["/en/news/nonexistent-development-story", "/ru/news/nonexistent-development-story", "/news/ru/nonexistent-development-story"]) {
     expect((await request.get(path)).status()).toBe(404);
   }
+});
+
+test("archive pagination moved from a query parameter to a path segment", async ({ request }) => {
+  for (const [oldPath, target] of [
+    ["/news/archive?page=2", "/news/archive/2"],
+    ["/news/archive?page=1", "/news/archive"],
+    ["/news/archive/1", "/news/archive"],
+  ]) {
+    const response = await request.get(oldPath, { maxRedirects: 0 });
+    expect(response.status(), oldPath).toBe(308);
+    expect(response.headers().location).toBe(target);
+  }
+  expect((await request.get("/news/archive", { maxRedirects: 0 })).status()).toBe(200);
+  expect((await request.get("/news/archive/9999", { maxRedirects: 0 })).status()).toBe(404);
+  expect((await request.get("/news/archive/x", { maxRedirects: 0 })).status()).toBe(404);
 });
 
 test("canonical article language switch preserves the slug and localized metadata", async ({ page }) => {

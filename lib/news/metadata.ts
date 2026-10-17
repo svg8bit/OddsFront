@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { ODDSFRONT_URL, SOCIAL_PREVIEW_PATH } from "@/lib/oddsfront-site";
 import { articleText, countryName } from "./locale.ts";
 import { message } from "./messages.ts";
-import { articleLocales, languageAlternates, newsArticlePath, newsCountryPath, newsPath, newsTopicPath } from "./routing.ts";
+import { articleLocales, languageAlternates, newsArchivePath, newsArticlePath, newsCountryPath, newsPath, newsTopicPath } from "./routing.ts";
 import { articleCategory, categoryLabel, type NewsCategory } from "./categories.ts";
 import { newsDescription } from "./seo.ts";
 import type { Locale, NewsArticle } from "./types.ts";
@@ -92,7 +92,7 @@ export function newsUtilityMetadata(page: "about" | "archive", pageNumber = 1): 
   const description = archive
     ? "Browse previous OddsFront world news reports, original sources, and related geopolitical prediction market context."
     : "How OddsFront verifies, sources, translates, corrects, and connects world news to relevant prediction markets.";
-  const canonical = archive && pageNumber > 1 ? `/news/archive?page=${pageNumber}` : `/news/${page}`;
+  const canonical = archive ? newsArchivePath(pageNumber) : `/news/${page}`;
   return {
     ...base,
     title,
