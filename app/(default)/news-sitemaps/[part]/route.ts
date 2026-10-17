@@ -1,7 +1,8 @@
 import { getNewsCatalog } from "@/lib/news/catalog";
 import { newsSitemap, newsSitemapLocale } from "@/lib/news/news-sitemap";
 
-export const revalidate = 300;
+export const revalidate = 900;
+export function generateStaticParams(): { part: string }[] { return []; }
 
 export async function GET(
   _request: Request,
@@ -13,5 +14,5 @@ export async function GET(
   const body = locale && match ? newsSitemap(await getNewsCatalog(), locale, Number(match[2])) : null;
   return body === null
     ? new Response(null, { status: 404, headers: { "Cache-Control": "no-store" } })
-    : new Response(body, { headers: { "Content-Type": "application/xml; charset=utf-8", "Cache-Control": "public, max-age=60, s-maxage=300, stale-while-revalidate=3600" } });
+    : new Response(body, { headers: { "Content-Type": "application/xml; charset=utf-8", "Cache-Control": "public, max-age=60, s-maxage=900, stale-while-revalidate=3600" } });
 }

@@ -28,8 +28,9 @@ verifies the relationship, retains a private original-record receipt in
 public index entry and detail file. Both Node and Python exports and all three
 social selectors honor the withdrawal. The private record continues to exclude
 that story; historical edition and provider receipts are never rewritten.
-Article and social-image lookups first require membership in the current public
-catalog so a cached detail response cannot resurrect a withdrawn permalink.
+Detail responses never enter Next's Data Cache, so the feed's 404 for a removed
+detail file is authoritative for article pages and social images. A withdrawn
+permalink can remain in the ISR page cache until its hourly window ends.
 Do not delete catalog history or reset publication timers to remove a duplicate.
 
 Article URLs use exactly one language prefix, including English:
@@ -58,7 +59,17 @@ worker retains one validated catalog for thirty seconds, coalesces concurrent
 reads and retains its last good response during an outage, retrying failures
 after five seconds. The full multilingual archive must not enter Next's
 persistent Data Cache: its two-megabyte entry limit can silently retain an old
-edition once the archive grows. Browser
+edition once the archive grows. The catalog and detail requests therefore use
+the default fetch mode with a bearer header, which Next never stores at
+runtime, and deliberately not `cache: "no-store"`, which would opt every news
+page out of Incremental Static Regeneration. Rendered news pages, sitemaps and
+feeds are cached by their `revalidate` exports (listings 30 minutes; articles,
+country and topic pages and general sitemaps 1 hour; Google News sitemap and
+RSS 15 minutes), so a new edition reaches cached HTML within that window while
+browsers refresh the visible edition immediately. A failed catalog read during
+regeneration keeps the previous page. A build machine that cannot reach the
+feed (Vercel preview builds) prerenders a seed placeholder whose window is one
+second, so the first real request regenerates it from the live feed. Browser
 news refreshes retain the newer edition on failed or older responses. Article
 publication requires neither a commit nor a deployment. `/news/archive`, country
 routes, RSS and the sitemap derive from the same catalog.

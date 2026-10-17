@@ -6,7 +6,10 @@ export async function readLiveNewsCatalog(rawUrl: string, token: string, request
   url.pathname = "/v1/news"; url.search = ""; url.hash = "";
   for (let attempt = 0; attempt < 2; attempt++) {
     try {
-      const response = await request(url, { headers: { Authorization: `Bearer ${token}` }, cache: "no-store", signal: AbortSignal.timeout(4_000) });
+      // Default fetch mode, not `cache: "no-store"`: an explicit no-store opts
+      // the whole page out of ISR, while the Authorization header already keeps
+      // this multi-megabyte response out of Next's persistent Data Cache.
+      const response = await request(url, { headers: { Authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(4_000) });
       if (!response.ok) throw new Error(`News feed unavailable (${response.status})`);
       const data = await response.json() as NewsCatalog;
       if (data.version !== 1 || !Array.isArray(data.articles) || !data.articles.length ||

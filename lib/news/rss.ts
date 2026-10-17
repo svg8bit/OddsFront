@@ -14,4 +14,4 @@ export function newsRss(catalog:NewsCatalog,locale:Locale) {
   return `<?xml version="1.0" encoding="UTF-8"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:media="http://search.yahoo.com/mrss/"><channel><title>OddsFront News — ${xml(locale)}</title><link>${origin}${newsPath(locale)}</link><description>Verified world news and geopolitical prediction market context</description><language>${xml(locale)}</language><lastBuildDate>${new Date(catalog.updatedAt).toUTCString()}</lastBuildDate><ttl>60</ttl><atom:link href="${origin}${newsPath(locale,"/rss.xml")}" rel="self" type="application/rss+xml"/><atom:link href="https://pubsubhubbub.appspot.com/" rel="hub"/>${items}</channel></rss>`;
 }
 
-export const RSS_HEADERS={"Content-Type":"application/rss+xml; charset=utf-8","Cache-Control":"public, max-age=60, s-maxage=300"};
+export const RSS_HEADERS={"Content-Type":"application/rss+xml; charset=utf-8","Cache-Control":"public, max-age=60, s-maxage=900, stale-while-revalidate=3600"};

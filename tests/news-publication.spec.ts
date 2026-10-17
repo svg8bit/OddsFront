@@ -55,7 +55,8 @@ test("search discovery stays bounded, delta-based, and excludes withdrawn URLs",
 
   const core = coreSitemap(catalog);
   expect(core).toContain("https://oddsfront.com/news/about");
-  expect(core).toContain("https://oddsfront.com/news/archive?page=2");
+  expect(core).toContain("<loc>https://oddsfront.com/news/archive/2</loc>");
+  expect(core).not.toContain("archive?page=");
   expect(core).toContain('hreflang="ru" href="https://oddsfront.com/ru/news"');
   expect(core).not.toContain("<loc>https://oddsfront.com/ru/news</loc>");
   expect(core).not.toContain("https://oddsfront.com/global-conflict-map");

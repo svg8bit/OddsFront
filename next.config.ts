@@ -1,6 +1,8 @@
 import type { NextConfig } from "next";
 
 const CANONICAL_ORIGIN = "https://oddsfront.com";
+// Keep in sync with LOCALES in lib/news/types.ts (lower-cased URL segments).
+const NEWS_LOCALE_SEGMENTS = "en|zh|ko|vi|de|es|pt-br|fr|ru|uk|fa|he";
 const REDIRECT_HOSTS = [
   "www.oddsfront.com",
   "oddsfront.vercel.app",
@@ -106,12 +108,37 @@ const nextConfig: NextConfig = {
       permanent: true,
     }));
 
+    // Canonical and legacy news redirects live at the routing layer, so no
+    // function runs for them and the ISR pages never call permanentRedirect()
+    // (an ISR-cached page redirect emits a duplicated Location header in
+    // Next 16.3). Requests that still carry `?lang=` are left to proxy.ts,
+    // which rewrites the language and drops the parameter in one hop.
+    const noLanguageQuery = [{ type: "query" as const, key: "lang" }];
+    const newsRedirects = [
+      // English listings have no language prefix.
+      { source: "/en/news", destination: "/news" },
+      { source: "/en/news/:country([a-z]{2})", destination: "/news/:country" },
+      // "world" is the unfiltered listing.
+      { source: "/news/world", destination: "/news" },
+      { source: `/:locale(${NEWS_LOCALE_SEGMENTS})/news/world`, destination: "/:locale/news" },
+      // Archive page 1 is /news/archive itself.
+      { source: "/news/archive/1", destination: "/news/archive" },
+      // Legacy article URLs: country segment, or no language segment at all.
+      { source: "/news/:country(world|[a-z]{2})/:slug", destination: "/en/news/:slug" },
+      { source: `/:locale(${NEWS_LOCALE_SEGMENTS})/news/:country(world|[a-z]{2})/:slug`, destination: "/:locale/news/:slug" },
+      {
+        source: "/news/:slug((?!(?:about|archive|topic|rss\\.xml|world|[a-z]{2})(?:/|$))[a-z0-9]+(?:-[a-z0-9]+)*)",
+        destination: "/en/news/:slug",
+      },
+    ].map((redirect) => ({ ...redirect, missing: noLanguageQuery, permanent: true }));
+
     return [
       {
         source: "/global-conflict-map",
         destination: CANONICAL_ORIGIN,
         permanent: true,
       },
+      ...newsRedirects,
       ...canonicalHostRedirects,
     ];
   },

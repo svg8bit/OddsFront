@@ -26,6 +26,12 @@ export function newsTopicPath(topic: NewsCategory, locale: Locale): string {
   return newsPath(locale, `/topic/${topic}`);
 }
 
+// The English-only archive paginates by path segment so each page is a
+// separately cacheable static route; proxy.ts redirects legacy `?page=` links.
+export function newsArchivePath(page = 1): string {
+  return page > 1 ? `/news/archive/${page}` : "/news/archive";
+}
+
 export function newsArticlePath(
   article: Pick<NewsArticle, "slug">,
   locale: Locale,
@@ -47,7 +53,7 @@ export function switchNewsLocalePath(pathname: string, locale: Locale): string {
     : undefined;
   const baseSegments = firstLocale ? segments.slice(1) : segments;
   if (baseSegments[0] !== "news") return pathname;
-  if (baseSegments.length === 2 && ["about", "archive"].includes(baseSegments[1])) {
+  if (["about", "archive"].includes(baseSegments[1])) {
     return `/${baseSegments.join("/")}`;
   }
   const articleSlug = baseSegments.length === 3 && isNewsCountrySegment(baseSegments[1])

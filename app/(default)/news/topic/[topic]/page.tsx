@@ -7,7 +7,8 @@ import { isNewsCategory } from "@/lib/news/categories";
 import { topicMetadata, topicStructuredData } from "@/lib/news/metadata";
 
 type Props = { params: Promise<{ topic:string }> };
-export const revalidate = 60;
+export const revalidate = 3600;
+export function generateStaticParams(): { topic: string }[] { return []; }
 export async function generateMetadata({params}:Props):Promise<Metadata> {
   const {topic}=await params;
   return isNewsCategory(topic)?topicMetadata(topic,"en"):{};
