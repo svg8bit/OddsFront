@@ -5,9 +5,11 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 12;
 
 function unavailable(status: number) {
+  // A missing cover (or an unreachable feed) is cached briefly at the edge so
+  // repeated listing views do not invoke this route for the same slug.
   return new Response(null, {
     status,
-    headers: { "Cache-Control": "no-store" },
+    headers: { "Cache-Control": "public, max-age=60, s-maxage=300, stale-while-revalidate=600" },
   });
 }
 

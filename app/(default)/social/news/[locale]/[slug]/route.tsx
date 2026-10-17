@@ -83,7 +83,9 @@ export async function GET(
   const locale = normalizeLocale(segment);
   const article = await getNewsArticle(slug);
   if (!locale || !article || (locale !== "en" && !article.translations[locale])) {
-    return new Response(null, { status: 404, headers: { "Cache-Control": "no-store" } });
+    // Cached briefly at the edge: an unreachable feed answers 404 for every
+    // slug, and crawlers re-request social images for each listing view.
+    return new Response(null, { status: 404, headers: { "Cache-Control": "public, max-age=60, s-maxage=300, stale-while-revalidate=600" } });
   }
   const text = articleText(article, locale);
   const source = article.sources.find((candidate) => candidate.kind === "media");
