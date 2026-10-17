@@ -1,5 +1,7 @@
 import "server-only";
 import { cache } from "react";
+import { unstable_cache } from "next/cache";
+import { PHASE_PRODUCTION_BUILD } from "next/constants";
 import seed from "./catalog.seed.json";
 import type { NewsArticle, NewsCatalog } from "./types";
 import { readLiveNewsCatalog } from "./feed-reader";
@@ -22,16 +24,35 @@ const getLiveCatalog = createNewsCatalogCache(async () => {
   return readLiveNewsCatalog(feed.rawUrl, feed.token, fetch, seed.updatedAt);
 });
 
+// A build machine may not reach the feed (Vercel preview builds do not). The
+// prerendered placeholder must then expire at once: a one-second cache entry
+// read during this render lowers the route's revalidation window for this
+// render only, so the first real request regenerates the page from the live
+// feed and that regeneration carries the route's normal window again.
+const expirePlaceholderImmediately = unstable_cache(
+  async () => "placeholder",
+  ["oddsfront-news-build-placeholder-v1"],
+  { revalidate: 1 },
+);
+
 // News pages, sitemaps and feeds are cached by Next's ISR layer through their
 // `revalidate` exports, so the catalog is read once per revalidation window
 // instead of once per request. This reader therefore calls no dynamic API and
 // the feed request uses the default fetch mode: its Authorization header keeps
-// the multi-megabyte archive out of the persistent Data Cache at runtime. A
-// failed read throws, so an ISR regeneration keeps serving the previous page
-// rather than caching an empty or seed-only edition.
+// the multi-megabyte archive out of the persistent Data Cache at runtime. At
+// runtime a failed read throws, so an ISR regeneration keeps serving the
+// previous page rather than caching an empty or seed-only edition.
 export const getNewsCatalog = cache(async (): Promise<NewsCatalog> => {
   if (!process.env.ODDSFRONT_MARKET_FEED_URL && !process.env.ODDSFRONT_MARKET_FEED_TOKEN) return seed as NewsCatalog;
-  return getLiveCatalog();
+  try {
+    return await getLiveCatalog();
+  } catch (error) {
+    if (process.env.NEXT_PHASE !== PHASE_PRODUCTION_BUILD) throw error;
+    console.warn("Live news feed unavailable during the build; prerendering a seed placeholder that expires immediately.",
+      error instanceof Error ? error.message : "Unknown error");
+    await expirePlaceholderImmediately();
+    return seed as NewsCatalog;
+  }
 });
 
 export const getNewsArticle = cache(async (slug: string): Promise<NewsArticle | null> => {

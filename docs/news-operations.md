@@ -67,8 +67,9 @@ feeds are cached by their `revalidate` exports (listings 30 minutes; articles,
 country and topic pages and general sitemaps 1 hour; Google News sitemap and
 RSS 15 minutes), so a new edition reaches cached HTML within that window while
 browsers refresh the visible edition immediately. A failed catalog read during
-regeneration keeps the previous page; the Vercel build itself reads the live
-feed and fails rather than publishing seed content. Browser
+regeneration keeps the previous page. A build machine that cannot reach the
+feed (Vercel preview builds) prerenders a seed placeholder whose window is one
+second, so the first real request regenerates it from the live feed. Browser
 news refreshes retain the newer edition on failed or older responses. Article
 publication requires neither a commit nor a deployment. `/news/archive`, country
 routes, RSS and the sitemap derive from the same catalog.
