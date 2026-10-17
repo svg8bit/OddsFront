@@ -8,8 +8,8 @@ ConditionPathExists=/root/OddsFront/.local/news/telegram-ru/state.json
 [Service]
 Type=oneshot
 WorkingDirectory=/root/OddsFront
-ExecStartPre=/usr/local/bin/node scripts/news/prepare-russian.ts
-ExecStart=/usr/local/bin/node scripts/news/telegram.ts --locale=ru --send
+ExecStartPre=/usr/bin/env node scripts/news/prepare-russian.ts
+ExecStart=/usr/bin/env node scripts/news/telegram.ts --locale=ru --send
 Environment=NODE_ENV=production
 Environment=PATH=/usr/local/bin:/usr/bin:/bin
 EnvironmentFile=/root/OddsFront/.local/telegram.env

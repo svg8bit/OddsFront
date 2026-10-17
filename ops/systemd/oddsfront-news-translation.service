@@ -8,8 +8,8 @@ ConditionPathExists=/root/OddsFront/scripts/news/translate.py
 Type=oneshot
 WorkingDirectory=/root/OddsFront
 ExecStart=/root/OddsFront/.local/translation-venv/bin/python scripts/news/translate.py
-ExecStartPost=-/usr/local/bin/node scripts/news/indexnow.mjs
-ExecStartPost=-/usr/local/bin/node scripts/news/websub.mjs
+ExecStartPost=-/usr/bin/env node scripts/news/indexnow.mjs
+ExecStartPost=-/usr/bin/env node scripts/news/websub.mjs
 Environment=NODE_ENV=production
 Environment=PATH=/usr/local/bin:/usr/bin:/bin
 Nice=10

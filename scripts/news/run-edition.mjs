@@ -1,4 +1,4 @@
-import { NEWS_EDITION_SIZE, NEWS_MINIMUM_EDITION_SIZE, NEWS_EDITION_INTERVAL_MS, NEWS_RESEARCH_BATCH_SIZE, NEWS_MAX_RESEARCH_ROUNDS, NEWS_RESEARCH_TIMEOUT_MS, NEWS_RESEARCH_RETRY_MS, isPublishableEditionSize, shouldResearchEdition, usageLimitRetryMs } from "../../lib/news/edition-policy.ts";
+import { NEWS_EDITION_SIZE, NEWS_MINIMUM_EDITION_SIZE, NEWS_RESEARCH_BATCH_SIZE, NEWS_MAX_RESEARCH_ROUNDS, NEWS_RESEARCH_TIMEOUT_MS, NEWS_RESEARCH_RETRY_MS, isPublishableEditionSize, newsEditionIntervalMs, shouldResearchEdition, usageLimitRetryMs } from "../../lib/news/edition-policy.ts";
 import { readFile, mkdir, writeFile, rename } from "node:fs/promises";
 import { spawnSync } from "node:child_process";
 import path from "node:path";
@@ -7,7 +7,9 @@ import { prepareEditionCovers } from "../../lib/news/edition-covers.ts";
 import { uniqueEditionArticles } from "../../lib/news/duplicates.ts";
 
 const directory = process.env.ODDSFRONT_NEWS_DIRECTORY || "/root/OddsFront/.local/news";
-const editionIntervalMs = NEWS_EDITION_INTERVAL_MS;
+// ODDSFRONT_NEWS_EDITION_INTERVAL_HOURS (default 2) sets the publishing
+// interval; an invalid value fails the run here instead of being ignored.
+const editionIntervalMs = newsEditionIntervalMs();
 const preparationLeadMs = 60 * 60_000;
 await mkdir(directory, { recursive: true, mode: 0o700 });
 if (!process.env.ODDSFRONT_EDITION_LOCKED) {
@@ -178,7 +180,7 @@ if (!isPublishableEditionSize(prepared.length)) {
   process.exit(1);
 }
 // Prepare privately before the deadline, so research time is not added to
-// every two-hour publishing interval. A forced operator edition publishes now.
+// every publishing interval. A forced operator edition publishes now.
 if (Date.now() < dueAt) console.log(JSON.stringify({status:"edition-ready",articles:prepared.length,publishAt:new Date(dueAt).toISOString()}));
 while (Date.now() < dueAt) await new Promise(resolve=>setTimeout(resolve,Math.min(30_000,dueAt-Date.now())));
 await checkNovelty();

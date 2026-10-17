@@ -2,6 +2,7 @@ import { NEWS_DISCOVERY_FEEDS, type NewsFeedDiscovery } from "./feed-discovery.t
 import { NEWS_EDITION_SIZE, NEWS_MINIMUM_EDITION_SIZE } from "./edition-policy.ts";
 import { NEWS_SOURCES, OFFICIAL_SOURCE_DOMAINS, sourceHost } from "./sources.ts";
 import type { NewsArticle } from "./types.ts";
+import { CASUALTY_POLICY_REASON } from "./validation.ts";
 
 export interface NewsResearchReport {
   summary: string;
@@ -63,6 +64,7 @@ ${NEWS_SOURCES.map(source => `${source.name}: ${source.url}`).join("\n")}
 Editorial requirements:
 - Prefer article pages with a real editorial photograph. Every edition permits at most three stories without usable photographic covers; publisher logo/title-only share cards do not count. When filling a previously rejected cover slot, choose another well-sourced story with an accessible photograph.
 - The website covers diplomacy, politics, energy, security, humanitarian developments and world affairs, including consequential economic and infrastructure decisions. A story need not be an attack or have a related prediction market; the map alert filter is separate. Exclude celebrity gossip, promotional product announcements, sport results and lifestyle trivia.
+- Editorial policy on casualties: the edition must not include stories whose main news is that people were killed or died, or a casualty count: strikes reported through their body count, massacres, shootings, accidents or disasters with fatalities. Prefer diplomacy, sanctions, negotiations, elections, energy, trade, court rulings, security policy, humanitarian access and markets. A casualty figure may appear only as secondary context inside a story about a decision, negotiation or policy, never in the headline or deck. A deterministic validator rejects headlines and decks that mention killings, deaths, casualties or fatality counts (reason "${CASUALTY_POLICY_REASON}"); replace such a candidate with a different verified development.
 - News first: what happened, who is involved, when and where, why it matters, confirmed context, what to watch next. Markets are secondary context.
 - Prefer material from the last 48 hours; never older than 72 hours for the main news source. Preserve actual source publication dates, never replace them with today's date. Find recent individual articles, not homepages or category indexes.
 - Each story needs at least two independent publishers including a configured news outlet and at least one primary institutional source: UN, FAO, UNHCR, OHCHR, IAEA, ICRC, NATO, EU, an official government or foreign ministry page. Do not treat two copies of one wire story as independent. A primary source may verify clearly identified relevant background; it need not repeat a breaking headline. Attribute new claims to the source that actually supports them, and do not use background material to claim independent confirmation of a new attack.

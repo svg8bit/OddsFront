@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { spawn, spawnSync } from "node:child_process";
 import { once } from "node:events";
-import { validateNewsDraft, verifiedNewsAlert } from "../lib/news/validation";
+import { CASUALTY_POLICY_REASON, validateNewsDraft, verifiedNewsAlert, violatesCasualtyPolicy } from "../lib/news/validation";
 import { buildNewsMarketAlerts, NEWS_ALERT_MINIMUM_MARKET_VOLUME, NEWS_ALERT_TTL_MS } from "../lib/news/alert-matching";
 import { normalizeLocale, negotiateLocale, localeDirection, regionFromLanguages } from "../lib/news/locale";
 import { validateMessageCoverage } from "../lib/news/messages";
@@ -16,7 +16,7 @@ import { availableNewsArticlePath, switchNewsLocalePath } from "../lib/news/rout
 import { researchProblems, researchExclusions, researchPrompt } from "../lib/news/research";
 import { NEWS_SOURCES } from "../lib/news/sources";
 import { NEWS_DISCOVERY_FEEDS } from "../lib/news/feed-discovery";
-import { NEWS_MAX_RESEARCH_ROUNDS, NEWS_RESEARCH_BATCH_SIZE, isPublishableEditionSize, shouldResearchEdition, usageLimitRetryMs } from "../lib/news/edition-policy";
+import { DEFAULT_NEWS_EDITION_INTERVAL_HOURS, NEWS_EDITION_INTERVAL_MS, NEWS_MAX_RESEARCH_ROUNDS, NEWS_RESEARCH_BATCH_SIZE, isPublishableEditionSize, newsEditionIntervalHours, newsEditionIntervalMs, shouldResearchEdition, usageLimitRetryMs } from "../lib/news/edition-policy";
 import { buildIndexNowPlan, buildIndexNowSnapshot, indexNowBatches } from "../lib/news/indexnow";
 import { NEWS_SITEMAP_URL_LIMIT, newsSitemap, newsSitemapIndex } from "../lib/news/news-sitemap";
 import { newsRss } from "../lib/news/rss";
@@ -248,6 +248,53 @@ test("editions stop at ten and preserve the two-hour deadline and research coold
   expect(NEWS_RESEARCH_BATCH_SIZE).toBe(10);
   expect(NEWS_MAX_RESEARCH_ROUNDS).toBe(3);
   expect([1, 2, 3, 4].map(usageLimitRetryMs)).toEqual([6, 12, 24, 24].map(hours => hours * 60 * 60_000));
+});
+
+test("the edition interval comes from ODDSFRONT_NEWS_EDITION_INTERVAL_HOURS with a two-hour default", () => {
+  expect(DEFAULT_NEWS_EDITION_INTERVAL_HOURS).toBe(2);
+  expect(NEWS_EDITION_INTERVAL_MS).toBe(2 * 60 * 60_000);
+  expect(newsEditionIntervalHours(undefined)).toBe(2);
+  expect(newsEditionIntervalHours("")).toBe(2);
+  expect(newsEditionIntervalMs("24")).toBe(24 * 60 * 60_000);
+  expect(newsEditionIntervalMs(" 1.5 ")).toBe(90 * 60_000);
+  for (const invalid of ["0", "0.5", "-2", "abc", "Infinity", "NaN"]) {
+    expect(() => newsEditionIntervalMs(invalid), invalid).toThrow("ODDSFRONT_NEWS_EDITION_INTERVAL_HOURS");
+  }
+});
+
+test("the casualty policy rejects body-count headlines and decks while keeping decision stories", () => {
+  const valid = draft();
+  expect(violatesCasualtyPolicy(valid)).toBe(false);
+  for (const title of [
+    "Strike on Kharkiv kills five as talks stall",
+    "Death toll from Gaza strike rises to 40",
+    "Three people killed in border shelling",
+    "12 dead after ferry capsizes off Senegal",
+    "Dozens died in prison fire, officials say",
+    "Massacre reported in Darfur village",
+    "Officials confirm 1,200 casualties in the offensive",
+  ]) {
+    const story = { ...valid, title };
+    expect(violatesCasualtyPolicy(story), title).toBe(true);
+    expect(validateNewsDraft(story, []), title).toContain(CASUALTY_POLICY_REASON);
+  }
+  const deck = { ...valid, description: "The ministry said at least seven soldiers were killed before the vote." };
+  expect(validateNewsDraft(deck, [])).toContain(CASUALTY_POLICY_REASON);
+  for (const title of [
+    "EU extends sanctions deadline as talks on energy deal deadlock",
+    "Court upholds election result after week-long recount",
+    "UN bodies agree humanitarian corridor timetable",
+    "Ceasefire monitors report lull in shelling as negotiations resume",
+  ]) {
+    const story = { ...valid, title };
+    expect(violatesCasualtyPolicy(story), title).toBe(false);
+    expect(validateNewsDraft(story, []), title).not.toContain(CASUALTY_POLICY_REASON);
+  }
+  // A casualty figure inside the body remains secondary context.
+  const body = { ...valid, body: [...valid.body, { type: "paragraph" as const, text: "Aid agencies said the earlier strike had killed 14 people, a figure the negotiators cited while agreeing the corridor schedule and the inspection regime for the coming week." }] };
+  expect(validateNewsDraft(body, [])).not.toContain(CASUALTY_POLICY_REASON);
+  expect(researchPrompt([], 1)).toContain("Editorial policy on casualties");
+  expect(researchPrompt([], 1)).toContain(CASUALTY_POLICY_REASON);
 });
 
 test("reduced editions retain surplus drafts and exact identity across export retries", async () => {

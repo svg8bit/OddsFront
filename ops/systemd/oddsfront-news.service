@@ -7,7 +7,7 @@ ConditionPathExists=/root/OddsFront/scripts/news/publish.ts
 [Service]
 Type=oneshot
 WorkingDirectory=/root/OddsFront
-ExecStart=/usr/local/bin/node scripts/news/run-edition.mjs --with-followups
+ExecStart=/usr/bin/env node scripts/news/run-edition.mjs --with-followups
 Environment=NODE_ENV=production
 Environment=PATH=/usr/local/bin:/usr/bin:/bin
 Nice=10

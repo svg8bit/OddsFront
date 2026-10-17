@@ -104,14 +104,30 @@ full-text licensing, so ColdMath's licensed syndication mode is not enabled.
 The overlap gate checks evidence notes, not every word of a paywalled source.
 Research and publication gates reduce errors; they do not replace human review.
 
-The two-hour cycle publishes exactly ten verified new stories. Research runs in
-small rounds of up to five and stops once ten are ready. A verified complete
-edition publishes even during a research cooldown. Previously prepared surplus
-articles carry into the next private edition and pass the same gates again.
-Partial results persist privately in `pending-edition` and are topped up;
-they never replace the public catalog. An incomplete cycle exits unsuccessfully
-and the five-minute timer retries that pending edition. The two-hour interval
-is measured from the last complete publication in `edition-state.json`.
+Editorial policy on casualties (owner, 2026-10-17): no story may have as its
+main news that people were killed or died, or a casualty count — strikes
+reported through their body count, massacres, shootings, accidents or disasters
+with fatalities. Preferred subjects are diplomacy, sanctions, negotiations,
+elections, energy, trade, court rulings, security policy, humanitarian access
+and markets; a casualty figure may appear only as secondary context inside a
+story about a decision or negotiation. The research prompt states this rule and
+`validateNewsDraft` enforces it deterministically on the headline and deck
+(`lib/news/validation.ts`, reason `editorial-policy:casualties`); a rejected
+draft is recorded privately like any other validator rejection, so the next
+research round replaces it.
+
+Each publishing cycle publishes exactly ten verified new stories. The interval
+between complete editions is `ODDSFRONT_NEWS_EDITION_INTERVAL_HOURS` (default
+2; a finite number of hours, at least 1; an invalid value fails the run). The
+VPS drop-in `ops/oddsfront-news-editions.conf` sets 24, one edition of ten
+stories per day, because the Codex subscription is shared with ColdMath news.
+Research runs in small rounds of up to five and stops once ten are ready. A
+verified complete edition publishes even during a research cooldown. Previously
+prepared surplus articles carry into the next private edition and pass the same
+gates again. Partial results persist privately in `pending-edition` and are
+topped up; they never replace the public catalog. An incomplete cycle exits
+unsuccessfully and the five-minute timer retries that pending edition. The
+interval is measured from the last complete publication in `edition-state.json`.
 Before export the pending record freezes its publication timestamp and exact
 article IDs. Retries must retain that set; a schedule change does not permit dropping
 articles from an already exported edition.
@@ -215,8 +231,11 @@ RTL map shaping. Country glyphs are precomputed and requested by Unicode range.
 ## Service operation
 
 Tracked units: `ops/systemd/oddsfront-news.service` and `.timer`. The oneshot
-timer checks every five minutes, with actual publication due every two hours,
-using Nice 10, one CPU quota and a 3 GB memory limit. Translation and IndexNow
+timer checks every five minutes, with actual publication due once per
+`ODDSFRONT_NEWS_EDITION_INTERVAL_HOURS` (set in the drop-in; 24 on the VPS),
+using Nice 10, one CPU quota and a 3 GB memory limit. Units start Node through
+`/usr/bin/env node` with `PATH=/usr/local/bin:/usr/bin:/bin`, so either binary
+location works; `/root/OddsFront` remains the canonical root. Translation and IndexNow
 run only after a complete edition, never on an interval check. `edition.lock` uses OS flock for both
 processes, preventing lost updates and releasing automatically after termination.
 No lock-file deletion is required after a crash. The Codex CLI also needs its
@@ -304,9 +323,10 @@ Available feed discovery avoids repeated category-page probing. Site coverage
 includes the existing politics, energy, security, humanitarian and world-affairs
 categories; a market match is unnecessary for an ordinary website article.
 
-## Temporary publication cadence (2026-09-12)
+## Temporary publication cadence (2026-09-12, interval made configurable 2026-10-17)
 
-Website editions contain exactly ten verified new articles every two hours.
+Website editions contain exactly ten verified new articles once per
+`ODDSFRONT_NEWS_EDITION_INTERVAL_HOURS` (default two hours; 24 on the VPS).
 Each of Telegram EN, Telegram RU and X sends one story after at least five hours
 have elapsed since its own last confirmed receipt. Five-minute timer checks and
 website follow-ups cannot bypass this guard, and retries never clear pending sends.

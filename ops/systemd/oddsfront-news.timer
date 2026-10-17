@@ -1,5 +1,5 @@
 [Unit]
-Description=Refresh OddsFront news every two hours
+Description=Check every five minutes whether an OddsFront news edition is due (interval: ODDSFRONT_NEWS_EDITION_INTERVAL_HOURS)
 
 [Timer]
 OnCalendar=*-*-* *:0/5:00
