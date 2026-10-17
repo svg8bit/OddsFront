@@ -30,6 +30,20 @@ const MAJOR_ALERT_PAIRS = new Set([
   "IL-IR", "IL-LB", "IL-PS", "IN-PK", "IQ-US", "IR-US", "KP-KR",
   "CN-TW", "RU-UA", "SY-US", "US-YE",
 ]);
+// Owner's editorial policy (2026-10-17): no stories whose main news is that
+// people were killed or how many died. The research prompt steers the editor
+// away from such candidates; this deterministic gate rejects any that still
+// arrive, judged on the headline and deck only (a casualty figure may remain
+// secondary context inside the body of a story about a decision).
+export const CASUALTY_POLICY_REASON = "editorial-policy:casualties";
+const CASUALTY_LANGUAGE = /\b(?:kill(?:ed|s|ing|ings)?|dead|death\s+toll|deaths?|casualt(?:y|ies)|fatalit(?:y|ies)|massacres?|massacred|slain|murder(?:ed|s)?|died|dies)\b/i;
+const CASUALTY_COUNT = /\b\d[\d,.]*\s+(?:(?:more\s+)?(?:people|civilians|soldiers|troops|children|residents|workers|migrants|passengers)\s+)?(?:killed|dead|died|deaths|casualties)\b/i;
+
+export function violatesCasualtyPolicy(draft: Pick<NewsDraft, "title" | "description">): boolean {
+  const headline = `${draft.title} ${draft.description}`;
+  return CASUALTY_LANGUAGE.test(headline) || CASUALTY_COUNT.test(headline);
+}
+
 const STRIKE_LANGUAGE = /\b(?:air\s*strikes?|strikes?|struck|attacks?|attacked|bomb(?:s|ed|ing)?|missile\s+attacks?|military\s+(?:action|operation))\b/i;
 const CEASEFIRE_LANGUAGE = /\b(?:ceasefire|truce)\b/i;
 const SPECULATIVE_LANGUAGE = /\b(?:could|may|might|plans?|planning|proposal|proposed|talks?|negotiations?|threatens?|considers?|expected|forecast|prediction|will\s+(?:strike|attack|bomb))\b/i;
@@ -101,6 +115,7 @@ export function validateNewsDraft(draft: NewsDraft, existing: NewsArticle[], now
       !Array.isArray(draft.factChecks) || draft.factChecks.some(fact => !fact || typeof fact.claim !== "string" || !Array.isArray(fact.sourceIds))) return ["Invalid article structure"];
   if (!draft.publishable) reasons.push(draft.rejectionReason || "Unpublishable topic");
   if (!draft.title || draft.title.length > 180 || !draft.description || draft.description.length > 500) reasons.push("Invalid headline or deck");
+  if (violatesCasualtyPolicy(draft)) reasons.push(CASUALTY_POLICY_REASON);
   const text = draft.body.map(block => block.text).join(" ");
   if (normalizedWords(text).length < 300 || draft.body.filter(block => block.type === "paragraph" && block.text.length >= 100).length < 5) reasons.push("Article is too thin");
   if (draft.body.some(block => !["heading", "paragraph"].includes(block.type) || /<[^>]+>|\[[^\]]+\]\(https?:/i.test(block.text))) reasons.push("Unsafe article blocks");

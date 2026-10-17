@@ -1,13 +1,30 @@
 // Temporary owner-approved cadence: exactly ten verified stories per edition.
 export const NEWS_EDITION_SIZE = 10;
 export const NEWS_MINIMUM_EDITION_SIZE = 10;
-export const NEWS_EDITION_INTERVAL_MS = 2 * 60 * 60_000;
+// Hours between complete editions. The default stays at two hours; a host that
+// shares the Codex subscription with other publishers sets a longer interval
+// through ODDSFRONT_NEWS_EDITION_INTERVAL_HOURS (the VPS drop-in uses 24).
+export const DEFAULT_NEWS_EDITION_INTERVAL_HOURS = 2;
+export const NEWS_EDITION_INTERVAL_MS = DEFAULT_NEWS_EDITION_INTERVAL_HOURS * 60 * 60_000;
 export const NEWS_RESEARCH_BATCH_SIZE = 10;
 export const NEWS_MAX_RESEARCH_ROUNDS = 3;
 export const NEWS_RESEARCH_TIMEOUT_MS = 11 * 60_000;
 export const NEWS_RESEARCH_RETRY_MS = 30 * 60_000;
 export const NEWS_USAGE_LIMIT_RETRY_BASE_MS = 6 * 60 * 60_000;
 export const NEWS_USAGE_LIMIT_RETRY_MAX_MS = 24 * 60 * 60_000;
+
+export function newsEditionIntervalHours(value: string | undefined = process.env.ODDSFRONT_NEWS_EDITION_INTERVAL_HOURS): number {
+  if (value === undefined || value.trim() === "") return DEFAULT_NEWS_EDITION_INTERVAL_HOURS;
+  const hours = Number(value);
+  if (!Number.isFinite(hours) || hours < 1) {
+    throw new Error(`ODDSFRONT_NEWS_EDITION_INTERVAL_HOURS must be a finite number of hours of at least 1, received "${value}"`);
+  }
+  return hours;
+}
+
+export function newsEditionIntervalMs(value?: string): number {
+  return Math.round(newsEditionIntervalHours(value) * 60 * 60_000);
+}
 
 export function isPublishableEditionSize(count: number) {
   return Number.isInteger(count) && count >= NEWS_MINIMUM_EDITION_SIZE && count <= NEWS_EDITION_SIZE;

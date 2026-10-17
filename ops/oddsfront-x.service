@@ -7,7 +7,7 @@ ConditionPathExists=/root/OddsFront/.local/x-auth/credentials.env
 [Service]
 Type=oneshot
 WorkingDirectory=/root/OddsFront
-ExecStart=/usr/local/bin/node scripts/news/x.ts --send
+ExecStart=/usr/bin/env node scripts/news/x.ts --send
 Environment=NODE_ENV=production
 Environment=PATH=/usr/local/bin:/usr/bin:/bin
 Environment=ODDSFRONT_X_CREDENTIAL_ENV=/root/OddsFront/.local/x-auth/credentials.env
