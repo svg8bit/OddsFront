@@ -240,7 +240,7 @@ test("a strict fresh news match renders a blue 15-minute alert and popup-safe co
   await expect(page.locator("html")).toHaveAttribute("lang","ru");
   await page.keyboard.press("Escape");
   await expect(alert.locator("[data-activity-actions]")).toContainText("DropsBot");
-  await expect(alert.locator("[data-activity-actions]")).toContainText("Market");
+  await expect(alert.locator("[data-activity-actions]")).toContainText("Рынок");
   const footerLayout=await alert.locator("[data-activity-footer]").evaluate(footer=>{
     const actions=footer.querySelector<HTMLElement>("[data-activity-actions]");
     const footerRect=footer.getBoundingClientRect();
