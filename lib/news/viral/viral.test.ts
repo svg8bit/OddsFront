@@ -105,7 +105,7 @@ test("caption: the headline links to the site article when there is one", () => 
   const market = { question: "Houthi strike by October 31?", chance: 0.41, dayChange: 0.03 };
   const linked = hotDeskCaption(copy, market, "ru", "https://oddsfront.com/ru/news/saudi");
   assert.ok(linked.startsWith('⚡️ <b><a href="https://oddsfront.com/ru/news/saudi">Эр-Рияд сбил ракеты хуситов</a></b>'));
-  assert.ok(linked.endsWith("Сделать ставку прямо в Telegram 👇"));
+  assert.ok(!linked.includes("Сделать ставку"));
   assert.ok(hotDeskCaption(copy, market, "en").startsWith("⚡️ <b>Saudi Arabia downs Houthi missiles</b>"));
 });
 

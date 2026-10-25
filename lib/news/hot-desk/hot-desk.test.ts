@@ -109,9 +109,10 @@ const COPY: HotDeskCopy = {
 
 test("captions carry the headline, context, market odds and the 24-hour move only when it is at least a point", () => {
   const caption = hotDeskCaption(COPY, { question: "NATO x Russia military clash by October 31, 2026?", chance: 0.23, dayChange: 0.12 }, "ru");
-  assert.equal(caption, "⚡️ <b>Российские дроны залетели в Польшу — НАТО подняло истребители</b>\n\nПо данным польских властей, ночью несколько дронов вошли в воздушное пространство страны; союзники подняли авиацию.\n\n📊 <b>Рынок:</b> Военное столкновение НАТО и России до 31 октября 2026 года?\nДа — <b>23%</b> · ▲ 12% за сутки\n\nСделать ставку прямо в Telegram 👇");
+  assert.equal(caption, "⚡️ <b>Российские дроны залетели в Польшу — НАТО подняло истребители</b>\n\nПо данным польских властей, ночью несколько дронов вошли в воздушное пространство страны; союзники подняли авиацию.\n\n📊 <b>Рынок:</b> Военное столкновение НАТО и России до 31 октября 2026 года?\nДа — <b>23%</b> · ▲ 12% за сутки");
   const english = hotDeskCaption(COPY, { question: "NATO x Russia military clash by October 31, 2026?", chance: 0.23, dayChange: 0.004 }, "en");
-  assert.ok(english.includes("Yes — <b>23%</b>\n\nBet right in Telegram 👇"));
+  assert.ok(english.endsWith("Yes — <b>23%</b>"));
+  assert.ok(!english.includes("Bet right in Telegram") && !caption.includes("Сделать ставку"));
   assert.ok(english.includes("overnight &amp; allied"));
   assert.equal(formatChange(-0.071, "en"), "▼ 7.1% in 24h");
   assert.equal(formatChange(-0.013, "ru"), "▼ 1,3% за сутки");

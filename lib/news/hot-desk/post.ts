@@ -100,8 +100,8 @@ export function hotDeskCaption(copy: HotDeskCopy, market: Pick<HotDeskMarket, "q
     `⚡️ <b>${articleUrl ? `<a href="${escapeHtml(articleUrl)}">${title}</a>` : title}</b>`,
     escapeHtml(ru ? copy.contextRu : copy.contextEn),
     // The odds belong to the market's own question, labelled as such, never to the headline.
+    // The Yes/No buttons under the post speak for themselves (owner, 2026-10-25: no call-to-action line).
     `📊 <b>${ru ? "Рынок" : "Market"}:</b> ${escapeHtml(ru ? copy.marketQuestionRu : market.question)}\n${odds}`,
-    ru ? "Сделать ставку прямо в Telegram 👇" : "Bet right in Telegram 👇",
   ].join("\n\n");
   // Telegram counts the visible text; markup tags are a safe upper bound.
   if (caption.length > CAPTION_LIMIT) throw new Error("Hot desk caption exceeds Telegram's limit");
