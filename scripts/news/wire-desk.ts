@@ -20,7 +20,7 @@ import { collectWireHeadlines, openStories, readableSiblings, storiesNeedingEval
 import { fetchTrendSignals, scoreStories } from "../../lib/news/viral/signals.ts";
 import { acceptedPicks, promptStories, SELECTION_SCHEMA, SELECTION_SYSTEM_PROMPT, selectionPrompt, type WirePick } from "../../lib/news/wire-desk/selection.ts";
 import { gatherSources, type FetchOutcome, type SourceText } from "../../lib/news/wire-desk/source-text.ts";
-import { storyMarkets, type StoryMarket } from "../../lib/news/wire-desk/markets.ts";
+import { articleMarkets, storyMarkets, type StoryMarket } from "../../lib/news/wire-desk/markets.ts";
 import { ARTICLE_SYSTEM_PROMPT, articlePrompt, cleanDraft, draftToArticle, parseArticleAnswer, reviewDraft, type ArticleDraft, type DraftReview } from "../../lib/news/wire-desk/article.ts";
 import { coverContext, coverFocus, launchCoverBrowser, renderCover, type CoverContext } from "../../lib/news/wire-desk/cover.ts";
 import { loadCatalog, notifyIndexNow, notifyWebSub, publishArticle, requestRevalidation, retireSeedArticles, revalidationPaths, type NotifyResult } from "../../lib/news/wire-desk/publish.ts";
@@ -215,6 +215,10 @@ try {
 
       const publishedAt = new Date().toISOString();
       const article = draftToArticle(draft, sources, publishedAt);
+      // The page shows only markets about this story; none rather than a country-only match.
+      const shownMarkets = articleMarkets(markets, draft.marketId, { title: article.title, development: pick.development, topics: article.topics });
+      if (shownMarkets.length) article.markets = shownMarkets;
+      result.articleMarkets = shownMarkets.map(market => market.question);
       if (catalog.articles.some(existing => existing.slug === article.slug || existing.id === article.id)) { await reject([`slug already published: ${article.slug}`]); continue; }
       let cover: Buffer | null = null;
       if (!noCover) {
