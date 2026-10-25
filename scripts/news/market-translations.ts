@@ -6,7 +6,7 @@
 import { mkdir, readdir, readFile, rename, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { executeSubscriptionWriter, WriterUsageLimitError } from "../../lib/news/writer.ts";
-import { collectMapStrings, collectStrings, mergeHotDeskPairs, translationPrompt, TRANSLATION_SCHEMA, acceptedTranslations, type TranslationFile } from "../../lib/news/market-translations.ts";
+import { collectArticleMarketStrings, collectMapStrings, collectStrings, mergeHotDeskPairs, translationPrompt, TRANSLATION_SCHEMA, acceptedTranslations, type TranslationFile } from "../../lib/news/market-translations.ts";
 
 // Served by the feed as /v1/news/articles/market-translations-ru (lib/telegram-app/translations.ts).
 const file = process.env.ODDSFRONT_TRANSLATIONS_FILE || "/opt/oddsfront-market-feed/news/articles/market-translations-ru.json";
@@ -14,6 +14,7 @@ const hotDeskDirectory = path.join(process.env.ODDSFRONT_NEWS_DIRECTORY || "/roo
 const usageFile = path.join(process.env.ODDSFRONT_NEWS_DIRECTORY || "/root/OddsFront/.local/news", "market-translations-usage.jsonl");
 const marketsUrl = process.env.ODDSFRONT_TG_MARKETS_URL || "https://oddsfront.com/api/tg/markets";
 const mapUrl = process.env.ODDSFRONT_MAP_EVENTS_URL || "https://oddsfront.com/api/global-conflict-events";
+const newsUrl = process.env.ODDSFRONT_NEWS_API_URL || "https://oddsfront.com/api/news?limit=30";
 const batchSize = 60;
 const dryRun = process.argv.includes("--dry-run");
 
@@ -51,7 +52,8 @@ try {
   const strings = collectStrings(await response.json());
   // The map is a second source; a map outage must not stop the Mini App's translations.
   const map = await fetch(mapUrl, { signal: AbortSignal.timeout(30_000) }).then(reply => reply.ok ? reply.json() : null).catch(() => null);
-  const pending = [...new Set([...strings, ...collectMapStrings(map)])].filter(text => !data.ru[text]);
+  const news = await fetch(newsUrl, { signal: AbortSignal.timeout(30_000) }).then(reply => reply.ok ? reply.json() : null).catch(() => null);
+  const pending = [...new Set([...strings, ...collectMapStrings(map), ...collectArticleMarketStrings(news)])].filter(text => !data.ru[text]);
   let translated = 0;
   let costUsd = 0;
   for (let start = 0; start < pending.length && !dryRun; start += batchSize) {

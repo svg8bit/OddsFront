@@ -32,6 +32,20 @@ export interface NewsDraft extends ArticleText {
   sources: NewsSource[];
   factChecks: { claim: string; sourceIds: string[] }[];
 }
+/** A Polymarket market found for the article's own story when it was written (prices refresh live on the page). */
+export interface ArticleMarket {
+  id: string;
+  question: string;
+  eventTitle?: string;
+  eventSlug?: string;
+  conditionId?: string | null;
+  yesTokenId?: string;
+  image?: string | null;
+  chance: number;
+  weekChange?: number | null;
+  volume: number;
+  endDate?: string;
+}
 export interface NewsArticle extends ArticleText {
   id: string;
   slug: string;
@@ -54,6 +68,8 @@ export interface NewsArticle extends ArticleText {
   cover?: { imageUrl: string; sourceUrl: string; verifiedAt: string; kind?: "partner" | "own" | "none" };
   sources: Omit<NewsSource, "evidence">[];
   translations: Partial<Record<Locale, ArticleText>>;
+  /** Markets about this story (the one the article cites first); absent on older articles. */
+  markets?: ArticleMarket[];
 }
 export interface NewsCatalog {
   version: 1;

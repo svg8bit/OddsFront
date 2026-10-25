@@ -324,3 +324,30 @@ test("writer: a lean task prompt and no thinking for desk calls", () => {
   assert.deepEqual(invocation.args.slice(invocation.args.indexOf("--tools"), invocation.args.indexOf("--tools") + 2), ["--tools", ""]);
   assert.equal(invocation.args[invocation.args.indexOf("--max-turns") + 1], "6");
 });
+
+test("article markets: the cited market first, then markets about the same actors, never a country-only match", async () => {
+  const { articleMarkets } = await import("./markets.ts");
+  const market = (id: string, question: string, volume: number, queries = ["q"]) => ({ id, question, slug: id, conditionId: `0x${id}`, eventId: id, eventTitle: question, eventSlug: `event-${id}`, yesTokenId: `${id}0000000000`, chance: 0.3, yesPrice: 0.31, noPrice: 0.7, dayChange: null, weekChange: 0.02, volume, liquidity: 9000, endDate: "2026-12-31T00:00:00Z", image: null, queries });
+  const found = [
+    market("1", "Will Trump impose new tariffs on the EU by December 31?", 900_000),
+    market("2", "NATO x Russia military clash by December 31, 2026?", 3_400_000),
+    market("3", "Will Trump raise tariffs on European cars by November 30?", 200_000, ["q", "r"]),
+  ];
+  const story = { title: "Audi to build $4bn SUV plant in Georgia as Volkswagen grapples with Trump tariffs", development: "Trump announced an Audi factory in Georgia amid EU car tariffs.", topics: ["Tariffs", "Audi", "Volkswagen"] };
+  const shown = articleMarkets(found, "1", story);
+  assert.deepEqual(shown.map(item => item.id), ["1", "3"]);
+  assert.equal(shown[0]!.eventSlug, "event-1");
+  assert.equal(shown[0]!.yesTokenId, "10000000000");
+  assert.deepEqual(articleMarkets([found[1]!], null, story), []);
+  // Deadline variants of one market collapse into one card.
+  const variants = [market("4", "Will Trump impose new tariffs on the EU by October 31?", 100_000), ...found];
+  assert.deepEqual(articleMarkets(variants, "1", story).map(item => item.id), ["1", "3"]);
+});
+
+test("related map markets need shared words, a shared country only breaks ties", async () => {
+  const { relatedMarkets } = await import("../related-markets.ts");
+  const event = (id: string, title: string, countryCodes: string[], volume: number) => ({ id, title, countryCodes, volume, dataOrigin: "polymarket", marketUrl: `https://polymarket.com/event/${id}`, endDate: null }) as unknown as Parameters<typeof relatedMarkets>[1][number];
+  const events = [event("nato", "NATO x Russia military clash by December 31, 2026?", ["RU", "US", "DE"], 3_400_000), event("iran", "US x Iran ceasefire continues through October 31?", ["US", "IR"], 900_000)];
+  assert.deepEqual(relatedMarkets({ title: "Audi to build $4bn SUV plant in Georgia amid Trump tariffs", countries: ["US", "DE"], topics: ["Tariffs"] }, events), []);
+  assert.deepEqual(relatedMarkets({ title: "Iran says the ceasefire with the US holds despite threats", countries: ["IR", "US"], topics: ["Iran"] }, events).map(item => item.id), ["iran"]);
+});
