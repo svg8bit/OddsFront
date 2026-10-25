@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { createHmac, generateKeyPairSync, sign } from "node:crypto";
 import { describe, it } from "node:test";
-import { acceptedTranslations, collectStrings, mergeHotDeskPairs } from "../news/market-translations.ts";
+import { acceptedTranslations, collectMapStrings, collectStrings, mergeHotDeskPairs } from "../news/market-translations.ts";
 import { botReply } from "./bot-replies.ts";
 import { localizeMarket, translationsUrl } from "./translations.ts";
 import { parseBuilderSigningPayload, relayerSubmissionBelongsTo } from "./builder-signing.ts";
@@ -301,6 +301,9 @@ describe("Russian market questions", () => {
   });
 
   it("reuses the hot desk's own translations and keeps known ones", () => {
+    const map = collectMapStrings({ events: [{ title: "Will the U.S. invade Iran before 2027?", locationLabel: "Strait of Hormuz", region: "Middle East" }, { title: "Уже по-русски", locationLabel: "Iran", region: "Middle East" }, null] });
+    assert.deepEqual(map, ["Will the U.S. invade Iran before 2027?", "Strait of Hormuz", "Middle East", "Iran"]);
+    assert.deepEqual(collectMapStrings(null), []);
     const ru = mergeHotDeskPairs({ "A?": "А?" }, [{ market: { question: "B?" }, selection: { marketQuestionRu: "Б?" } }, { market: { question: "A?" }, selection: { marketQuestionRu: "Другое" } }, null]);
     assert.deepEqual(ru, { "A?": "А?", "B?": "Б?" });
   });

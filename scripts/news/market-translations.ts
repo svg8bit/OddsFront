@@ -1,17 +1,19 @@
 // Russian wording of the Mini App's market questions. Every English string is translated once and
 // kept forever in the feed's market-translations.json; a run with nothing new makes no model call.
-// Sources: the Mini App's own market lists (oddsfront.com/api/tg/markets) and the questions the hot
-// desk already translated for its posts (no model call for those).
+// Sources: the Mini App's own market lists (oddsfront.com/api/tg/markets), the site map's markets and
+// places (oddsfront.com/api/global-conflict-events) and the questions the hot desk already translated
+// for its posts (no model call for those).
 import { mkdir, readdir, readFile, rename, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { executeSubscriptionWriter, WriterUsageLimitError } from "../../lib/news/writer.ts";
-import { collectStrings, mergeHotDeskPairs, translationPrompt, TRANSLATION_SCHEMA, acceptedTranslations, type TranslationFile } from "../../lib/news/market-translations.ts";
+import { collectMapStrings, collectStrings, mergeHotDeskPairs, translationPrompt, TRANSLATION_SCHEMA, acceptedTranslations, type TranslationFile } from "../../lib/news/market-translations.ts";
 
 // Served by the feed as /v1/news/articles/market-translations-ru (lib/telegram-app/translations.ts).
 const file = process.env.ODDSFRONT_TRANSLATIONS_FILE || "/opt/oddsfront-market-feed/news/articles/market-translations-ru.json";
 const hotDeskDirectory = path.join(process.env.ODDSFRONT_NEWS_DIRECTORY || "/root/OddsFront/.local/news", "hot-desk");
 const usageFile = path.join(process.env.ODDSFRONT_NEWS_DIRECTORY || "/root/OddsFront/.local/news", "market-translations-usage.jsonl");
 const marketsUrl = process.env.ODDSFRONT_TG_MARKETS_URL || "https://oddsfront.com/api/tg/markets";
+const mapUrl = process.env.ODDSFRONT_MAP_EVENTS_URL || "https://oddsfront.com/api/global-conflict-events";
 const batchSize = 60;
 const dryRun = process.argv.includes("--dry-run");
 
@@ -46,7 +48,10 @@ try {
   data.ru = mergeHotDeskPairs(data.ru, await hotDeskDrafts());
   const response = await fetch(marketsUrl, { signal: AbortSignal.timeout(30_000) });
   if (!response.ok) throw new Error(`Mini App markets unavailable (${response.status})`);
-  const pending = collectStrings(await response.json()).filter(text => !data.ru[text]);
+  const strings = collectStrings(await response.json());
+  // The map is a second source; a map outage must not stop the Mini App's translations.
+  const map = await fetch(mapUrl, { signal: AbortSignal.timeout(30_000) }).then(reply => reply.ok ? reply.json() : null).catch(() => null);
+  const pending = [...new Set([...strings, ...collectMapStrings(map)])].filter(text => !data.ru[text]);
   let translated = 0;
   let costUsd = 0;
   for (let start = 0; start < pending.length && !dryRun; start += batchSize) {
