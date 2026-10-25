@@ -25,7 +25,7 @@ export function TabBar() {
             aria-current={active ? "page" : undefined}
             onClick={() => app.selectTab(id)}
           >
-            <Icon className={styles.tabIcon} size={22} strokeWidth={active ? 2.2 : 1.8} aria-hidden />
+            <Icon className={styles.tabIcon} size={20} strokeWidth={active ? 2.2 : 1.8} aria-hidden />
             <span className={styles.tabLabel}>{label}</span>
           </button>
         );

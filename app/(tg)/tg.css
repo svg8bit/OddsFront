@@ -32,3 +32,14 @@ body {
   -webkit-text-size-adjust: 100%;
   overscroll-behavior: none;
 }
+
+/* No scrollbars inside Telegram (Telegram Desktop draws a bar over the content). */
+html,
+body {
+  scrollbar-width: none;
+}
+
+html::-webkit-scrollbar,
+body::-webkit-scrollbar {
+  display: none;
+}
