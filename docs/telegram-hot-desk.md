@@ -125,3 +125,10 @@ Environment=ODDSFRONT_HOT_DESK_PREVIEW_WATCH=1
 ```
 
 Channel launch: remove the drop-in, `systemctl daemon-reload`; the next run posts to both channels.
+
+## Manual topic posts
+
+`node scripts/news/hot-desk.ts --preview --topic=iran,tehran+strike,war,deal` merges every headline
+cluster about one story (keyword groups joined by `+`, alternatives by `,`) into a single story whose
+coverage counts all its outlets, lowers the newsworthiness bar to 6 (the owner chose the topic) and
+keeps the market pairing bar at 0.9. Use `--send` instead of `--preview` to publish it.

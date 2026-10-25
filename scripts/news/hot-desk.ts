@@ -6,7 +6,7 @@ import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { spawnSync } from "node:child_process";
 import path from "node:path";
 import { executeSubscriptionWriter, WriterUsageLimitError } from "../../lib/news/writer.ts";
-import { clusterHeadlines, collectHeadlines, mergeTopicClusters } from "../../lib/news/hot-desk/headlines.ts";
+import { clusterHeadlines, collectHeadlines, mergeTopicClusters, topicMatcher } from "../../lib/news/hot-desk/headlines.ts";
 import { candidateMarkets, priceHistory, refreshMarket, DEFAULT_MARKET_POLICY } from "../../lib/news/hot-desk/markets.ts";
 import { acceptedPair, acceptedStoryPicks, pairSelectionPrompt, storySelectionPrompt, MIN_HYPE, MIN_PAIR_CONFIDENCE, PAIR_SELECTION_SCHEMA, STORY_SELECTION_SCHEMA } from "../../lib/news/hot-desk/editor.ts";
 import { betKeyboard, hotDeskCaption, HOT_DESK_CHANNELS, type HotDeskLocale } from "../../lib/news/hot-desk/post.ts";
@@ -17,9 +17,8 @@ import { botToken, telegramClient, TelegramRejection } from "../../lib/news/hot-
 
 const mode = process.argv.includes("--send") ? "send" : process.argv.includes("--preview") ? "preview" : "dry-run";
 const force = process.argv.includes("--force");
-// --topic=REGEX: a manual run about one story ("post about the Iran strike plans"), never scheduled.
-const topicArgument = process.argv.find(argument => argument.startsWith("--topic="))?.slice("--topic=".length) || "";
-const topic = topicArgument ? new RegExp(topicArgument, "i") : null;
+// --topic=WORDS: a manual run about one story ("iran,tehran+strike,war,deal"), never scheduled.
+const topic = topicMatcher(process.argv.find(argument => argument.startsWith("--topic="))?.slice("--topic=".length) || "");
 const directory = process.env.ODDSFRONT_NEWS_DIRECTORY || "/root/OddsFront/.local/news";
 const output = path.join(directory, "hot-desk");
 await mkdir(output, { recursive: true, mode: 0o700 });

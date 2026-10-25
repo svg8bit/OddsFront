@@ -200,12 +200,26 @@ export function clusterHeadlines(headlines: readonly Headline[], threshold = 0.5
 }
 
 /**
- * A manual "post on this topic" run (--topic=REGEX): every cluster whose headlines or summary match is
+ * A manual run's topic: keyword groups joined by "+", alternatives by "," — "iran,tehran+strike,war"
+ * matches text containing (iran OR tehran) AND (strike OR war), case-insensitively. Plain words, no
+ * regular expressions, so an operator's argument can never become a pattern.
+ */
+export function topicMatcher(spec: string): ((text: string) => boolean) | null {
+  const groups = spec.toLowerCase().split("+").map(group => group.split(",").map(word => word.trim()).filter(Boolean)).filter(group => group.length);
+  if (!groups.length) return null;
+  return text => {
+    const haystack = text.toLowerCase();
+    return groups.every(group => group.some(word => haystack.includes(word)));
+  };
+}
+
+/**
+ * A manual "post on this topic" run (--topic=WORDS): every cluster whose headlines or summary match is
  * one story told by several outlets (word clustering splits differently worded reports of it), so they
  * merge into a single story whose coverage counts all of their outlets. Null when nothing matches.
  */
-export function mergeTopicClusters(clusters: readonly HeadlineCluster[], topic: RegExp): HeadlineCluster | null {
-  const matching = clusters.filter(cluster => topic.test([cluster.title, ...cluster.titles, cluster.description].join(" ")));
+export function mergeTopicClusters(clusters: readonly HeadlineCluster[], topic: (text: string) => boolean): HeadlineCluster | null {
+  const matching = clusters.filter(cluster => topic([cluster.title, ...cluster.titles, cluster.description].join(" ")));
   if (!matching.length) return null;
   const ordered = matching.toSorted((a, b) => b.coverage - a.coverage || Date.parse(b.latestAt) - Date.parse(a.latestAt));
   const outlets = [...new Set(ordered.flatMap(cluster => cluster.outlets))];
