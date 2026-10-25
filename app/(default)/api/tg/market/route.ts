@@ -1,5 +1,6 @@
 import { POLYMARKET_GAMMA_URL } from "@/lib/telegram-app/contracts";
 import { parseGammaMarket } from "@/lib/telegram-app/markets";
+import { localizeMarket, marketTranslations } from "@/lib/telegram-app/translations";
 
 export const dynamic = "force-dynamic";
 
@@ -13,7 +14,8 @@ export async function GET(request: Request) {
     signal: AbortSignal.timeout(8_000),
   }).catch(() => null);
   const rows = response?.ok ? await response.json().catch(() => null) as unknown : null;
-  const market = Array.isArray(rows) ? parseGammaMarket(rows[0]) : null;
+  const parsed = Array.isArray(rows) ? parseGammaMarket(rows[0]) : null;
+  const market = parsed ? localizeMarket(parsed, await marketTranslations()) : null;
   if (!market) return Response.json({ error: "This market is no longer available." }, { status: 404, headers: { "Cache-Control": "public, s-maxage=30" } });
   return Response.json({ market }, { headers: { "Cache-Control": "public, s-maxage=5, stale-while-revalidate=10" } });
 }

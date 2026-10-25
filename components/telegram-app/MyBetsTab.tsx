@@ -87,7 +87,7 @@ export function MyBetsTab() {
               <article key={bet.assetId} className={styles.betCard}>
                 <div className={styles.betHead}>
                   <MarketImage src={bet.icon} size={36} />
-                  <span className={styles.betTitle}>{bet.title || bet.slug}</span>
+                  <span className={styles.betTitle}>{(copy.lang === "ru" && bet.titleRu) || bet.title || bet.slug}</span>
                   <span className={styles[`status_${bet.status}`]}>{statusLabel(bet, copy)}</span>
                 </div>
                 <div className={styles.betNumbers}>

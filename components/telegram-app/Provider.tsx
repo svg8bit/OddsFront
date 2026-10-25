@@ -20,14 +20,17 @@ import { localizeError, miniAppCopy, type MiniAppCopy } from "./copy";
 
 export type Phase = "boot" | "outside" | "auth-error" | "ready";
 export type Tab = "markets" | "bets" | "wallet";
-export type View = "" | "bet" | "success" | "topup" | "withdraw" | "key";
+export type View = "" | "bet" | "success" | "topup" | "withdraw" | "key" | "connect";
 export type WalletInfo = { owner: string; depositWallet: string; deployed: boolean };
-export type Receipt = { side: 0 | 1; question: string; amount: number; payout: number | null };
+export type Receipt = { marketId: string; side: 0 | 1; question: string; amount: number; payout: number | null };
 export type Winnings = { usd: number; conditionIds: string[] };
 export type MarketsFeed = { generatedAt: string; hot: BinaryMarket[]; movers: BinaryMarket[] };
 
 const CANVAS = "#0b1220";
 const MARKET_REFRESH_MS = 10_000;
+const BALANCE_REFRESH_MS = 8_000;
+// Wallet deployment and approvals go through Polymarket's relayer; past this the player gets a retry, not a spinner.
+const SETUP_TIMEOUT_MS = 120_000;
 const MARKETS_FRESH_MS = 60_000;
 const TOAST_MS = 2_400;
 const CLOUD_OWNER_KEY = "of_owner";
@@ -44,7 +47,11 @@ type MiniApp = {
   config: MiniAppConfig | null;
   key: DeviceKey | null;
   wallet: WalletInfo | null;
+  /** The key on this device controls the session's wallet: the player can fund and bet. */
+  hasAccount: boolean;
   needsRestore: boolean;
+  /** No key storage on this client (an old Telegram): betting is not possible here. */
+  storageMissing: boolean;
   balance: number | null;
   setBalance: (value: number | null) => void;
   refreshBalance: () => Promise<void>;
@@ -227,6 +234,8 @@ export function MiniAppProvider({ scriptReady, children }: { scriptReady: boolea
   }, [key, keyLoaded, phase, proveKey, telegramUser]);
 
   const needsRestore = keyLoaded && !key && Boolean(cloudOwner);
+  const hasAccount = Boolean(key && wallet && wallet.owner.toLowerCase() === key.address.toLowerCase());
+  const storageMissing = keyLoaded && !store;
 
   const loadBets = useCallback(async () => {
     const response = await fetch("/api/tg/positions", { credentials: "same-origin", cache: "no-store" }).catch(() => null);
@@ -254,6 +263,17 @@ export function MiniAppProvider({ scriptReady, children }: { scriptReady: boolea
     const [value] = await Promise.all([trader.balance(), loadBets()]);
     setBalance(value);
   }, [loadBets]);
+
+  // While a money screen is open the balance follows deposits by itself, so the main button flips
+  // from "Top up" to "Bet" without a tap.
+  useEffect(() => {
+    if (phase !== "ready" || !hasAccount || !(view === "bet" || view === "topup" || view === "connect" || (view === "" && tab === "wallet"))) return undefined;
+    const timer = window.setInterval(() => {
+      const trader = traderRef.current;
+      if (trader && document.visibilityState === "visible") void trader.balance().then((value) => { if (value !== null) setBalance(value); });
+    }, BALANCE_REFRESH_MS);
+    return () => window.clearInterval(timer);
+  }, [hasAccount, phase, tab, view]);
 
   // --- The open market and its live price, refreshed while the sheet is open. ---
 
@@ -297,7 +317,7 @@ export function MiniAppProvider({ scriptReady, children }: { scriptReady: boolea
 
   // --- Navigation: tabs, nested views and Telegram's own back arrow. ---
 
-  const nested = view === "topup" || view === "withdraw" || view === "key";
+  const nested = view === "topup" || view === "withdraw" || view === "key" || view === "connect";
   const tabBarVisible = phase === "ready" && !nested;
 
   const selectTab = useCallback((next: Tab) => {
@@ -309,14 +329,14 @@ export function MiniAppProvider({ scriptReady, children }: { scriptReady: boolea
 
   const openView = useCallback((next: View) => {
     setView((current) => {
-      if (next === "topup" || next === "withdraw" || next === "key") returnViewRef.current = current === "bet" || current === "success" ? current : "";
+      if (next === "topup" || next === "withdraw" || next === "key" || next === "connect") returnViewRef.current = current === "bet" || current === "success" ? current : "";
       return next;
     });
     window.scrollTo(0, 0);
   }, []);
 
   const goBack = useCallback(() => {
-    setView((current) => (current === "topup" || current === "withdraw" || current === "key" ? returnViewRef.current : ""));
+    setView((current) => (current === "topup" || current === "withdraw" || current === "key" || current === "connect" ? returnViewRef.current : ""));
     window.scrollTo(0, 0);
   }, []);
 
@@ -362,7 +382,15 @@ export function MiniAppProvider({ scriptReady, children }: { scriptReady: boolea
       const info = wallet && wallet.owner.toLowerCase() === deviceKey.address.toLowerCase() ? wallet : await proveKey(deviceKey);
       const trader = traderRef.current?.depositWallet === info.depositWallet ? traderRef.current : new TelegramTrader(deviceKey, info.depositWallet, config);
       traderRef.current = trader;
-      await trader.ensureReady(setSetupStep);
+      let timer = 0;
+      try {
+        await Promise.race([
+          trader.ensureReady(setSetupStep),
+          new Promise<never>((_, reject) => { timer = window.setTimeout(() => reject(new Error(copy.setupTimeout)), SETUP_TIMEOUT_MS); }),
+        ]);
+      } finally {
+        window.clearTimeout(timer);
+      }
       readyRef.current = true;
       if (!info.deployed) {
         const refreshed = await fetch("/api/tg/wallet", { credentials: "same-origin", cache: "no-store" })
@@ -463,7 +491,7 @@ export function MiniAppProvider({ scriptReady, children }: { scriptReady: boolea
   }, []);
 
   const value = useMemo<MiniApp>(() => ({
-    phase, copy, fromChannel: Boolean(betParam), config, key, wallet, needsRestore,
+    phase, copy, fromChannel: Boolean(betParam), config, key, wallet, hasAccount, needsRestore, storageMissing,
     balance, setBalance, refreshBalance, winnings, collecting, collectWinnings,
     busy, setBusy, setupStep, prepare,
     tab, selectTab, view, openView, goBack, tabBarVisible,
@@ -472,7 +500,7 @@ export function MiniAppProvider({ scriptReady, children }: { scriptReady: boolea
     restoreKey, startNewAccount, revealKey, toast, showToast,
     markets, marketsError, loadMarkets, bets, betsError, loadBets, openLink,
   }), [
-    phase, copy, betParam, config, key, wallet, needsRestore, balance, refreshBalance, winnings, collecting, collectWinnings,
+    phase, copy, betParam, config, key, wallet, hasAccount, needsRestore, storageMissing, balance, refreshBalance, winnings, collecting, collectWinnings,
     busy, setupStep, prepare, tab, selectTab, view, openView, goBack, tabBarVisible, market, marketError, side, openMarket,
     needUsd, receipt, restoreKey, startNewAccount, revealKey, toast, showToast, markets, marketsError, loadMarkets, bets, betsError, loadBets, openLink,
   ]);

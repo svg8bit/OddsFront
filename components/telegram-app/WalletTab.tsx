@@ -13,7 +13,7 @@ const ODDSFRONT_MAP = "https://oddsfront.com";
 
 export function WalletTab() {
   const app = useMiniApp();
-  const { copy, balance, wallet, winnings, collecting, key, needsRestore } = app;
+  const { copy, balance, wallet, winnings, collecting, key, needsRestore, hasAccount } = app;
   const [copied, setCopied] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
@@ -62,10 +62,16 @@ export function WalletTab() {
         </div>
         <strong className={styles.walletBalance}>{balance === null ? "—" : floorUsd(balance)}</strong>
         <p className={styles.walletHint}>{wallet ? copy.walletHint : copy.walletNoAccount}</p>
-        <div className={styles.walletActions}>
-          <button type="button" className={styles.primary} onClick={() => { haptic("tap"); app.setNeedUsd(null); app.openView("topup"); }}>{copy.topUp}</button>
-          <button type="button" className={styles.secondary} disabled={!(balance && balance >= 2)} onClick={() => { haptic("tap"); app.openView("withdraw"); }}>{copy.withdraw}</button>
-        </div>
+        {hasAccount ? (
+          <div className={styles.walletActions}>
+            <button type="button" className={styles.primary} onClick={() => { haptic("tap"); app.setNeedUsd(null); app.openView("topup"); }}>{copy.topUp}</button>
+            <button type="button" className={styles.secondary} disabled={!(balance && balance >= 2)} onClick={() => { haptic("tap"); app.openView("withdraw"); }}>{copy.withdraw}</button>
+          </div>
+        ) : (
+          <button type="button" className={styles.primary} onClick={() => { haptic("tap"); app.setNeedUsd(null); app.openView(needsRestore ? "key" : "connect"); }}>
+            {needsRestore ? copy.restoreButton : copy.connectAccount}
+          </button>
+        )}
       </div>
 
       {winnings && winnings.usd > 0.009 ? (

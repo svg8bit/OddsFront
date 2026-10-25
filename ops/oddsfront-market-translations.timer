@@ -1,0 +1,11 @@
+[Unit]
+Description=Translate new OddsFront Mini App market questions every half hour
+
+[Timer]
+OnCalendar=*-*-* *:05/30:00
+RandomizedDelaySec=120
+Persistent=false
+Unit=oddsfront-market-translations.service
+
+[Install]
+WantedBy=timers.target
