@@ -236,6 +236,7 @@ export function mergeTopicClusters(clusters: readonly HeadlineCluster[], topic: 
     topStory: ordered.some(cluster => cluster.topStory),
     latestAt: ordered.map(cluster => cluster.latestAt).toSorted().at(-1)!,
     fingerprint: [...new Set(ordered.flatMap(cluster => cluster.fingerprint))].slice(0, 12),
+    members: ordered.flatMap(cluster => cluster.members),
   };
 }
 

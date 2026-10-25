@@ -220,7 +220,7 @@ test("map focusing projects coordinates like MapLibre and keeps zoom anchors on 
 });
 
 test("a topic run merges every differently worded report of one story", () => {
-  const cluster = (id: string, title: string, outlets: string[], latestAt: string) => ({ id, title, titles: [title], description: "", outlets, coverage: outlets.length, topStory: false, latestAt, fingerprint: title.toLowerCase().split(" ").slice(0, 3) });
+  const cluster = (id: string, title: string, outlets: string[], latestAt: string) => ({ id, title, titles: [title], description: "", outlets, coverage: outlets.length, topStory: false, latestAt, fingerprint: title.toLowerCase().split(" ").slice(0, 3), members: [] });
   const merged = mergeTopicClusters([
     cluster("s1", "Serbia votes in election", ["BBC", "NPR"], "2026-10-25T10:00:00Z"),
     cluster("s2", "Trump Prepares for Iran Escalation After Elections", ["Bloomberg"], "2026-10-25T11:00:00Z"),
