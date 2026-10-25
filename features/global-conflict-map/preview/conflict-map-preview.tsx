@@ -41,7 +41,7 @@ import {
   selectMapRenderProfile,
 } from "@/features/global-conflict-map/preview/map-render-profile";
 import { loadMapLibrary } from "@/features/global-conflict-map/preview/map-library";
-import { labelRect, placeSigns, SIGN_SIZE, signVisible, zoomTier, type ZoomTier } from "@/features/global-conflict-map/preview/sign-layout";
+import { signRowOffsets } from "@/features/global-conflict-map/preview/sign-layout";
 import { useConflictMapPreviewStore } from "@/features/global-conflict-map/preview/store";
 import styles from "@/features/global-conflict-map/preview/conflict-map-preview.module.css";
 import type {
@@ -284,6 +284,17 @@ export function ConflictMapPreview({
         },
       };
     });
+    // Each place's signs: a fixed row under its name (or under its conflict dot), same at every zoom.
+    const byLocation = new globalThis.Map<string, typeof built>();
+    for (const group of built) byLocation.set(group.primary.locationId, [...(byLocation.get(group.primary.locationId) ?? []), group]);
+    const order: SignKind[] = ["politics", "diplomacy", "territory", "transit"];
+    for (const location of byLocation.values()) {
+      const dot = location.find((group) => group.kind === "conflict");
+      const signs = location.filter((group) => group.kind !== "conflict")
+        .toSorted((left, right) => order.indexOf(left.kind as SignKind) - order.indexOf(right.kind as SignKind));
+      const offsets = signRowOffsets(signs.length, dot ? 7.5 * dot.hotspot.markerScale : 0);
+      signs.forEach((group, index) => { group.hotspot.pixelOffset = offsets[index]!; });
+    }
     return built
       .toSorted(
         (left, right) =>
@@ -299,9 +310,6 @@ export function ConflictMapPreview({
     () => visibleGroups.map((group) => group.hotspot),
     [visibleGroups],
   );
-  // Signs: size and how many show follow the zoom; their offsets are found when the camera settles.
-  const [signTier, setSignTier] = useState<ZoomTier>(zoomTier(INITIAL_VIEW_STATE.zoom));
-  const signOffsets = useRef<globalThis.Map<string, [number, number]>>(new globalThis.Map());
   const selectedVisibleGroup = useMemo(
     () => visibleGroups.find((group) =>
       group.events.some((event) => event.id === selectedEventId)) ?? null,
@@ -370,50 +378,11 @@ export function ConflictMapPreview({
       const element = markerElements.current.get(hotspot.event.id);
       if (!element) continue;
       const point = map.project(hotspot.event.coordinates);
-      const offset = signOffsets.current.get(hotspot.event.id) ?? hotspot.pixelOffset;
-      const x = point.x + offset[0];
-      const y = point.y + offset[1];
+      const x = point.x + hotspot.pixelOffset[0];
+      const y = point.y + hotspot.pixelOffset[1];
       element.style.transform = `translate3d(${x}px, ${y}px, 0)`;
     }
   }, [anchoredHotspots]);
-
-  const updateSignLayout = useCallback(() => {
-    const map = mapRef.current?.getMap();
-    if (!map) return;
-    const tier = zoomTier(map.getZoom());
-    setSignTier(tier);
-    const dotRadius = new globalThis.Map<string, number>();
-    const dots = visibleGroups.filter((group) => group.kind === "conflict").map((group) => {
-      const point = map.project(group.primary.coordinates);
-      const radius = 7.5 * group.hotspot.markerScale + 2;
-      dotRadius.set(group.primary.locationId, radius);
-      return { x: point.x, y: point.y, radius };
-    });
-    const signs = visibleGroups
-      .filter((group) => group.kind !== "conflict" && signVisible(group.primary.volume, tier))
-      .map((group) => {
-        const point = map.project(group.primary.coordinates);
-        return { id: group.primary.id, x: point.x, y: point.y, size: SIGN_SIZE[tier], weight: group.primary.volume, dotRadius: dotRadius.get(group.primary.locationId) ?? 0 };
-      });
-    // The country names the map is showing right now, so signs keep clear of them.
-    const zoom = map.getZoom();
-    const fontSize = Math.min(13, Math.max(9.5, 9.5 + ((zoom - 1) * 2.5) / 3));
-    const labelLayers = (map.getStyle().layers ?? []).filter((layer) => layer.type === "symbol" && layer.id.startsWith("country-label")).map((layer) => layer.id);
-    const labels = labelLayers.length
-      ? map.queryRenderedFeatures(undefined, { layers: labelLayers }).flatMap((feature) => {
-          const text = String(feature.properties?.NAME ?? feature.properties?.name ?? feature.properties?.[`name:${locale}`] ?? "");
-          if (!text || feature.geometry.type !== "Point") return [];
-          const point = map.project(feature.geometry.coordinates as [number, number]);
-          return [labelRect(point.x, point.y, text, fontSize)];
-        })
-      : [];
-    signOffsets.current = placeSigns(signs, dots, labels);
-    updateMarkerPositions();
-  }, [visibleGroups, updateMarkerPositions, locale]);
-
-  useEffect(() => {
-    if (mapReady) window.requestAnimationFrame(updateSignLayout);
-  }, [mapReady, updateSignLayout]);
 
   const updatePopupAnchorPoint = useCallback(() => {
     const map = mapRef.current?.getMap();
@@ -724,7 +693,7 @@ export function ConflictMapPreview({
           mapStyle={previewMapStyle}
           pixelRatio={mapRenderProfile.pixelRatio}
           refreshExpiredTiles={false}
-          canvasContextAttributes={{ antialias: mapRenderProfile.quality === "balanced", alpha: false }}
+          canvasContextAttributes={{ antialias: false, alpha: false }}
           validateStyle={false}
           initialViewState={INITIAL_VIEW_STATE}
           minZoom={MIN_ZOOM}
@@ -749,7 +718,6 @@ export function ConflictMapPreview({
             setTileHealth("ready");
             updateHotspotSource();
             window.requestAnimationFrame(updateMarkerPositions);
-            window.requestAnimationFrame(updateSignLayout);
             applyEventCountryState();
             applySelectedCountryState();
             markMapReady();
@@ -769,14 +737,14 @@ export function ConflictMapPreview({
             setEngineCamera(`${event.viewState.longitude.toFixed(4)},${event.viewState.latitude.toFixed(4)},${event.viewState.zoom.toFixed(3)}`);
             setZoom(event.viewState.zoom);
             window.requestAnimationFrame(() => {
-              updateSignLayout();
+              updateMarkerPositions();
               updatePopupAnchorPoint();
               if (shellRef.current) shellRef.current.dataset.mapMoving = "false";
             });
           }}
           onResize={() => {
             measurePopup();
-            updateSignLayout();
+            updateMarkerPositions();
             updatePopupAnchorPoint();
           }}
           onClick={() => setHoveredEvent(null)}
@@ -787,7 +755,7 @@ export function ConflictMapPreview({
           }}
         />
 
-        {mapReady && markerContainer ? createPortal(<div className={styles.markerOverlay} data-zoom-tier={signTier}>
+        {mapReady && markerContainer ? createPortal(<div className={styles.markerOverlay}>
           {mapReady
             ? visibleGroups.map((group, index) => {
                 const event = group.primary;
@@ -813,7 +781,6 @@ export function ConflictMapPreview({
                       data-event-id={event.id}
                       data-selected={selected ? "true" : "false"}
                       data-sign-kind={kind}
-                      data-sign-hidden={signVisible(event.volume, signTier) ? "false" : "true"}
                       data-location-event-count={hotspot.eventCount}
                       data-marker-offset={`${hotspot.pixelOffset[0].toFixed(1)},${hotspot.pixelOffset[1].toFixed(1)}`}
                     >
