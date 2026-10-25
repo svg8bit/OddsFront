@@ -2,7 +2,8 @@
 // Only feed text is read here; article pages are fetched later, for the few
 // stories the editor picks (see source-text.ts).
 import { clusterHeadlines, headlineTokens, parseHeadlines, sameStory, xmlPlainText, type Headline, type HeadlineCluster } from "../hot-desk/headlines.ts";
-import { cleanArticleUrl, normalizeOutlet, WIRE_DESK_FEEDS, WIRE_OUTLETS, type WireFeed } from "./feeds.ts";
+import { cleanArticleUrl, isFetchableArticleUrl, normalizeOutlet, WIRE_DESK_FEEDS, WIRE_OUTLETS, type WireFeed } from "./feeds.ts";
+import type { ViralScore } from "../viral/signals.ts";
 
 export const WIRE_DESK_USER_AGENT = "Mozilla/5.0 (compatible; OddsFrontNewsDesk/1.0; +https://oddsfront.com/news/about)";
 const MAX_FEED_BYTES = 2_500_000;
@@ -83,7 +84,7 @@ export async function collectWireHeadlines(feeds: readonly WireFeed[] = WIRE_DES
   };
 }
 
-export type WireStory = HeadlineCluster & { members: WireHeadline[]; wire: boolean; topical: number };
+export type WireStory = HeadlineCluster & { members: WireHeadline[]; wire: boolean; topical: number; viral?: ViralScore };
 
 // The owner's topic map. A story that touches none of these words can still be
 // picked by the editor; the lexicon only decides whether a new cycle is worth a call.
@@ -111,6 +112,18 @@ export function wireStories(headlines: readonly WireHeadline[]): WireStory[] {
     const members = cluster.members as WireHeadline[];
     return { ...cluster, members, wire: members.some(member => member.wire), topical: topicalScore(cluster) };
   });
+}
+
+/**
+ * Readable reports of the same development from other clusters: a story told only through
+ * aggregator or paywalled links can still be written from an outlet whose page we may read.
+ */
+export function readableSiblings(fingerprint: readonly string[], members: readonly WireHeadline[], headlines: readonly WireHeadline[], limit = 4) {
+  const own = new Set(members.map(member => member.url));
+  return headlines
+    .filter(headline => !own.has(headline.url) && (headline.feedText || isFetchableArticleUrl(headline.url)) && sameStory(headlineTokens(headline.title), fingerprint))
+    .toSorted((a, b) => Number(Boolean(b.feedText)) - Number(Boolean(a.feedText)) || Date.parse(b.publishedAt) - Date.parse(a.publishedAt))
+    .slice(0, limit);
 }
 
 export type ConsumedLead = { url: string; at: string };

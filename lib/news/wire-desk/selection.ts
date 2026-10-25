@@ -36,7 +36,7 @@ const ageHours = (iso: string, now: number) => Math.round((now - Date.parse(iso)
 
 /** The prompt's story list: on-topic and widely covered stories first, bounded. */
 export function promptStories(stories: readonly WireStory[]) {
-  return stories.toSorted((a, b) => Number(b.topical > 0) - Number(a.topical > 0) || b.coverage - a.coverage || Number(b.wire) - Number(a.wire) || Date.parse(b.latestAt) - Date.parse(a.latestAt)).slice(0, PROMPT_STORIES);
+  return stories.toSorted((a, b) => Number(b.topical > 0) - Number(a.topical > 0) || (b.viral?.score ?? 0) - (a.viral?.score ?? 0) || b.coverage - a.coverage || Number(b.wire) - Number(a.wire) || Date.parse(b.latestAt) - Date.parse(a.latestAt)).slice(0, PROMPT_STORIES);
 }
 
 export function selectionPrompt(stories: readonly WireStory[], recentArticles: readonly { title: string; publishedAt: string }[], maxPicks: number, now = Date.now(), minCoverage = 2) {
@@ -49,10 +49,12 @@ export function selectionPrompt(stories: readonly WireStory[], recentArticles: r
     coverage: story.coverage,
     wire: story.wire || undefined,
     googleTopStory: story.topStory || undefined,
+    viral: story.viral?.score || undefined,
+    buzz: story.viral?.signals.length ? story.viral.signals : undefined,
     hoursAgo: ageHours(story.latestAt, now),
   }));
   return `Pick up to ${maxPicks} stories that deserve an OddsFront article now, most important first. ${EDITORIAL_SCOPE}
-Signals: "coverage" counts distinct outlets, "wire" means AP or Reuters already carry it, "googleTopStory" marks Google News top stories. Fresher and wider is better. Priority 1–10: 10 = world-shaking, 8 = leads the global news cycle, 6 = notable development in scope, below 6 = skip it (do not return it).
+Signals: "coverage" counts distinct outlets, "wire" means AP or Reuters already carry it, "googleTopStory" marks Google News top stories. "viral" (0–100) and "buzz" measure how much people are talking about it right now: Reddit's hot lists, trending Google searches and a spike in global coverage. The owner wants the stories everyone is discussing: among in-scope stories prefer the viral ones (a viral in-scope story deserves priority 7 or more), but never pick an out-of-scope story for its buzz. Fresher and wider is better. Priority 1–10: 10 = world-shaking, 8 = leads the global news cycle, 6 = notable development in scope, below 6 = skip it (do not return it).
 Only a development reported by at least ${minCoverage} distinct outlets in total (across all ids you merge), or one marked "wire", can be published: do not return a single-outlet story unless you merge it with other ids reporting the same development.
 Several ids often describe the SAME development in different words (e.g. "US weighs strikes on Iran", "Pentagon readies Iran options", "Trump briefed on Iran attack plans"): return them together in one storyIds list, most informative id first. Never put different developments in one list.
 Do not pick a story that only repeats one of the ALREADY PUBLISHED articles below; pick it only if it carries a materially new development, and say what is new in "development".

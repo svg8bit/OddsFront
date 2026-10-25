@@ -1,4 +1,5 @@
 import type { HeadlineCluster } from "./headlines.ts";
+import type { ViralScore } from "../viral/signals.ts";
 import type { HotDeskMarket } from "./markets.ts";
 import { copyProblems, HOT_DESK_CATEGORIES, type HotDeskCategory, type HotDeskCopy } from "./post.ts";
 
@@ -33,13 +34,17 @@ export type StoryPick = { storyId: string; hype: number; category: HotDeskCatego
 
 const ageHours = (iso: string, now: number) => Math.round((now - Date.parse(iso)) / 36e5 * 10) / 10;
 
-export function storySelectionPrompt(clusters: readonly HeadlineCluster[], recentPosts: readonly string[], now = Date.now()) {
-  const stories = clusters.slice(0, PROMPT_CLUSTERS).map(cluster => ({
+export function storySelectionPrompt(clusters: readonly HeadlineCluster[], recentPosts: readonly string[], now = Date.now(), viral: ReadonlyMap<string, ViralScore> = new Map()) {
+  // The most talked-about stories first, so the bounded list never drops them.
+  const ordered = viral.size ? clusters.toSorted((a, b) => (viral.get(b.id)?.score ?? 0) - (viral.get(a.id)?.score ?? 0)) : clusters;
+  const stories = ordered.slice(0, PROMPT_CLUSTERS).map(cluster => ({
     storyId: cluster.id, title: cluster.title, otherTitles: cluster.titles.slice(1, 3), summary: cluster.description || undefined,
-    outlets: cluster.outlets.slice(0, 8), coverage: cluster.coverage, googleTopStory: cluster.topStory || undefined, hoursAgo: ageHours(cluster.latestAt, now),
+    outlets: cluster.outlets.slice(0, 8), coverage: cluster.coverage, googleTopStory: cluster.topStory || undefined,
+    viral: viral.get(cluster.id)?.score || undefined, buzz: viral.get(cluster.id)?.signals.length ? viral.get(cluster.id)!.signals : undefined,
+    hoursAgo: ageHours(cluster.latestAt, now),
   }));
   return `You are the breaking-news editor of OddsFront, a Telegram channel that pairs the hottest world news with live prediction markets. From the headline clusters below pick up to 3 of the HOTTEST stories, best first. ${EDITORIAL_BAR}
-Signals: "coverage" counts distinct outlets reporting the same story and "googleTopStory" marks Google News top stories — both are strong hype signals; fresher is better. Score hype 1–10: 10 = world-shaking breaking news, 8 = a major development that clearly leads the global news cycle, 6 = notable but not a lead story, 3 = routine. Be strict: most news cycles have no story worth 8+. Return an empty list when nothing is in scope.
+Signals: "coverage" counts distinct outlets reporting the same story and "googleTopStory" marks Google News top stories — both are strong hype signals; "viral" (0–100) and "buzz" show how much people discuss it right now (Reddit hot lists, trending Google searches, a spike in global coverage): the owner wants the stories everyone is talking about, so a viral in-scope story deserves a higher hype score, never an out-of-scope one; fresher is better. Score hype 1–10: 10 = world-shaking breaking news, 8 = a major development that clearly leads the global news cycle, 6 = notable but not a lead story, 3 = routine. Be strict: most news cycles have no story worth 8+. Return an empty list when nothing is in scope.
 Skip any story that repeats one of the RECENTLY POSTED stories unless there is a materially new development (then explain it in "why").
 Categories: war (fighting and escalation), geopolitics (diplomacy, alliances, sanctions, nuclear, coups abroad), energy (oil, Hormuz, shipping), trade (tariffs and trade wars), us-politics, us-elections (US federal elections only), world-politics (leaders' fates abroad).
 For each pick give 2–4 short Polymarket search queries (2–4 words each, names and key nouns, no dates, e.g. "Russia NATO", "Ukraine ceasefire", "Trump tariffs China", "Strait of Hormuz") that would find the prediction markets this news moves.
