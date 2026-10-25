@@ -1,8 +1,10 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import sharp from "sharp";
+import type { Page } from "@playwright/test";
 import type { HotDeskMarket, PricePoint } from "./markets.ts";
-import { categoryLabel, escapeHtml, formatChange, formatPercent, type HotDeskCopy, type HotDeskLocale } from "./post.ts";
+import { captureMapShot, mapCardHtml, MAP_SCALE, MAP_VIEWPORT, type MapFocus } from "./map-card.ts";
+import { categoryLabel, escapeHtml, formatChange, formatPercent, oddsLine, type HotDeskCopy, type HotDeskLocale } from "./post.ts";
 
 export const CARD_WIDTH = 1280;
 export const CARD_HEIGHT = 720;
@@ -58,17 +60,21 @@ export async function loadCardFonts(root = process.cwd()): Promise<CardFonts> {
 
 export type CardInput = { locale: HotDeskLocale; copy: HotDeskCopy; market: HotDeskMarket; history: readonly PricePoint[]; thumbnail: string | null };
 
+/** The 24-hour move, or a notable weekly move on a quiet day, in percent. */
+export function oddsMove(market: Pick<HotDeskMarket, "dayChange" | "weekChange">, locale: HotDeskLocale) {
+  const day = formatChange(market.dayChange, locale);
+  if (day) return { change: day, up: (market.dayChange ?? 0) > 0 };
+  const week = market.weekChange !== null && Math.abs(market.weekChange) >= 0.03 ? formatChange(market.weekChange, locale, "week") : null;
+  return { change: week, up: (market.weekChange ?? 0) > 0 };
+}
+
 export function cardHtml({ locale, copy, market, history, thumbnail }: CardInput, fonts: CardFonts) {
   const ru = locale === "ru";
-  // The 24-hour move leads; a quiet day falls back to a notable weekly move.
-  const day = formatChange(market.dayChange, locale)?.replace(ru ? " за сутки" : " in 24h", "");
-  const weekly = !day && market.weekChange !== null && Math.abs(market.weekChange) >= 0.03;
-  const change = day ?? (weekly ? `${formatChange(market.weekChange, locale)!.replace(ru ? " за сутки" : " in 24h", "")} ${ru ? "за 7 дн." : "7d"}` : null);
-  const up = ((weekly ? market.weekChange : market.dayChange) ?? 0) > 0;
+  const { change, up } = oddsMove(market, locale);
   const prices = history.map(point => point.p);
   const range = prices.length >= 6 ? `${formatPercent(Math.min(...prices), locale)} – ${formatPercent(Math.max(...prices), locale)}` : "";
   const chart = priceChartSvg(history);
-  const title = ru ? copy.titleRu : copy.titleEn;
+  const title = ru ? copy.cardTitleRu : copy.cardTitleEn;
   const question = ru ? copy.marketQuestionRu : market.question;
   return `<!doctype html><html lang="${locale}"><head><meta charset="utf-8"><style>
 @font-face { font-family: "Inter Card"; src: url(data:font/woff2;base64,${fonts.variable}) format("woff2"); font-weight: 100 900; }
@@ -95,7 +101,7 @@ body { font-family: "Inter Card", sans-serif; color: #f8fafc; overflow: hidden;
 .question.long { font-size: 23px; }
 .panel { width: 440px; flex: none; border-radius: 30px; padding: 30px 32px 26px; background: linear-gradient(180deg, rgba(23,32,56,0.92), rgba(12,19,36,0.92)); border: 1px solid rgba(139,140,255,0.22); box-shadow: 0 30px 80px rgba(2,6,23,0.55), inset 0 1px 0 rgba(255,255,255,0.06); display: flex; flex-direction: column; }
 .panel-kicker { font-size: 18px; font-weight: 650; letter-spacing: 0.1em; text-transform: uppercase; color: #9fb0c8; }
-.odds { display: flex; align-items: baseline; gap: 18px; margin-top: 6px; }
+.odds { display: flex; flex-direction: column; align-items: flex-start; gap: 12px; margin-top: 6px; }
 .odds strong { font-family: "Inter Card Bold"; font-size: 112px; line-height: 1; letter-spacing: -0.045em; }
 .badge { padding: 8px 14px; border-radius: 12px; font-size: 22px; font-weight: 700; white-space: nowrap; }
 .badge.up { color: #86efac; background: rgba(34,197,94,0.14); border: 1px solid rgba(74,222,128,0.35); }
@@ -129,32 +135,62 @@ body { font-family: "Inter Card", sans-serif; color: #f8fafc; overflow: hidden;
 </body></html>`;
 }
 
-/** Render both locale cards in one browser; returns PNG buffers in input order. */
-export async function renderCards(inputs: readonly CardInput[], root = process.cwd()): Promise<Buffer[]> {
+async function fitHeadline(page: Page, from: number, to: number) {
+  await page.evaluate(() => document.fonts.ready);
+  // Shrink the headline until it fits its block (after the web fonts load).
+  // Glyph overhang makes scrollHeight exceed the box by a few pixels even when it fits.
+  const fits = await page.evaluate(([start, end]) => {
+    const headline = document.getElementById("headline")!;
+    const limit = Number.parseFloat(getComputedStyle(headline).maxHeight) + 6;
+    let size = start;
+    while (headline.scrollHeight > limit && size > end) { size -= 2; headline.style.fontSize = `${size}px`; }
+    return headline.scrollHeight <= limit;
+  }, [from, to]);
+  if (!fits) throw new Error("Hot desk headline does not fit the card");
+}
+
+export type PostCardInput = CardInput & { focus: MapFocus | null };
+export type PostCard = { png: Buffer; style: "map" | "classic"; mapFocus: MapFocus["kind"] | null; popupOpen: boolean; fallbackReason: string | null };
+
+/**
+ * Both locale cards in one browser: the live-map card when the map can frame
+ * the story, otherwise (or on any map failure) the classic card. Never throws
+ * for a map problem; the post is not blocked by the picture.
+ */
+export async function renderCards(inputs: readonly PostCardInput[], root = process.cwd(), siteUrl?: string): Promise<PostCard[]> {
   const { chromium } = await import("@playwright/test");
   const fonts = await loadCardFonts(root);
-  const browser = await chromium.launch({ args: ["--disable-gpu", "--font-render-hinting=none"] });
-  try {
-    const page = await browser.newPage({ viewport: { width: CARD_WIDTH, height: CARD_HEIGHT }, deviceScaleFactor: 1 });
-    // Cards are self-contained: block every network request from the template.
-    await page.route("**/*", route => (route.request().url().startsWith("data:") ? route.continue() : route.abort()));
-    const images: Buffer[] = [];
-    for (const input of inputs) {
-      await page.setContent(cardHtml(input, fonts), { waitUntil: "load" });
-      await page.evaluate(() => document.fonts.ready);
-      // Shrink the headline until it fits its block (after the web fonts load).
-      // Glyph overhang makes scrollHeight exceed the box by a few pixels even when it fits.
-      const fit = await page.evaluate(() => {
-        const headline = document.getElementById("headline")!;
-        const limit = Number.parseFloat(getComputedStyle(headline).maxHeight) + 6;
-        let size = 58;
-        while (headline.scrollHeight > limit && size > 36) { size -= 2; headline.style.fontSize = `${size}px`; }
-        return { fits: headline.scrollHeight <= limit, size };
-      });
-      if (!fit.fits) throw new Error("Hot desk headline does not fit the card");
-      images.push(await page.screenshot({ type: "png", clip: { x: 0, y: 0, width: CARD_WIDTH, height: CARD_HEIGHT } }));
+  const browser = await chromium.launch({ args: ["--font-render-hinting=none", "--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--ignore-gpu-blocklist"] });
+  const compose = async (html: string, width: number, height: number, scale: number, headline: [number, number]) => {
+    const page = await browser.newPage({ viewport: { width, height }, deviceScaleFactor: scale });
+    try {
+      // Cards are self-contained: block every network request from the template.
+      await page.route("**/*", route => (route.request().url().startsWith("data:") ? route.continue() : route.abort()));
+      await page.setContent(html, { waitUntil: "load" });
+      await fitHeadline(page, ...headline);
+      return await page.screenshot({ type: "png", clip: { x: 0, y: 0, width, height } });
+    } finally {
+      await page.close();
     }
-    return images;
+  };
+  try {
+    const cards: PostCard[] = [];
+    for (const input of inputs) {
+      let fallbackReason = input.focus ? null : "no related marker or country on the map";
+      if (input.focus) {
+        try {
+          const map = await captureMapShot(browser, input.focus, input.locale, siteUrl);
+          const { up } = oddsMove(input.market, input.locale);
+          const html = mapCardHtml({ locale: input.locale, title: input.locale === "ru" ? input.copy.cardTitleRu : input.copy.cardTitleEn, subtitle: oddsLine(input.market, input.locale), direction: oddsMove(input.market, input.locale).change ? (up ? "up" : "down") : null, map }, fonts);
+          cards.push({ png: await compose(html, MAP_VIEWPORT.width, MAP_VIEWPORT.height, MAP_SCALE, [62, 40]), style: "map", mapFocus: input.focus.kind, popupOpen: map.popupOpen, fallbackReason: null });
+          continue;
+        } catch (error) {
+          fallbackReason = error instanceof Error ? error.message.slice(0, 200) : "map capture failed";
+        }
+      }
+      cards.push({ png: await compose(cardHtml(input, fonts), CARD_WIDTH, CARD_HEIGHT, 1, [58, 36]), style: "classic", mapFocus: null, popupOpen: false, fallbackReason });
+    }
+    return cards;
   } finally {
     await browser.close();
   }

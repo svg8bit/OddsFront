@@ -5,7 +5,7 @@ const GAMMA = "https://gamma-api.polymarket.com";
 const CLOB = "https://clob.polymarket.com";
 
 export type GammaMarket = {
-  id?: unknown; question?: unknown; slug?: unknown; outcomes?: unknown; outcomePrices?: unknown; clobTokenIds?: unknown;
+  id?: unknown; question?: unknown; slug?: unknown; conditionId?: unknown; outcomes?: unknown; outcomePrices?: unknown; clobTokenIds?: unknown;
   bestBid?: unknown; bestAsk?: unknown; spread?: unknown; lastTradePrice?: unknown; oneDayPriceChange?: unknown; oneWeekPriceChange?: unknown;
   active?: unknown; closed?: unknown; acceptingOrders?: unknown; enableOrderBook?: unknown; endDate?: unknown; image?: unknown; icon?: unknown;
   volumeNum?: unknown; volume?: unknown; liquidityNum?: unknown; groupItemTitle?: unknown; events?: unknown;
@@ -16,6 +16,8 @@ export type HotDeskMarket = {
   id: string;
   question: string;
   slug: string;
+  conditionId: string | null;
+  eventId: string | null;
   eventTitle: string;
   eventSlug: string;
   yesTokenId: string;
@@ -34,6 +36,15 @@ export type HotDeskMarket = {
 
 export type MarketPolicy = { minVolume: number; minLiquidity: number; maxSpread: number; minHoursToEnd: number };
 export const DEFAULT_MARKET_POLICY: MarketPolicy = { minVolume: 50_000, minLiquidity: 5_000, maxSpread: 0.05, minHoursToEnd: 6 };
+
+// Leaders' fates ("… out as prime minister?") stay in scope; only contests are elections.
+const ELECTION = /\b(elect(?:ion|ions|ed)?|presidential|parliamentary|runoff|run-off|referendum|ballot|vote share|seats|primary|primaries|polls? lead|mayoral)\b/i;
+const UNITED_STATES = /\b(U\.?S\.?A?|United States|America|American|Senate|House (?:of Representatives|majority|control|seats|race)|Congress|congressional|midterms?|governor|gubernatorial|Electoral College|Democrats?|Democratic|Republicans?|GOP|Trump|Vance|Newsom|White House)\b/;
+
+/** Owner rule: elections only for the US. A non-US election market never carries buttons. */
+export function foreignElectionMarket(text: string) {
+  return ELECTION.test(text) && !UNITED_STATES.test(text);
+}
 
 const number = (value: unknown) => {
   const parsed = typeof value === "number" ? value : typeof value === "string" && value.trim() ? Number(value) : Number.NaN;
@@ -77,11 +88,15 @@ export function normalizeMarket(raw: GammaMarket, event: GammaEvent | null, poli
   if (question.length < 8 || question.length > 300) return null;
   const nested = Array.isArray(raw.events) ? raw.events[0] as GammaEvent | undefined : undefined;
   const parent = event ?? nested ?? null;
+  if (foreignElectionMarket(`${text(parent?.title)} ${question}`)) return null;
   const image = text(raw.image) || text(raw.icon) || text(parent?.image);
+  const conditionId = text(raw.conditionId).toLowerCase();
   return {
     id,
     question,
     slug: text(raw.slug),
+    conditionId: /^0x[0-9a-f]{64}$/.test(conditionId) ? conditionId : null,
+    eventId: /^\d{1,12}$/.test(text(parent?.id)) ? text(parent?.id) : null,
     eventTitle: text(parent?.title) || question,
     eventSlug: text(parent?.slug),
     yesTokenId: tokens[0]!,
@@ -136,17 +151,39 @@ export async function marketsById(ids: readonly string[]): Promise<Map<string, G
   return found;
 }
 
+/** Full records of markets by condition id (the map's own markets). */
+export async function marketsByConditionId(conditionIds: readonly string[]): Promise<GammaMarket[]> {
+  const unique = [...new Set(conditionIds.map(id => id.toLowerCase()).filter(id => /^0x[0-9a-f]{64}$/.test(id)))];
+  const rows: GammaMarket[] = [];
+  for (let start = 0; start < unique.length; start += 40) {
+    const batch = unique.slice(start, start + 40);
+    const found = await gamma<GammaMarket[]>(`/markets?${batch.map(id => `condition_ids=${id}`).join("&")}&limit=${batch.length}`);
+    if (Array.isArray(found)) rows.push(...found);
+  }
+  return rows;
+}
+
+/** "exact": the map's popup shows this very market; "event": the map shows a sibling market of its event. */
+export type CandidateMarket = HotDeskMarket & { queries: string[]; onMap: "exact" | "event" | null };
+export type MapMarketRef = { conditionId: string | null; eventId: string };
+
 /**
- * Candidate markets for the editor: search hits for each story query plus the
- * busiest politics/geopolitics markets, enriched with full Gamma records and
- * filtered to liquid binary markets.
+ * Candidate markets for the editor: search hits for each story query, the
+ * busiest politics/geopolitics markets and the markets on the OddsFront map,
+ * enriched with full Gamma records and filtered to liquid binary markets.
+ * `onMap` marks a market whose own popup ("exact") or event ("event") the map can show.
  */
-export async function candidateMarkets(queries: readonly string[], policy: MarketPolicy = DEFAULT_MARKET_POLICY, now = Date.now()) {
-  const [searched, movers] = await Promise.all([
+export async function candidateMarkets(queries: readonly string[], policy: MarketPolicy = DEFAULT_MARKET_POLICY, now = Date.now(), map: readonly MapMarketRef[] = []): Promise<CandidateMarket[]> {
+  const [searched, movers, mapped] = await Promise.all([
     Promise.all(queries.map(query => searchMarkets(query).then(pairs => pairs.map(pair => ({ ...pair, query }))))),
     Promise.all(MOVER_TAGS.map(tag => moverEvents(tag))),
+    marketsByConditionId(map.map(ref => ref.conditionId ?? "")),
   ]);
-  const pairs = [...searched.flat(), ...movers.flat().map(pair => ({ ...pair, query: null as string | null }))];
+  const pairs = [
+    ...searched.flat(),
+    ...movers.flat().map(pair => ({ ...pair, query: null as string | null })),
+    ...mapped.map(raw => ({ raw, event: (Array.isArray(raw.events) ? raw.events[0] : null) as GammaEvent, query: null as string | null })),
+  ];
   // Prefilter on the search payload before asking Gamma for full records.
   const firstPass = new Map<string, { raw: GammaMarket; event: GammaEvent; queries: Set<string> }>();
   for (const pair of pairs) {
@@ -157,10 +194,12 @@ export async function candidateMarkets(queries: readonly string[], policy: Marke
     firstPass.set(id, entry);
   }
   const full = await marketsById([...firstPass.keys()]);
-  const markets: (HotDeskMarket & { queries: string[] })[] = [];
+  const mapConditions = new Set(map.map(ref => ref.conditionId?.toLowerCase()).filter(Boolean));
+  const mapEvents = new Set(map.map(ref => ref.eventId));
+  const markets: CandidateMarket[] = [];
   for (const [id, entry] of firstPass) {
     const market = normalizeMarket(full.get(id) ?? entry.raw, entry.event, policy, now);
-    if (market) markets.push({ ...market, queries: [...entry.queries] });
+    if (market) markets.push({ ...market, queries: [...entry.queries], onMap: market.conditionId && mapConditions.has(market.conditionId) ? "exact" : market.eventId && mapEvents.has(market.eventId) ? "event" : null });
   }
   return markets;
 }

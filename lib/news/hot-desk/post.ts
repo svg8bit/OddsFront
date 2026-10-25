@@ -1,3 +1,4 @@
+import { ODDSFRONT_MINI_APP_BOT_USERNAME } from "../../telegram-app/init-data.ts";
 import type { HotDeskMarket } from "./markets.ts";
 
 export type HotDeskLocale = "en" | "ru";
@@ -5,8 +6,11 @@ export const HOT_DESK_CHANNELS = {
   en: { id: -1004406802006, username: "oddsfront" },
   ru: { id: -1004118165561, username: "oddsfront_ru" },
 } as const;
-export const MINI_APP_BOT = "DropsAnalyticsAIbot";
-export const HOT_DESK_CATEGORIES = ["war", "geopolitics", "us-politics", "world-politics", "elections", "economy"] as const;
+/** @OddsFrontBot posts to both channels and hosts the one-tap bet Mini App. */
+export const MINI_APP_BOT = ODDSFRONT_MINI_APP_BOT_USERNAME;
+// Owner's topic map: wars and escalation, energy/Hormuz/shipping, Russia–Ukraine–NATO,
+// China–Taiwan, sanctions and trade wars, big US politics. Elections: the US only.
+export const HOT_DESK_CATEGORIES = ["war", "geopolitics", "energy", "trade", "us-politics", "us-elections", "world-politics"] as const;
 export type HotDeskCategory = typeof HOT_DESK_CATEGORIES[number];
 
 /** The writer's copy for one post, validated before it reaches a template. */
@@ -14,6 +18,9 @@ export type HotDeskCopy = {
   category: HotDeskCategory;
   titleEn: string;
   titleRu: string;
+  /** 3–8 word picture headlines ("Odds of US ending Iran blockade fall to 12%"). */
+  cardTitleEn: string;
+  cardTitleRu: string;
   contextEn: string;
   contextRu: string;
   marketQuestionRu: string;
@@ -22,10 +29,11 @@ export type HotDeskCopy = {
 const LABELS: Record<HotDeskCategory, Record<HotDeskLocale, string>> = {
   war: { en: "Breaking · Conflict", ru: "Срочно · Конфликт" },
   geopolitics: { en: "Breaking · Geopolitics", ru: "Срочно · Геополитика" },
+  energy: { en: "Breaking · Oil & shipping", ru: "Срочно · Нефть и судоходство" },
+  trade: { en: "Breaking · Trade war", ru: "Срочно · Торговая война" },
   "us-politics": { en: "Breaking · US politics", ru: "Срочно · Политика США" },
+  "us-elections": { en: "Breaking · US elections", ru: "Срочно · Выборы в США" },
   "world-politics": { en: "Breaking · Politics", ru: "Срочно · Политика" },
-  elections: { en: "Breaking · Elections", ru: "Срочно · Выборы" },
-  economy: { en: "Breaking · Economy", ru: "Срочно · Экономика" },
 };
 
 export function categoryLabel(category: HotDeskCategory, locale: HotDeskLocale) {
@@ -46,12 +54,24 @@ export function formatPercent(price: number, locale: HotDeskLocale = "en") {
   return `${locale === "ru" ? rounded.replace(".", ",") : rounded}%`;
 }
 
-/** Signed 24-hour move in percentage points, or null under one point. */
-export function formatChange(change: number | null, locale: HotDeskLocale) {
+/**
+ * A signed odds move shown in percent only ("▼ 1.3% in 24h"), never in points;
+ * null under one percent. `span` picks the 24-hour or the 7-day wording.
+ */
+export function formatChange(change: number | null, locale: HotDeskLocale, span: "day" | "week" = "day") {
   if (change === null || !Number.isFinite(change)) return null;
-  const points = Math.round(change * 100);
-  if (Math.abs(points) < 1) return null;
-  return locale === "ru" ? `${points > 0 ? "▲ +" : "▼ −"}${Math.abs(points)} п.п. за сутки` : `${points > 0 ? "▲ +" : "▼ −"}${Math.abs(points)} pp in 24h`;
+  const percent = Math.abs(change * 100);
+  if (percent < 1) return null;
+  const value = Number(percent.toFixed(percent < 10 ? 1 : 0)).toString();
+  const arrow = change > 0 ? "▲" : "▼";
+  const suffix = locale === "ru" ? (span === "day" ? "за сутки" : "за неделю") : (span === "day" ? "in 24h" : "in 7 days");
+  return `${arrow} ${locale === "ru" ? value.replace(".", ",") : value}% ${suffix}`;
+}
+
+/** The odds line under the card headline: the Yes chance and its most telling move. */
+export function oddsLine(market: Pick<HotDeskMarket, "chance" | "dayChange" | "weekChange">, locale: HotDeskLocale) {
+  const move = formatChange(market.dayChange, locale) ?? (market.weekChange !== null && Math.abs(market.weekChange) >= 0.03 ? formatChange(market.weekChange, locale, "week") : null);
+  return `${locale === "ru" ? "Шанс «Да»" : "Yes chance"} ${formatPercent(market.chance, locale)}${move ? ` · ${move}` : ""}`;
 }
 
 export function betKeyboard(market: Pick<HotDeskMarket, "id" | "yesPrice" | "noPrice">, locale: HotDeskLocale) {
@@ -99,6 +119,8 @@ export function copyProblems(copy: Partial<Record<keyof HotDeskCopy, unknown>>):
   };
   field("titleEn", 20, 120, false);
   field("titleRu", 20, 140, true);
+  field("cardTitleEn", 12, 64, false);
+  field("cardTitleRu", 12, 72, true);
   field("contextEn", 40, 260, false);
   field("contextRu", 40, 300, true);
   field("marketQuestionRu", 8, 200, true);

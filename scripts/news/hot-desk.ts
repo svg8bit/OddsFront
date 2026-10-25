@@ -11,6 +11,7 @@ import { candidateMarkets, priceHistory, refreshMarket, DEFAULT_MARKET_POLICY } 
 import { acceptedPair, acceptedStoryPicks, pairSelectionPrompt, storySelectionPrompt, MIN_HYPE, MIN_PAIR_CONFIDENCE, PAIR_SELECTION_SCHEMA, STORY_SELECTION_SCHEMA } from "../../lib/news/hot-desk/editor.ts";
 import { betKeyboard, hotDeskCaption, HOT_DESK_CHANNELS, type HotDeskLocale } from "../../lib/news/hot-desk/post.ts";
 import { marketThumbnail, renderCards } from "../../lib/news/hot-desk/card.ts";
+import { chooseMapFocus, fetchMapFeed, loadCountryAnchors } from "../../lib/news/hot-desk/map-card.ts";
 import { EMPTY_STATE, hotDeskPolicy, marketResting, needsEvaluation, publicationBlock, recordPost, storyAlreadyPosted, type HotDeskState } from "../../lib/news/hot-desk/state.ts";
 import { botToken, telegramClient, TelegramRejection } from "../../lib/news/hot-desk/telegram-api.ts";
 
@@ -81,11 +82,15 @@ try {
   const saveDraft = async (status: string) => atomic(path.join(output, `${stamp}-draft.json`), { status, mode, ...draft });
   if (!picks.length) { await saveDraft("no-hot-story"); finish("no-hot-story", { topStories: (draft.topStories as unknown[]).slice(0, 5) }); }
 
-  const markets = (await candidateMarkets(picks.flatMap(pick => pick.queries), DEFAULT_MARKET_POLICY, now))
+  // The map's own markets join the pool, so the picture can show the chosen market's popup.
+  const mapFeed = await fetchMapFeed();
+  const rank = (onMap: "exact" | "event" | null) => (onMap === "exact" ? 2 : onMap === "event" ? 1 : 0);
+  const mapRefs = mapFeed.map(event => ({ conditionId: event.marketConditionId, eventId: event.id.replace(/^polymarket-/, "") }));
+  const markets = (await candidateMarkets(picks.flatMap(pick => pick.queries), DEFAULT_MARKET_POLICY, now, mapRefs))
     .filter(market => !marketResting(state, market.id, market.dayChange, policy, now))
-    // Search hits first, then the busiest movers; keep the prompt bounded.
-    .toSorted((a, b) => b.queries.length - a.queries.length || Math.abs(b.dayChange ?? 0) - Math.abs(a.dayChange ?? 0) || b.volume - a.volume)
-    .slice(0, 60);
+    // Search hits first, then map markets, then the busiest movers; keep the prompt bounded.
+    .toSorted((a, b) => b.queries.length - a.queries.length || rank(b.onMap) - rank(a.onMap) || Math.abs(b.dayChange ?? 0) - Math.abs(a.dayChange ?? 0) || b.volume - a.volume)
+    .slice(0, 70);
   draft.candidates = markets.length;
   if (!markets.length) { await saveDraft("no-market"); finish("no-market", { picks }); }
 
@@ -95,20 +100,23 @@ try {
   // Refresh prices right before rendering so the card, caption and buttons agree.
   const refreshed = await refreshMarket(pair.market.id, DEFAULT_MARKET_POLICY);
   if (!refreshed) { draft.problems = ["selected market is no longer tradable"]; await saveDraft("market-closed"); finish("market-closed"); }
-  const market = { ...pair.market, ...refreshed, eventTitle: pair.market.eventTitle, eventSlug: pair.market.eventSlug, image: refreshed.image ?? pair.market.image };
+  // A single-market read carries no parent event: keep the candidate's identity fields.
+  const market = { ...pair.market, ...refreshed, eventId: refreshed.eventId ?? pair.market.eventId, conditionId: refreshed.conditionId ?? pair.market.conditionId, eventTitle: pair.market.eventTitle, eventSlug: pair.market.eventSlug, image: refreshed.image ?? pair.market.image };
   const [history, thumbnail] = await Promise.all([priceHistory(market.yesTokenId), marketThumbnail(market.image)]);
   const locales: HotDeskLocale[] = ["en", "ru"];
-  const images = await renderCards(locales.map(locale => ({ locale, copy: pair.copy, market, history, thumbnail })));
-  const posts = locales.map((locale, index) => ({ locale, image: images[index]!, caption: hotDeskCaption(pair.copy, market, locale), keyboard: betKeyboard(market, locale) }));
+  const focus = chooseMapFocus(mapFeed, market, pair.selection.countryCodes, await loadCountryAnchors());
+  const cards = await renderCards(locales.map(locale => ({ locale, copy: pair.copy, market, history, thumbnail, focus })), process.cwd(), process.env.ODDSFRONT_HOT_DESK_MAP_URL || undefined);
+  const posts = locales.map((locale, index) => ({ locale, image: cards[index]!.png, card: cards[index]!, caption: hotDeskCaption(pair.copy, market, locale), keyboard: betKeyboard(market, locale) }));
   for (const post of posts) await writeFile(path.join(output, `${stamp}-${post.locale}.png`), post.image, { mode: 0o600 });
   Object.assign(draft, {
     story: { id: pair.cluster.id, title: pair.cluster.title, outlets: pair.cluster.outlets, coverage: pair.cluster.coverage, hype: pair.pick.hype, category: pair.pick.category },
     selection: pair.selection,
     market: { id: market.id, question: market.question, event: market.eventTitle, chance: market.chance, yesPrice: market.yesPrice, noPrice: market.noPrice, dayChange: market.dayChange, volume: Math.round(market.volume), endDate: market.endDate },
-    posts: posts.map(post => ({ locale: post.locale, caption: post.caption, keyboard: post.keyboard, image: path.join(output, `${stamp}-${post.locale}.png`) })),
+    mapFocus: focus,
+    posts: posts.map(post => ({ locale: post.locale, caption: post.caption, keyboard: post.keyboard, image: path.join(output, `${stamp}-${post.locale}.png`), card: { style: post.card.style, mapFocus: post.card.mapFocus, popupOpen: post.card.popupOpen, fallbackReason: post.card.fallbackReason } })),
   });
   await saveDraft("ready");
-  if (mode === "dry-run") finish("draft", { draft: path.join(output, `${stamp}-draft.json`), story: draft.story, market: draft.market, confidence: pair.selection.confidence });
+  if (mode === "dry-run") finish("draft", { draft: path.join(output, `${stamp}-draft.json`), story: draft.story, market: draft.market, confidence: pair.selection.confidence, cards: posts.map(post => `${post.locale}:${post.card.style}${post.card.mapFocus ? `/${post.card.mapFocus}` : ""}${post.card.popupOpen ? "+popup" : ""}${post.card.fallbackReason ? ` (${post.card.fallbackReason})` : ""}`) });
 
   const telegram = telegramClient(await botToken());
   const bot = await telegram.verifyBot();

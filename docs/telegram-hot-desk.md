@@ -4,8 +4,9 @@
 story of the moment to `@oddsfront` (English) and `@oddsfront_ru` (Russian),
 paired with the live Polymarket market it moves. Each post is a branded card,
 a short caption and two buttons, `✅ Yes · 23%` and `❌ No · 77%`, that open the
-one-tap bet Mini App of `@DropsAnalyticsAIbot`:
-`https://t.me/DropsAnalyticsAIbot?startapp=m<gamma market id>_<side>&mode=compact`
+one-tap bet Mini App of `@OddsFrontBot` (the username comes from
+`ODDSFRONT_MINI_APP_BOT_USERNAME` in `lib/telegram-app/init-data.ts`):
+`https://t.me/OddsFrontBot?startapp=m<gamma market id>_<side>&mode=compact`
 (side 0 = Yes, 1 = No). It is independent of the site edition pipeline and of
 the older `scripts/news/telegram.ts` publisher, which stay as they are.
 
@@ -18,20 +19,34 @@ the older `scripts/news/telegram.ts` publisher, which stay as they are.
    form one story; the number of distinct outlets is the main hype signal.
 2. Editor step A (Claude, no tools) picks up to three of the hottest stories,
    scores them 1–10 and proposes Polymarket search queries. Only scores of 8 or
-   more continue. Death-toll stories, crime, local news, celebrities, sports
-   and weather are out of scope.
-3. Gamma search for those queries plus the busiest politics, geopolitics and
-   world markets. A market qualifies when it is an open binary Yes/No market
-   accepting orders, with at least $50k volume or $5k liquidity, a spread of at
-   most 5 points, a chance between 1% and 99%, and no deadline within six hours.
-   A market posted in the last 24 hours rests unless it moved 10 points in a day.
-4. Editor step B picks one story/market pair (confidence of at least 0.85) and
-   writes both editions: headline, one or two sentences of context drawn only
-   from the feed text, and the Russian market question. The code validates
-   lengths, languages and that both ids are real candidates. No pair, no post.
-5. The market is fetched again, the card (1280×720, Playwright) shows the
-   headline, the market question with its artwork, the Yes chance, the 24-hour
-   move (or a notable 7-day move) and a 7-day chart.
+   more continue. The owner's topic map (2026-10-25): wars and military
+   escalation; US–Iran, Israel, Hormuz, oil and shipping; Russia–Ukraine–NATO;
+   China–Taiwan; sanctions, tariffs and trade wars; nuclear; coups and leaders'
+   fates; big US politics. Elections only for the United States (federal, at
+   most major governor races). Death-toll stories, crime, local news,
+   celebrities, sports and weather are out of scope.
+3. Gamma search for those queries, the busiest politics, geopolitics and world
+   markets, and the markets on the OddsFront map (`onMap`). A market qualifies
+   when it is an open binary Yes/No market accepting orders, with at least $50k
+   volume or $5k liquidity, a spread of at most 5¢, a chance between 1%
+   and 99%, no deadline within six hours, and is not about an election outside
+   the US. A market posted in the last 24 hours rests unless it moved 10% in a day.
+4. Editor step B picks one story/market pair (confidence of at least 0.85),
+   preferring a market on the map when relevance is equal, and writes both
+   editions: headline, one or two sentences of context drawn only from the feed
+   text, the Russian market question and the story's country codes. The code
+   validates lengths, languages and that both ids are real candidates. No pair,
+   no post.
+5. The market is fetched again and the picture is rendered (1600×855, the
+   owner's reference ratio): a live screenshot of oddsfront.com zoomed to the
+   story with the chosen market's popup open (activity cards, zoom and News/
+   language buttons hidden), under a dark left gradient with the OddsFront logo,
+   the headline and the odds line ("Шанс «Да» 79% · ▼ 1,3% за сутки"). The map
+   frames, in order: the market's own marker, its event's marker, the busiest
+   marker in the story's countries, the story's country without a popup.
+   Nothing on the map, or any map failure, falls back to the classic card
+   (headline, market, Yes chance, 7-day chart); the picture never blocks a post.
+   Moves are always shown in percent, never in points.
 
 The displayed chance is Polymarket's own (midpoint, or the last trade on a wide
 book); the buttons show what a one-tap buy costs (Yes at the best ask, No at one
@@ -51,8 +66,8 @@ minus the best bid).
 The bot token comes from `/root/OddsFront/.local/telegram.env` (mode `0600`):
 
 ```
-ODDSFRONT_TELEGRAM_CREDENTIAL_ENV=/etc/drops-analytics/bot.env
-ODDSFRONT_TELEGRAM_CREDENTIAL_KEY=DROPS_ANALYTICS_TELEGRAM_BOT_TOKEN
+ODDSFRONT_TELEGRAM_CREDENTIAL_ENV=/etc/oddsfront/bot.env
+ODDSFRONT_TELEGRAM_CREDENTIAL_KEY=ODDSFRONT_TELEGRAM_BOT_TOKEN
 ODDSFRONT_HOT_DESK_PREVIEW_CHAT=<owner chat id>
 ```
 
@@ -72,6 +87,7 @@ State lives in `.local/news/hot-desk/state.json` behind a `flock`. Defaults:
 | `ODDSFRONT_HOT_DESK_MIN_CONFIDENCE` | 0.85 | minimum story/market relevance |
 | `ODDSFRONT_HOT_DESK_WINDOW_HOURS` | 8 | headline age window |
 | `ODDSFRONT_HOT_DESK_MODEL` | sonnet | Claude model for both editor steps |
+| `ODDSFRONT_HOT_DESK_MAP_URL` | https://oddsfront.com/ | map page screenshotted for the picture |
 
 To save subscription usage the editor is only called when the post is due and
 the news cycle has a story of two or more outlets the editor has not judged in
