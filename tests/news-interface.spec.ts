@@ -72,9 +72,11 @@ test("canonical and search discovery endpoints remain crawlable", async ({ reque
   expect(rss).toContain("https://pubsubhubbub.appspot.com/");
 
   await page.goto("/news");
-  await expect(page.getByRole("contentinfo").getByRole("link", { name: "About this newsdesk" })).toHaveAttribute("href", "/news/about");
-  await expect(page.getByRole("contentinfo").getByRole("link", { name: "Archive" })).toHaveAttribute("href", "/news/archive");
-  await expect(page.getByRole("contentinfo").getByRole("link", { name: "RSS feed" })).toHaveAttribute("href", "/news/rss.xml");
+  const footer = page.getByRole("contentinfo");
+  await expect(footer.getByRole("link", { name: "Telegram EN" })).toHaveAttribute("href", "https://t.me/oddsfront");
+  await expect(footer.getByRole("link", { name: "Telegram RU" })).toHaveAttribute("href", "https://t.me/oddsfront_ru");
+  await expect(footer.getByRole("link", { name: /About this newsdesk|Archive|RSS feed/ })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "OddsFront on Telegram" })).toHaveAttribute("href", "https://t.me/oddsfront");
 });
 
 test("news remains lightweight and preserves language with topic navigation",async({page})=>{
@@ -194,10 +196,9 @@ test("localized articles expose reciprocal search metadata and a branded 1200x63
   expect(sitemap).toContain(`hreflang="ru" href="https://oddsfront.com${path}"`);
 });
 
-test("Persian map loads RTL shaping and glyphs under the production content policy",async({page})=>{
+test("Russian map loads Cyrillic glyphs under the production content policy",async({page})=>{
   const glyphResponses:number[]=[];page.on("response",response=>{if(response.url().includes("fonts/unicode-v1/"))glyphResponses.push(response.status());});
-  await page.goto("/?lang=fa");await expect(page.locator('[data-map-ready="true"]')).toBeVisible();
-  await expect.poll(()=>page.evaluate(async()=>{const path="/vendor/maplibre/6.1.0/maplibre-gl.mjs";const maplibre=await import(path);return maplibre.getRTLTextPluginStatus();})).toBe("loaded");
+  await page.goto("/?lang=ru");await expect(page.locator('[data-map-ready="true"]')).toBeVisible();
   await expect.poll(()=>glyphResponses.length).toBeGreaterThan(0);expect(glyphResponses.every(status=>status===200)).toBe(true);
 });
 
