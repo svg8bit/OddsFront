@@ -21,6 +21,13 @@ import styles from "./mini-app.module.css";
 
 const BET_AMOUNTS = [1, 5, 10, 25];
 const MIN_TOP_UP_USD = 3;
+/** The builder fee the CLOB adds on top of a taker order (100 bps): a $1 bet needs $1.01. */
+const BUILDER_TAKER_FEE = 0.01;
+
+/** What a bet of `amount` takes from the balance, fee included, rounded up to the cent. */
+export function betCost(amount: number) {
+  return Math.ceil(amount * (1 + BUILDER_TAKER_FEE) * 100 - 1e-6) / 100;
+}
 
 export function marketQuestion(market: Pick<BinaryMarket, "question" | "questionRu">, copy: MiniAppCopy) {
   return copy.lang === "ru" && market.questionRu ? market.questionRu : market.question;
@@ -64,7 +71,7 @@ function ChanceChart({ token, up }: { token: string; up: boolean | null }) {
 
 export function BetSheet({ market }: { market: BinaryMarket }) {
   const app = useMiniApp();
-  const { copy, balance, config, busy, setupStep, winnings, collecting, prepare, setBalance, side, setSide, key, needsRestore, hasAccount, storageMissing } = app;
+  const { copy, balance, config, busy, setupStep, winnings, collecting, prepare, setBalance, side, setSide, needsRestore, hasAccount, storageMissing } = app;
   const [amountText, setAmountText] = useState("5");
   const [error, setError] = useState("");
   const parsed = Number(amountText);
@@ -76,7 +83,8 @@ export function BetSheet({ market }: { market: BinaryMarket }) {
   const sideLabel = side === 0 ? copy.yes : copy.no;
   const move = formatMove(market.change24h);
   const polymarketUrl = buildPolymarketEventUrl(market.eventSlug || market.slug);
-  const shortfall = balance === null ? null : Math.max(0, Math.round((amount - balance) * 100) / 100);
+  const cost = betCost(amount);
+  const shortfall = balance === null ? null : Math.max(0, Math.round((cost - balance) * 100) / 100);
 
   const placeBet = useCallback(async () => {
     setError("");
@@ -90,8 +98,8 @@ export function BetSheet({ market }: { market: BinaryMarket }) {
       const trader = await prepare();
       const available = await trader.balance();
       if (available !== null) setBalance(available);
-      if (available !== null && available + 0.0001 < amount) {
-        app.setNeedUsd(amount - available);
+      if (available !== null && available + 0.0001 < cost) {
+        app.setNeedUsd(cost - available);
         app.openView("topup");
         return;
       }
@@ -109,7 +117,7 @@ export function BetSheet({ market }: { market: BinaryMarket }) {
     } finally {
       app.setBusy("");
     }
-  }, [amount, app, copy, market, outcome.assetId, prepare, price, setBalance, side]);
+  }, [amount, app, copy, cost, market, outcome.assetId, prepare, price, setBalance, side]);
 
   const collect = useCallback(async () => {
     setError("");
@@ -213,8 +221,6 @@ export function BetSheet({ market }: { market: BinaryMarket }) {
           <span>{copy.balance} <strong>{balance === null ? "—" : floorUsd(balance)}</strong></span>
           <span className={styles.footerLinks}>
             {hasAccount ? <button type="button" className={styles.linkButton} onClick={() => { app.setNeedUsd(null); app.openView("topup"); }}>{copy.topUp}</button> : null}
-            {balance && balance >= 2 ? <button type="button" className={styles.linkButton} onClick={() => app.openView("withdraw")}>{copy.withdraw}</button> : null}
-            {key || needsRestore ? <button type="button" className={styles.linkButton} onClick={() => app.openView("key")}>{copy.settings}</button> : null}
           </span>
         </footer>
       </div>
