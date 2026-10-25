@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { NewsOverview } from "@/components/news/news";
 import { getNewsCatalog } from "@/lib/news/catalog";
-import { newsOverviewProps } from "@/lib/news/index-page";
+import { listingIndexable, newsOverviewProps } from "@/lib/news/index-page";
 import { isNewsCategory } from "@/lib/news/categories";
 import { topicMetadata, topicStructuredData } from "@/lib/news/metadata";
 
@@ -11,7 +11,7 @@ export const revalidate = 3600;
 export function generateStaticParams(): { topic: string }[] { return []; }
 export async function generateMetadata({params}:Props):Promise<Metadata> {
   const {topic}=await params;
-  return isNewsCategory(topic)?topicMetadata(topic,"en"):{};
+  return isNewsCategory(topic)?topicMetadata(topic,"en",listingIndexable(await getNewsCatalog(),{category:topic})):{};
 }
 export default async function TopicPage({params}:Props) {
   const {topic}=await params;

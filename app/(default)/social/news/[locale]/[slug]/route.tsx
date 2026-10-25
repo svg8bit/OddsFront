@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import sharp from "sharp";
 import { getNewsArticle, getOwnNewsCover } from "@/lib/news/catalog";
-import { articleText, localeDirection, normalizeLocale } from "@/lib/news/locale";
+import { articleText, normalizeLocale } from "@/lib/news/locale";
 import { fetchPartnerCover } from "@/lib/news/partner-images";
 import { SOCIAL_PREVIEW_PATH } from "@/lib/oddsfront-site";
 import type { Locale } from "@/lib/news/types";
@@ -13,17 +13,7 @@ export const dynamic = "force-dynamic";
 
 const SOCIAL_FONTS: Record<Locale, { filename: string; family: string }> = {
   en: { filename: "inter-social-v1.ttf", family: "Inter" },
-  zh: { filename: "noto-sans-sc-social-v1.ttf", family: "Noto Sans SC" },
-  ko: { filename: "noto-sans-kr-social-v1.ttf", family: "Noto Sans KR" },
-  vi: { filename: "inter-social-v1.ttf", family: "Inter" },
-  de: { filename: "inter-social-v1.ttf", family: "Inter" },
-  es: { filename: "inter-social-v1.ttf", family: "Inter" },
-  "pt-BR": { filename: "inter-social-v1.ttf", family: "Inter" },
-  fr: { filename: "inter-social-v1.ttf", family: "Inter" },
   ru: { filename: "inter-social-v1.ttf", family: "Inter" },
-  uk: { filename: "inter-social-v1.ttf", family: "Inter" },
-  fa: { filename: "almarai-social-v1.ttf", family: "Almarai" },
-  he: { filename: "noto-sans-hebrew-social-v1.ttf", family: "Noto Sans Hebrew" },
 };
 
 function fontPath(locale: Locale) {
@@ -44,7 +34,6 @@ async function textLayer(
   locale: Locale,
   size: number,
   width: number,
-  align: "left" | "right" = "left",
 ) {
   return sharp({
     text: {
@@ -52,7 +41,7 @@ async function textLayer(
       font: `${SOCIAL_FONTS[locale].family} Bold ${size}`,
       fontfile: fontPath(locale),
       width,
-      align,
+      align: "left",
       wrap: "word-char",
       rgba: true,
       spacing: Math.max(5, Math.round(size * 0.12)),
@@ -68,7 +57,6 @@ async function fittedTitle(text: string, locale: Locale) {
       locale,
       size,
       1030,
-      localeDirection(locale) === "rtl" ? "right" : "left",
     );
     if (layer.info.height <= 330 || size === 35) return layer;
   }
@@ -128,9 +116,7 @@ export async function GET(
     const base = coverImage
       ? sharp(coverImage)
       : sharp({ create: { width: 1200, height: 630, channels: 4, background: "#07121f" } });
-    const titleLeft = localeDirection(locale) === "rtl"
-      ? 1200 - 58 - title.info.width
-      : 58;
+    const titleLeft = 58;
     renderStage = "composition";
     const composed = await base.composite([
       { input: brandOverlay, top: 0, left: 0 },

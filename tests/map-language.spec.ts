@@ -19,7 +19,7 @@ for (const viewport of [{ width: 1510, height: 941 }, { width: 390, height: 844 
       return count;
     };
     await expect.poll(brightPixels).toBeGreaterThan(10);
-    for (const locale of ["ru", "fa", "en"]) {
+    for (const locale of ["ru", "en"]) {
       const menu = page.getByRole("combobox");
       if (!await menu.isVisible()) await page.getByRole("button", { name: "Language", exact: true }).click();
       await menu.selectOption(locale);

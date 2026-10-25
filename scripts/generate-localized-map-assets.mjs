@@ -4,7 +4,7 @@ import { gzipSync } from "node:zlib";
 import { chromium } from "@playwright/test";
 import { PbfWriter } from "pbf";
 
-const locales=["zh","ko","vi","de","es","pt-BR","fr","ru","uk","fa","he"];
+const locales=["ru"];
 const countries=JSON.parse(await readFile("public/maps/ne_110m_admin_0_countries.geojson","utf8"));
 const labels=JSON.parse(await readFile("public/maps/ne_110m_admin_0_country_labels.geojson","utf8"));
 const codes=new Map(countries.features.map(feature=>[feature.properties.NAME,feature.properties.ISO_A2_EH]));

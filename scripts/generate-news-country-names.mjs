@@ -1,6 +1,6 @@
 // Commit a stable ICU snapshot: server/browser CLDR versions can disagree (for example PS).
 import { writeFile } from "node:fs/promises";
-const locales = ["en", "zh", "ko", "vi", "de", "es", "pt-BR", "fr", "ru", "uk", "fa", "he"];
+const locales = ["en", "ru"];
 const english = new Intl.DisplayNames(["en"], { type: "region" });
 const codes = [];
 for (let first = 65; first <= 90; first++) for (let second = 65; second <= 90; second++) {
