@@ -1,25 +1,75 @@
 "use client";
 
-import { useCallback, useState } from "react";
-import { sharePrice, type BinaryMarket } from "@/lib/telegram-app/markets";
+import { ArrowUpRight, Share2 } from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
+import { ODDSFRONT_MINI_APP_BOT_USERNAME } from "@/lib/telegram-app/init-data";
+import { sharePrice, startParamFor, type BinaryMarket } from "@/lib/telegram-app/markets";
 import { MIN_BET_USD } from "@/lib/telegram-app/client/trader";
 import { haptic, telegramWebApp } from "@/lib/telegram-app/client/webapp";
-import { localizeError } from "./copy";
+import { buildPolymarketEventUrl } from "@/lib/polymarket-links";
+import { localizeError, type MiniAppCopy } from "./copy";
 import { floorUsd, formatChance, formatEndDate, formatMove, formatOdds, formatUsd } from "./format";
 import { MarketImage } from "./MarketsTab";
-import { useMiniApp } from "./Provider";
+import { readJson, useMiniApp } from "./Provider";
 import styles from "./mini-app.module.css";
 
 /**
- * The bet sheet: the market question, Yes or No, an amount and one button. Opened by a channel post's
- * button or a market card; the order goes through the provider's trader only.
+ * The bet sheet: the market, Yes or No, an amount and one button that always says what happens next —
+ * connect a wallet, top up the missing amount, or place the bet. Orders carry the builder code
+ * (the provider's trader); the Polymarket link carries the referral code, as on the map.
  */
 
 const BET_AMOUNTS = [1, 5, 10, 25];
+const MIN_TOP_UP_USD = 3;
+
+export function marketQuestion(market: Pick<BinaryMarket, "question" | "questionRu">, copy: MiniAppCopy) {
+  return copy.lang === "ru" && market.questionRu ? market.questionRu : market.question;
+}
+
+export function marketEvent(market: Pick<BinaryMarket, "question" | "eventTitle" | "eventTitleRu">, copy: MiniAppCopy) {
+  if (!market.eventTitle || market.eventTitle === market.question) return null;
+  return copy.lang === "ru" && market.eventTitleRu ? market.eventTitleRu : market.eventTitle;
+}
+
+/** The Yes chance over 7 days as a soft area chart (no axes: the number above tells the level). */
+function ChanceChart({ token, up }: { token: string; up: boolean | null }) {
+  const [points, setPoints] = useState<number[] | null>(null);
+  useEffect(() => {
+    let alive = true;
+    void fetch(`/api/tg/history?token=${token}`).then((response) => readJson<{ points?: number[] }>(response)).then((json) => {
+      if (alive) setPoints(Array.isArray(json.points) ? json.points : []);
+    }).catch(() => {
+      if (alive) setPoints([]);
+    });
+    return () => { alive = false; };
+  }, [token]);
+  if (!points || points.length < 6) return <div className={styles.chartEmpty} aria-hidden />;
+  const width = 320;
+  const height = 72;
+  const min = Math.min(...points);
+  const max = Math.max(...points);
+  const span = Math.max(0.02, max - min);
+  const x = (index: number) => (index / (points.length - 1)) * width;
+  const y = (value: number) => height - 6 - ((value - min) / span) * (height - 12);
+  const line = points.map((value, index) => `${index ? "L" : "M"}${x(index).toFixed(1)},${y(value).toFixed(1)}`).join(" ");
+  const tone = up === false ? "#ff6b6b" : up ? "#34d399" : "#8b8dff";
+  return (
+    <svg className={styles.chart} viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none" aria-hidden>
+      <defs>
+        <linearGradient id="of-chance" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor={tone} stopOpacity="0.28" />
+          <stop offset="1" stopColor={tone} stopOpacity="0" />
+        </linearGradient>
+      </defs>
+      <path d={`${line} L${width},${height} L0,${height} Z`} fill="url(#of-chance)" />
+      <path d={line} fill="none" stroke={tone} strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
+    </svg>
+  );
+}
 
 export function BetSheet({ market }: { market: BinaryMarket }) {
   const app = useMiniApp();
-  const { copy, balance, config, busy, setupStep, winnings, collecting, prepare, setBalance, side, setSide, key, needsRestore } = app;
+  const { copy, balance, config, busy, setupStep, winnings, collecting, prepare, setBalance, side, setSide, key, needsRestore, hasAccount, storageMissing } = app;
   const [amountText, setAmountText] = useState("5");
   const [error, setError] = useState("");
   const parsed = Number(amountText);
@@ -31,7 +81,9 @@ export function BetSheet({ market }: { market: BinaryMarket }) {
   const sideLabel = side === 0 ? copy.yes : copy.no;
   const move = formatMove(market.change24h);
   const end = formatEndDate(market.endDate, copy.lang);
-  const event = market.eventTitle && market.eventTitle !== market.question ? market.eventTitle : null;
+  const event = marketEvent(market, copy);
+  const polymarketUrl = buildPolymarketEventUrl(market.eventSlug || market.slug);
+  const shortfall = balance === null ? null : Math.max(0, Math.round((amount - balance) * 100) / 100);
 
   const placeBet = useCallback(async () => {
     setError("");
@@ -53,7 +105,7 @@ export function BetSheet({ market }: { market: BinaryMarket }) {
       const placed = await trader.buy(outcome.assetId, amount);
       haptic("success");
       const spent = placed.spentUsd ?? amount;
-      app.setReceipt({ side, question: market.question, amount: spent, payout: placed.shares ?? (price ? spent / price : null) });
+      app.setReceipt({ marketId: market.id, side, question: marketQuestion(market, copy), amount: spent, payout: placed.shares ?? (price ? spent / price : null) });
       app.openView("success");
       void trader.balance().then(setBalance);
       void app.loadBets();
@@ -64,7 +116,7 @@ export function BetSheet({ market }: { market: BinaryMarket }) {
     } finally {
       app.setBusy("");
     }
-  }, [amount, app, copy, market.question, outcome.assetId, prepare, price, setBalance, side]);
+  }, [amount, app, copy, market, outcome.assetId, prepare, price, setBalance, side]);
 
   const collect = useCallback(async () => {
     setError("");
@@ -74,39 +126,48 @@ export function BetSheet({ market }: { market: BinaryMarket }) {
 
   const busyLabel = busy === "bet" && !setupStep ? copy.placing : setupStep === "approvals" ? copy.approving : busy ? copy.settingUp : "";
 
+  // One button, always the next step: connect → top up the missing amount → bet.
+  let action: { label: string; tone: "brand" | "yes" | "no"; disabled?: boolean; run: () => void };
+  if (storageMissing) action = { label: copy.noStorage, tone: "brand", disabled: true, run: () => undefined };
+  else if (needsRestore) action = { label: copy.restoreButton, tone: "brand", run: () => app.openView("key") };
+  else if (!hasAccount) action = { label: copy.connectAccount, tone: "brand", run: () => { haptic("tap"); app.setNeedUsd(Math.max(MIN_TOP_UP_USD, amount)); app.openView("connect"); } };
+  else if (shortfall === null) action = { label: copy.checkingBalance, tone: "brand", disabled: true, run: () => undefined };
+  else if (shortfall > 0.0001) {
+    const topUp = Math.max(MIN_TOP_UP_USD, Math.ceil(shortfall));
+    action = { label: copy.topUpTo(formatUsd(topUp)), tone: "brand", run: () => { haptic("tap"); app.setNeedUsd(shortfall); app.openView("topup"); } };
+  } else action = { label: copy.place(formatUsd(amount), sideLabel), tone: side === 0 ? "yes" : "no", run: () => void placeBet() };
+
   return (
     <section className={styles.sheet}>
       <header className={styles.sheetHead}>
-        <MarketImage src={market.image} size={48} />
+        <MarketImage src={market.image} size={52} />
         <div className={styles.sheetHeadText}>
-          <span className={styles.sheetEvent}>
-            {event || "Polymarket"}
-            {end ? <> · {copy.endsBy(end)}</> : null}
-          </span>
-          <h1 className={styles.sheetQuestion}>{market.question}</h1>
+          <span className={styles.sheetEvent}>{event || "Polymarket"}{end ? ` · ${copy.endsBy(end)}` : ""}</span>
+          <h1 className={styles.sheetQuestion}>{marketQuestion(market, copy)}</h1>
+          {polymarketUrl ? (
+            <button type="button" className={styles.sourceLink} onClick={() => { haptic("select"); app.openLink(polymarketUrl); }}>
+              {copy.openOnPolymarket}<ArrowUpRight size={14} aria-hidden />
+            </button>
+          ) : null}
         </div>
       </header>
 
-      <div className={styles.sheetStats}>
-        <span className={styles.sheetChance}>{formatChance(market.yes.price)} <small>{copy.chance} «{copy.yes}»</small></span>
-        {move ? <span className={move.up ? styles.moveUp : styles.moveDown}>{copy.change24h(move.text)}</span> : null}
+      <div className={styles.chanceCard}>
+        <div className={styles.chanceRow}>
+          <span className={styles.chanceValue}>{formatChance(market.yes.price)}<small>{copy.chance} «{copy.yes}»</small></span>
+          {move ? <span className={move.up ? styles.pillUp : styles.pillDown}>{move.text} {copy.inDay}</span> : <span className={styles.chanceMeta}>{copy.chartWeek}</span>}
+        </div>
+        <ChanceChart token={market.yes.assetId} up={move ? move.up : null} />
       </div>
 
-      <div className={styles.sides} role="radiogroup" aria-label={market.question}>
+      <div className={styles.sides} role="radiogroup" aria-label={marketQuestion(market, copy)}>
         {([0, 1] as const).map((value) => {
           const selected = value === side;
           const sidePrice = sharePrice(market, value);
           const className = value === 0 ? (selected ? styles.sideYesActive : styles.sideYes) : (selected ? styles.sideNoActive : styles.sideNo);
           return (
-            <button
-              key={value}
-              type="button"
-              role="radio"
-              aria-checked={selected}
-              className={className}
-              disabled={!market.open}
-              onClick={() => { haptic("select"); setSide(value); }}
-            >
+            <button key={value} type="button" role="radio" aria-checked={selected} className={className} disabled={!market.open}
+              onClick={() => { haptic("select"); setSide(value); }}>
               <span className={styles.sideLabel}>{value === 0 ? copy.yes : copy.no}</span>
               <span className={styles.sideChance}>{formatChance(sidePrice)}</span>
               <span className={styles.sideOdds}>{copy.odds} {formatOdds(sidePrice)}</span>
@@ -117,17 +178,11 @@ export function BetSheet({ market }: { market: BinaryMarket }) {
 
       {market.open ? (
         <>
-          {/* The amount field is the main control; the quick amounts just fill it in. */}
-          <div className={styles.amountRow}>
+          <div className={styles.amountCard}>
             <label className={styles.amountField}>
               <span aria-hidden>$</span>
-              <input
-                aria-label={copy.amount}
-                inputMode="decimal"
-                placeholder="0"
-                value={amountText}
-                onChange={(input) => setAmountText(input.target.value.replace(",", ".").replace(/[^0-9.]/g, "").replace(/(\..*)\./g, "$1").slice(0, 7))}
-              />
+              <input aria-label={copy.amount} inputMode="decimal" placeholder="0" value={amountText}
+                onChange={(input) => setAmountText(input.target.value.replace(",", ".").replace(/[^0-9.]/g, "").replace(/(\..*)\./g, "$1").slice(0, 7))} />
             </label>
             <div className={styles.quickAmounts} role="group" aria-label={copy.amount}>
               {BET_AMOUNTS.map((value) => (
@@ -136,21 +191,17 @@ export function BetSheet({ market }: { market: BinaryMarket }) {
                 </button>
               ))}
             </div>
+            <div className={styles.summary}>
+              <span>{copy.payout}</span>
+              <strong>{payout ? floorUsd(payout) : "—"}</strong>
+            </div>
           </div>
 
-          <div className={styles.summary}>
-            <span>{copy.payout}</span>
-            <strong>{payout ? floorUsd(payout) : "—"}</strong>
-          </div>
-
-          <button
-            type="button"
-            className={side === 0 ? styles.primaryYes : styles.primaryNo}
-            disabled={Boolean(busy) || !price || !config || amount <= 0}
-            onClick={() => void placeBet()}
-          >
-            {busy ? <><span className={styles.spinnerLight} />{busyLabel}</> : copy.place(formatUsd(amount), sideLabel)}
+          <button type="button" className={action.tone === "yes" ? styles.primaryYes : action.tone === "no" ? styles.primaryNo : styles.primary}
+            disabled={Boolean(busy) || action.disabled || !config || amount <= 0 || (action.tone !== "brand" && !price)} onClick={action.run}>
+            {busy ? <><span className={styles.spinnerLight} />{busyLabel}</> : action.label}
           </button>
+          {hasAccount && shortfall !== null && shortfall > 0.0001 && !busy ? <p className={styles.hint}>{copy.needMore(formatUsd(shortfall))} · {copy.balance} {floorUsd(balance ?? 0)}</p> : null}
           {error ? <p className={styles.error} role="alert">{error}</p> : null}
         </>
       ) : (
@@ -160,30 +211,37 @@ export function BetSheet({ market }: { market: BinaryMarket }) {
       {winnings && winnings.usd > 0.009 ? (
         <div className={styles.winnings}>
           <span>{copy.winnings(floorUsd(winnings.usd))}</span>
-          <button type="button" className={styles.winningsButton} disabled={collecting} onClick={() => void collect()}>
-            {collecting ? copy.collecting : copy.collect}
-          </button>
+          <button type="button" className={styles.winningsButton} disabled={collecting} onClick={() => void collect()}>{collecting ? copy.collecting : copy.collect}</button>
         </div>
       ) : null}
 
       <footer className={styles.footer}>
-        <span>{copy.balance}: <strong>{balance === null ? "—" : floorUsd(balance)}</strong></span>
+        <span>{copy.balance} <strong>{balance === null ? "—" : floorUsd(balance)}</strong></span>
         <span className={styles.footerLinks}>
-          <button type="button" className={styles.linkButton} onClick={() => { app.setNeedUsd(null); app.openView("topup"); }}>{copy.topUp}</button>
+          {hasAccount ? <button type="button" className={styles.linkButton} onClick={() => { app.setNeedUsd(null); app.openView("topup"); }}>{copy.topUp}</button> : null}
           {balance && balance >= 2 ? <button type="button" className={styles.linkButton} onClick={() => app.openView("withdraw")}>{copy.withdraw}</button> : null}
           {key || needsRestore ? <button type="button" className={styles.linkButton} onClick={() => app.openView("key")}>{copy.settings}</button> : null}
         </span>
       </footer>
+      <p className={styles.fineprint}>{copy.priceNote}</p>
     </section>
   );
 }
 
-/** The receipt after an accepted order. */
+/** The receipt after an accepted order, with a share link that opens the same bet for friends. */
 export function SuccessScreen() {
   const app = useMiniApp();
   const { copy, receipt } = app;
   if (!receipt) return null;
   const sideLabel = receipt.side === 0 ? copy.yes : copy.no;
+  const share = () => {
+    const link = `https://t.me/${ODDSFRONT_MINI_APP_BOT_USERNAME}?startapp=${startParamFor(receipt.marketId, receipt.side)}`;
+    const url = `https://t.me/share/url?url=${encodeURIComponent(link)}&text=${encodeURIComponent(copy.shareText(sideLabel, receipt.question))}`;
+    const webApp = telegramWebApp();
+    haptic("tap");
+    if (webApp?.openTelegramLink) webApp.openTelegramLink(url);
+    else app.openLink(url);
+  };
   return (
     <section className={styles.success} aria-live="polite">
       <div className={receipt.side === 0 ? styles.checkYes : styles.checkNo} aria-hidden>
@@ -191,20 +249,18 @@ export function SuccessScreen() {
       </div>
       <h1 className={styles.successTitle}>{copy.accepted}</h1>
       <p className={styles.receiptQuestion}>{receipt.question}</p>
-      <p className={styles.receiptLine}>{copy.acceptedDetail(sideLabel, formatUsd(Math.round(receipt.amount * 100) / 100))}</p>
-      {receipt.payout ? <p className={styles.receiptPayout}>{copy.toWin}: <strong>{floorUsd(receipt.payout)}</strong></p> : null}
+      <div className={styles.receiptCard}>
+        <div><span>{copy.stake}</span><strong>{copy.acceptedDetail(sideLabel, formatUsd(Math.round(receipt.amount * 100) / 100))}</strong></div>
+        {receipt.payout ? <div><span>{copy.toWin}</span><strong className={styles.receiptWin}>{floorUsd(receipt.payout)}</strong></div> : null}
+      </div>
       <div className={styles.successActions}>
-        <button
-          type="button"
-          className={styles.primary}
-          onClick={() => {
-            if (app.fromChannel) telegramWebApp()?.close?.();
-            else app.selectTab("bets");
-          }}
-        >
+        <button type="button" className={styles.primary} onClick={() => { if (app.fromChannel) telegramWebApp()?.close?.(); else app.selectTab("bets"); }}>
           {app.fromChannel ? copy.done : copy.tabBets}
         </button>
-        <button type="button" className={styles.secondary} onClick={() => app.openView("bet")}>{copy.again}</button>
+        <div className={styles.successRow}>
+          <button type="button" className={styles.secondary} onClick={share}><Share2 size={17} aria-hidden />{copy.share}</button>
+          <button type="button" className={styles.secondary} onClick={() => app.openView("bet")}>{copy.again}</button>
+        </div>
       </div>
     </section>
   );

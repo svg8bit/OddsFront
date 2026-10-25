@@ -300,16 +300,6 @@ class Handler(BaseHTTPRequestHandler):
             except OSError:
                 self._send_json(503, b'{"error":"news_unavailable"}')
             return
-        if self.path == "/v1/market-translations":
-            # Russian wording of market questions for the Telegram Mini App (written by
-            # scripts/news/market-translations.ts on this host).
-            try:
-                self._send_json(200, (NEWS_ROOT / "market-translations.json").read_bytes())
-            except FileNotFoundError:
-                self._send_json(200, b'{"ru":{}}')
-            except OSError:
-                self._send_json(503, b'{"error":"translations_unavailable"}')
-            return
         if self.path == "/v1/market-strip":
             self._send_json(200, STATE.body())
             return

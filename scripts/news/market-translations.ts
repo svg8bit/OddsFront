@@ -7,7 +7,8 @@ import path from "node:path";
 import { executeSubscriptionWriter, WriterUsageLimitError } from "../../lib/news/writer.ts";
 import { collectStrings, mergeHotDeskPairs, translationPrompt, TRANSLATION_SCHEMA, acceptedTranslations, type TranslationFile } from "../../lib/news/market-translations.ts";
 
-const file = process.env.ODDSFRONT_TRANSLATIONS_FILE || "/opt/oddsfront-market-feed/news/market-translations.json";
+// Served by the feed as /v1/news/articles/market-translations-ru (lib/telegram-app/translations.ts).
+const file = process.env.ODDSFRONT_TRANSLATIONS_FILE || "/opt/oddsfront-market-feed/news/articles/market-translations-ru.json";
 const hotDeskDirectory = path.join(process.env.ODDSFRONT_NEWS_DIRECTORY || "/root/OddsFront/.local/news", "hot-desk");
 const usageFile = path.join(process.env.ODDSFRONT_NEWS_DIRECTORY || "/root/OddsFront/.local/news", "market-translations-usage.jsonl");
 const marketsUrl = process.env.ODDSFRONT_TG_MARKETS_URL || "https://oddsfront.com/api/tg/markets";

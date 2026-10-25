@@ -3,9 +3,12 @@ import type { Bet } from "./positions.ts";
 
 /**
  * Russian wording of Polymarket questions for the Mini App. A VPS job translates each new English
- * string once (scripts/news/market-translations.ts) and the feed serves the whole map; the site never
- * calls a model. Unknown strings simply stay English.
+ * string once (scripts/news/market-translations.ts) into the feed's articles directory, which the feed
+ * already serves (`/v1/news/articles/market-translations-ru`, never listed in the catalog); the site
+ * never calls a model. Unknown strings simply stay English.
  */
+
+export const TRANSLATIONS_SLUG = "market-translations-ru";
 
 export type Translations = Record<string, string>;
 
@@ -15,7 +18,7 @@ let cached: { at: number; value: Translations } | null = null;
 export function translationsUrl(rawUrl: string) {
   const url = new URL(rawUrl);
   if (url.protocol !== "https:" || url.username || url.password) return null;
-  url.pathname = "/v1/market-translations";
+  url.pathname = `/v1/news/articles/${TRANSLATIONS_SLUG}`;
   url.search = "";
   url.hash = "";
   return url;

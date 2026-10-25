@@ -302,7 +302,7 @@ describe("Russian market questions", () => {
   });
 
   it("serves the feed's translations path and localizes a market", () => {
-    assert.equal(translationsUrl("https://feed.example.com/v1/news?x=1")?.toString(), "https://feed.example.com/v1/market-translations");
+    assert.equal(translationsUrl("https://feed.example.com/v1/news?x=1")?.toString(), "https://feed.example.com/v1/news/articles/market-translations-ru");
     assert.equal(translationsUrl("http://feed.example.com/"), null);
     const market = localizeMarket(parseGammaMarket(gammaMarket)!, { [gammaMarket.question]: "Продлится ли перемирие?" });
     assert.equal(market.questionRu, "Продлится ли перемирие?");

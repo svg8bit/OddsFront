@@ -4,7 +4,7 @@ import Script from "next/script";
 import { Component, useState, type ReactNode } from "react";
 import { ODDSFRONT_MINI_APP_BOT_USERNAME } from "@/lib/telegram-app/init-data";
 import { BetSheet, SuccessScreen } from "./BetSheet";
-import { FundingScreen, KeyScreen } from "./FundingScreen";
+import { ConnectScreen, FundingScreen, KeyScreen } from "./FundingScreen";
 import { MarketsTab } from "./MarketsTab";
 import { MyBetsTab } from "./MyBetsTab";
 import { MiniAppProvider, useMiniApp } from "./Provider";
@@ -111,6 +111,7 @@ function MiniAppShell() {
       {phase === "ready" && view === "success" ? <SuccessScreen /> : null}
       {phase === "ready" && (view === "topup" || view === "withdraw") ? <FundingScreen mode={view} /> : null}
       {phase === "ready" && view === "key" ? <KeyScreen /> : null}
+      {phase === "ready" && view === "connect" ? <ConnectScreen /> : null}
 
       {tabBarVisible ? <TabBar /> : null}
       {toast ? <div className={styles.toast} role="status">{toast}</div> : null}

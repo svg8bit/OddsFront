@@ -1,6 +1,7 @@
 /**
  * The EN → RU cache behind the Mini App's Russian market questions (see
- * scripts/news/market-translations.ts). Pure helpers, testable with node:test.
+ * scripts/news/market-translations.ts). Pure helpers, testable with node:test. News exports must keep
+ * the feed's articles/market-translations-ru.json in place: it is not an article.
  */
 
 export type TranslationFile = { version: 1; updatedAt: string; ru: Record<string, string> };
