@@ -136,9 +136,9 @@ test("selects a bounded WebGL canvas resolution without shrinking the map", () =
       deviceMemory: 8,
     }),
   ).toEqual({
-    pixelRatio: 1.74,
+    pixelRatio: 1.1,
     quality: "balanced",
-    pixelBudget: 4_500_000,
+    pixelBudget: 1_800_000,
   });
   expect(
     selectMapRenderProfile({
@@ -173,7 +173,7 @@ test("selects a bounded WebGL canvas resolution without shrinking the map", () =
       hardwareConcurrency: 8,
       deviceMemory: 8,
     }).pixelRatio,
-  ).toBe(2);
+  ).toBe(1.5);
 });
 
 test("drops expensive texture and glow passes only on constrained hardware", () => {
