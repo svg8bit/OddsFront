@@ -6,7 +6,7 @@ import type {
 } from "@/features/global-conflict-map/preview/types";
 
 export const PREVIEW_FIXTURE_AS_OF = "Illustrative approval fixture · 6 Aug 2026";
-export const PREVIEW_MINIMUM_VOLUME = 50_000;
+export const PREVIEW_MINIMUM_VOLUME = 25_000;
 
 export const TONE_PALETTE: Record<PreviewTone, TonePalette> = {
   violet: { hex: "#C05CFF", rgb: [192, 92, 255] },

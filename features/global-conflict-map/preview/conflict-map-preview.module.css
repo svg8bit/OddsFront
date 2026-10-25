@@ -1394,3 +1394,75 @@
     transition-duration: 0.001ms !important;
   }
 }
+
+/* Geopolitical signs beside the conflict dots: calm graphite marks, one shape per kind (leaders and
+   regimes a circle, diplomacy a square, territory a diamond, straits and airspace a hexagon) with a
+   quiet glyph. Small at the world view; smaller markets appear once the user zooms in. */
+.markerOverlay { --sign-size: 18px; }
+.markerOverlay[data-zoom-tier="far"] { --sign-size: 14px; }
+.markerOverlay[data-zoom-tier="near"] { --sign-size: 21px; }
+
+.signBadge {
+  position: absolute;
+  z-index: 1;
+  top: 0;
+  left: 0;
+  display: grid;
+  width: var(--sign-size);
+  height: var(--sign-size);
+  place-items: center;
+  transform: translate(-50%, -50%);
+  border: 1px solid rgba(166, 181, 202, 0.3);
+  border-radius: 50%;
+  background: #182130;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.45);
+  color: #c2ccda;
+  pointer-events: none;
+  transition: transform 150ms ease, border-color 150ms ease, width 150ms ease, height 150ms ease;
+}
+
+.signBadge svg {
+  width: calc(var(--sign-size) * 0.58);
+  height: calc(var(--sign-size) * 0.58);
+}
+
+.markerAnchor[data-sign-kind="diplomacy"] .signBadge {
+  border-radius: 5px;
+}
+
+.markerAnchor[data-sign-kind="territory"] .signBadge {
+  width: calc(var(--sign-size) * 0.86);
+  height: calc(var(--sign-size) * 0.86);
+  border-radius: 3px;
+  transform: translate(-50%, -50%) rotate(45deg);
+}
+
+.markerAnchor[data-sign-kind="territory"] .signBadge svg {
+  transform: rotate(-45deg);
+}
+
+.markerAnchor[data-sign-kind="transit"] .signBadge {
+  border-radius: 0;
+  clip-path: polygon(25% 3%, 75% 3%, 100% 50%, 75% 97%, 25% 97%, 0 50%);
+}
+
+.markerAnchor[data-sign-kind]:hover .signBadge,
+.markerAnchor[data-sign-kind][data-selected="true"] .signBadge {
+  border-color: rgba(206, 216, 230, 0.65);
+  background: #1f2a3c;
+  color: #e3e9f2;
+}
+
+.markerAnchor[data-sign-kind="territory"]:hover .signBadge,
+.markerAnchor[data-sign-kind="territory"][data-selected="true"] .signBadge {
+  transform: translate(-50%, -50%) rotate(45deg);
+}
+
+.markerAnchor[data-sign-hidden="true"] {
+  display: none;
+}
+
+.signTarget {
+  width: calc(var(--sign-size) + 10px);
+  height: calc(var(--sign-size) + 10px);
+}

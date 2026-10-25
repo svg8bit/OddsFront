@@ -11,6 +11,7 @@ import {
 import type {
   ConflictPreviewEvent,
   ConflictPreviewFeed,
+  PreviewMarkerKind,
 } from "@/features/global-conflict-map/preview/types";
 import { buildPolymarketEventUrl } from "@/lib/polymarket-links";
 
@@ -114,6 +115,29 @@ function isConflictRelevant(text: string, tagText: string): boolean {
   if (!direct && !infrastructure && !conflictTagged) return false;
   if (excludedContextPattern.test(text) && !direct) return false;
   return true;
+}
+
+// Geopolitics beyond the fighting (owner, 2026-10-25): leaders and regimes, borders and territory,
+// straits and airspace, alliances, recognition and summits between the actors. Elections stay off the
+// map (owner's rule), and so do economy-only questions.
+const geopoliticalPattern =
+  /\b(?:out as|out by|out before|leader end|lead (?:iran|venezuela|cuba)|leadership change|regime (?:fall|falls|change)|coup|impeach(?:ed)?|resigns?|in (?:us )?custody|released from custody|acquire|51st state|join the us|recapture|under [\w\s,'-]{1,40} control|enters? (?:iran|venezuela|aden|kyiv|gaza)|bab el-mandeb|red sea|suez|panama canal|airspace closed|airspace closure|normaliz(?:e|es|ed|ing) relations|recogniz(?:e|es|ed|ing)|abraham accords|withdraw from nato|leave nato|joins? nato|diplomatic meeting|meet(?:s|ing)? (?:with|next)|talk to|summit|embassy|sanction|sanctions|mobili[sz]ation)\b/i;
+const offMapPattern =
+  /election|elected|ballot|vote share|# of seats|\bseats\b|winner|parliament|senate|house of|midterm|primary|nobel|gdp|inflation|bitcoin|crypto|unban|tiktok|box office/i;
+
+/** Conflict markets, plus geopolitical ones that belong on a world map. */
+function isMapRelevant(text: string, tagText: string): boolean {
+  if (isConflictRelevant(text, tagText)) return true;
+  return geopoliticalPattern.test(text) && !offMapPattern.test(text);
+}
+
+/** Which marker a market gets: the conflict dot, or the sign of its geopolitical kind. */
+export function markerKindFor(text: string, tagText: string): PreviewMarkerKind {
+  if (isConflictRelevant(text, tagText)) return "conflict";
+  if (/bab el-mandeb|red sea|suez|panama canal|airspace/i.test(text)) return "transit";
+  if (/acquire|51st state|join the us|recapture|under [\w\s,'-]{1,40} control|enters? (?:iran|venezuela|aden|kyiv|gaza)|annex/i.test(text)) return "territory";
+  if (/normaliz|recogniz|abraham accords|nato|diplomatic|meet(?:s|ing)?|talk to|summit|embassy|sanction|deal|agreement/i.test(text)) return "diplomacy";
+  return "politics";
 }
 
 function toFiniteNumber(value: string | number | null | undefined): number {
@@ -394,7 +418,7 @@ export function normalizeConflictPreviewEvent(
 
   const tagText = eventTagText(event);
   const relevantMarkets = activeMarkets.filter(({ market }) =>
-    isConflictRelevant(cleanText(`${event.title} ${market.question}`), tagText),
+    isMapRelevant(cleanText(`${event.title} ${market.question}`), tagText),
   );
   const deadlineYears = [
     ...new Set(
@@ -450,6 +474,7 @@ export function normalizeConflictPreviewEvent(
     minimumZoom: minimumZoomForVolume(eventVolume),
     dataOrigin: "polymarket",
     evidenceStatus: location.evidenceStatus,
+    markerKind: markerKindFor(searchableText, tagText),
     geographyKind: participants.geographyKind,
     marketUrl: buildPolymarketEventUrl(event.slug),
     imageUrl: [
@@ -541,7 +566,7 @@ async function buildLiveConflictPreviewFeed(): Promise<ConflictPreviewFeed> {
 
 const getCachedLiveConflictPreviewFeed = unstable_cache(
   buildLiveConflictPreviewFeed,
-  ["oddsfront-live-conflict-feed-v5-freshness"],
+  ["oddsfront-live-conflict-feed-v6-geopolitics"],
   {
     revalidate: REFRESH_SECONDS,
     tags: ["oddsfront-live-conflict-feed"],
