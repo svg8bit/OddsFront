@@ -196,8 +196,8 @@ test("localized articles expose reciprocal search metadata and a branded 1200x63
   expect(sitemap).toContain(`hreflang="ru" href="https://oddsfront.com${path}"`);
 });
 
-test("Russian map loads Cyrillic glyphs under the production content policy",async({page})=>{
-  const glyphResponses:number[]=[];page.on("response",response=>{if(response.url().includes("fonts/unicode-v1/"))glyphResponses.push(response.status());});
+test("Russian map loads Inter Cyrillic glyphs under the production content policy",async({page})=>{
+  const glyphResponses:number[]=[];page.on("response",response=>{if(response.url().includes("fonts/inter-medium-v1/1024-1279"))glyphResponses.push(response.status());});
   await page.goto("/?lang=ru");await expect(page.locator('[data-map-ready="true"]')).toBeVisible();
   await expect.poll(()=>glyphResponses.length).toBeGreaterThan(0);expect(glyphResponses.every(status=>status===200)).toBe(true);
 });

@@ -1,8 +1,9 @@
-const STANDARD_CANVAS_PIXEL_BUDGET = 1_800_000;
+const STANDARD_CANVAS_PIXEL_BUDGET = 4_500_000;
 const CONSTRAINED_CANVAS_PIXEL_BUDGET = 1_200_000;
 const MINIMUM_PIXEL_RATIO = 1;
-const STANDARD_PIXEL_RATIO_CAP = 1.25;
-const COMPACT_PIXEL_RATIO_CAP = 1.5;
+// Text is drawn into the canvas: a backing store below the screen's density blurs every label.
+const STANDARD_PIXEL_RATIO_CAP = 2;
+const COMPACT_PIXEL_RATIO_CAP = 2;
 
 interface MapRenderProfileInput {
   devicePixelRatio: number;

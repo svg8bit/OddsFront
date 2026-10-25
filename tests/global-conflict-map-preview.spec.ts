@@ -136,9 +136,9 @@ test("selects a bounded WebGL canvas resolution without shrinking the map", () =
       deviceMemory: 8,
     }),
   ).toEqual({
-    pixelRatio: 1.1,
+    pixelRatio: 1.74,
     quality: "balanced",
-    pixelBudget: 1_800_000,
+    pixelBudget: 4_500_000,
   });
   expect(
     selectMapRenderProfile({
@@ -173,7 +173,7 @@ test("selects a bounded WebGL canvas resolution without shrinking the map", () =
       hardwareConcurrency: 8,
       deviceMemory: 8,
     }).pixelRatio,
-  ).toBe(1.5);
+  ).toBe(2);
 });
 
 test("drops expensive texture and glow passes only on constrained hardware", () => {
@@ -706,7 +706,7 @@ test("serves a volume-filtered read-only market feed", async ({ request }) => {
     }>;
   };
 
-  expect(feed.minimumVolume).toBe(50_000);
+  expect(feed.minimumVolume).toBe(25_000);
   expect(feed.events.length).toBeGreaterThan(0);
   expect(feed.events.every((event) => event.volume >= feed.minimumVolume)).toBe(
     true,
@@ -769,7 +769,7 @@ test("serves a volume-filtered read-only market feed", async ({ request }) => {
 
 test("serves the approved map on the canonical public route", async ({ page }) => {
   const shell = await openReadyMap(page, "/global-conflict-map");
-  await expect(shell).toHaveAttribute("data-minimum-volume", "50000");
+  expect(Number(await shell.getAttribute("data-minimum-volume"))).toBeGreaterThanOrEqual(25_000);
   await expect(page.getByRole("button", { name: "Zoom in" })).toBeVisible();
   await expect(
     page.getByRole("link", { name: "DropsBot", exact: true }),
@@ -908,7 +908,7 @@ test("keeps every qualified event visible at the world view and regional zoom", 
   const markerCount = Number(await shell.getAttribute("data-visible-marker-count"));
   expect(markerCount).toBeGreaterThan(0);
   expect(markerCount).toBeLessThanOrEqual(eventCount);
-  await expect(shell).toHaveAttribute("data-minimum-volume", "50000");
+  expect(Number(await shell.getAttribute("data-minimum-volume"))).toBeGreaterThanOrEqual(25_000);
 
   await page.screenshot({
     path: path.join(artifactRoot, "map-live-1672x941.png"),

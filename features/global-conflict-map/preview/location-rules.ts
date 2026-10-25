@@ -323,6 +323,17 @@ export const CONFLICT_LOCATION_RULES: ConflictLocationRule[] = [
     matcher: /abu musa island/i,
   },
   {
+    id: "bab-el-mandeb",
+    label: "Bab el-Mandeb Strait",
+    region: "Red Sea",
+    coordinates: [43.33, 12.58],
+    countryCodes: ["YE", "DJ", "ER"],
+    countryFeatureIds: ["YEM", "DJI", "ERI"],
+    tone: "red",
+    evidenceStatus: "regional-anchor",
+    matcher: /bab[\s-]el[\s-]mandeb|bab[\s-]al[\s-]mandab/i,
+  },
+  {
     id: "hormuz-island",
     label: "Hormuz Island",
     region: "Persian Gulf",

@@ -839,7 +839,8 @@ export function createPreviewMapStyle(
   }
   return {
     ...PREVIEW_MAP_STYLE,
-    glyphs: locale === "en" ? PREVIEW_MAP_STYLE.glyphs : "/maps/fonts/unicode-v1/{range}.pbf",
+    // Russian labels use the same Inter Medium glyphs (Cyrillic ranges included) as the English map.
+    glyphs: PREVIEW_MAP_STYLE.glyphs,
     name:
       quality === "constrained"
         ? "OddsFront · Essential"
@@ -853,7 +854,7 @@ export function createPreviewMapStyle(
         ).has(layer.id),
     ).map(layer => {
       if (locale === "en" || layer.type !== "symbol") return layer;
-      const layout = { ...layer.layout, "text-font": ["OddsFront Unicode"], "text-letter-spacing": 0 };
+      const layout = { ...layer.layout };
       if (layer.source === "openmaptiles") {
         layout["text-field"] = ["coalesce", ["get", `name:${locale}`], ["get", `name_${locale}`], ...placeName.slice(1)] as ExpressionSpecification;
       }

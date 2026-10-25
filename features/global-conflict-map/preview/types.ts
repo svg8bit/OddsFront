@@ -4,6 +4,8 @@ export type PreviewCoordinate = [longitude: number, latitude: number];
 
 export type PreviewDataMode = "live" | "fallback";
 
+export type PreviewMarkerKind = "conflict" | "politics" | "diplomacy" | "territory" | "transit";
+
 export type PreviewDataOrigin = "polymarket" | "fixture";
 
 export type PreviewEvidenceStatus =
@@ -59,6 +61,11 @@ export interface ConflictPreviewEvent {
   marketConditionId: string | null;
   yesTokenId?: string | null;
   recentPriceMove?: RecentPriceMove | null;
+  /**
+   * "conflict" markets are the map's animated dots. The geopolitics around them (leaders and
+   * regimes, diplomacy, territory, straits and airspace) gets its own sign beside the dot.
+   */
+  markerKind?: PreviewMarkerKind;
 }
 
 export type ConflictActivityKind =

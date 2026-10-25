@@ -11,7 +11,7 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 import { useLocale } from "@/components/locale-provider";
-import { Minus, Plus } from "lucide-react";
+import { Anchor, Flag, Handshake, Landmark, Minus, Plus } from "lucide-react";
 import type { GeoJSONSource } from "maplibre-gl";
 import MapLibreMap, {
   type MapRef,
@@ -41,12 +41,14 @@ import {
   selectMapRenderProfile,
 } from "@/features/global-conflict-map/preview/map-render-profile";
 import { loadMapLibrary } from "@/features/global-conflict-map/preview/map-library";
+import { labelRect, placeSigns, SIGN_SIZE, signVisible, zoomTier, type ZoomTier } from "@/features/global-conflict-map/preview/sign-layout";
 import { useConflictMapPreviewStore } from "@/features/global-conflict-map/preview/store";
 import styles from "@/features/global-conflict-map/preview/conflict-map-preview.module.css";
 import type {
   ConflictPreviewFeed,
   ConflictPreviewEvent,
   PreviewViewState,
+  PreviewMarkerKind,
 } from "@/features/global-conflict-map/preview/types";
 
 const INITIAL_VIEW_STATE: PreviewViewState = {
@@ -64,8 +66,18 @@ const WORLD_BOUNDS: [number, number, number, number] = [
   -179.9, -75, 179.9, 82,
 ];
 
+// Conflict markets keep the animated dots. The geopolitics around them gets a calm graphite sign of
+// its own beside the dot: leaders and regimes, diplomacy, territory, straits and airspace.
+type SignKind = Exclude<PreviewMarkerKind, "conflict">;
+
+function SignIcon({ kind }: { kind: SignKind }) {
+  const Icon = kind === "diplomacy" ? Handshake : kind === "territory" ? Flag : kind === "transit" ? Anchor : Landmark;
+  return <Icon size={12} strokeWidth={2} aria-hidden="true" />;
+}
+
 interface VisibleLocationGroup {
   id: string;
+  kind: PreviewMarkerKind;
   events: ConflictPreviewEvent[];
   primary: ConflictPreviewEvent;
   hotspot: PreviewHotspot;
@@ -154,7 +166,7 @@ export function ConflictMapPreview({
   fixtureMode,
   onReady,
 }: ConflictMapPreviewProps) {
-  const { locale } = useLocale();
+  const { locale, translate } = useLocale();
   const mapRef = useRef<MapRef>(null);
   const popupAnchorRef = useRef<HTMLDivElement>(null);
   const popupSize = useRef({ width: 244, height: 256 });
@@ -236,14 +248,16 @@ export function ConflictMapPreview({
   // Zoom changes geographic detail only; volume changes marker prominence.
   const eligibleEvents = events;
   const visibleGroups = useMemo(() => {
+    // One marker per place and kind: the conflict dot, and one sign per geopolitical kind beside it.
     const groups = new globalThis.Map<string, ConflictPreviewEvent[]>();
     for (const event of eligibleEvents) {
-      const group = groups.get(event.locationId) ?? [];
+      const key = `${event.locationId}|${event.markerKind ?? "conflict"}`;
+      const group = groups.get(key) ?? [];
       group.push(event);
-      groups.set(event.locationId, group);
+      groups.set(key, group);
     }
 
-    return Array.from(groups, ([id, groupEvents]) => {
+    const built = Array.from(groups, ([id, groupEvents]) => {
       const sortedEvents = groupEvents.toSorted(
         (left, right) => right.volume - left.volume,
       );
@@ -257,6 +271,7 @@ export function ConflictMapPreview({
 
       return {
         id,
+        kind: primary.markerKind ?? "conflict",
         events: sortedEvents,
         primary,
         hotspot: {
@@ -268,7 +283,8 @@ export function ConflictMapPreview({
           ...getHotspotTension(sortedEvents, markerVisual.markerStrength),
         },
       };
-    })
+    });
+    return built
       .toSorted(
         (left, right) =>
           left.hotspot.markerVolume - right.hotspot.markerVolume ||
@@ -276,9 +292,16 @@ export function ConflictMapPreview({
       ) satisfies VisibleLocationGroup[];
   }, [eligibleEvents, markerVolumeDomain]);
   const visibleHotspots = useMemo(
+    () => visibleGroups.filter((group) => group.kind === "conflict").map((group) => group.hotspot),
+    [visibleGroups],
+  );
+  const anchoredHotspots = useMemo(
     () => visibleGroups.map((group) => group.hotspot),
     [visibleGroups],
   );
+  // Signs: size and how many show follow the zoom; their offsets are found when the camera settles.
+  const [signTier, setSignTier] = useState<ZoomTier>(zoomTier(INITIAL_VIEW_STATE.zoom));
+  const signOffsets = useRef<globalThis.Map<string, [number, number]>>(new globalThis.Map());
   const selectedVisibleGroup = useMemo(
     () => visibleGroups.find((group) =>
       group.events.some((event) => event.id === selectedEventId)) ?? null,
@@ -343,15 +366,54 @@ export function ConflictMapPreview({
     const map = mapRef.current?.getMap();
     if (!map) return;
 
-    for (const hotspot of visibleHotspots) {
+    for (const hotspot of anchoredHotspots) {
       const element = markerElements.current.get(hotspot.event.id);
       if (!element) continue;
       const point = map.project(hotspot.event.coordinates);
-      const x = point.x + hotspot.pixelOffset[0];
-      const y = point.y + hotspot.pixelOffset[1];
+      const offset = signOffsets.current.get(hotspot.event.id) ?? hotspot.pixelOffset;
+      const x = point.x + offset[0];
+      const y = point.y + offset[1];
       element.style.transform = `translate3d(${x}px, ${y}px, 0)`;
     }
-  }, [visibleHotspots]);
+  }, [anchoredHotspots]);
+
+  const updateSignLayout = useCallback(() => {
+    const map = mapRef.current?.getMap();
+    if (!map) return;
+    const tier = zoomTier(map.getZoom());
+    setSignTier(tier);
+    const dotRadius = new globalThis.Map<string, number>();
+    const dots = visibleGroups.filter((group) => group.kind === "conflict").map((group) => {
+      const point = map.project(group.primary.coordinates);
+      const radius = 7.5 * group.hotspot.markerScale + 2;
+      dotRadius.set(group.primary.locationId, radius);
+      return { x: point.x, y: point.y, radius };
+    });
+    const signs = visibleGroups
+      .filter((group) => group.kind !== "conflict" && signVisible(group.primary.volume, tier))
+      .map((group) => {
+        const point = map.project(group.primary.coordinates);
+        return { id: group.primary.id, x: point.x, y: point.y, size: SIGN_SIZE[tier], weight: group.primary.volume, dotRadius: dotRadius.get(group.primary.locationId) ?? 0 };
+      });
+    // The country names the map is showing right now, so signs keep clear of them.
+    const zoom = map.getZoom();
+    const fontSize = Math.min(13, Math.max(9.5, 9.5 + ((zoom - 1) * 2.5) / 3));
+    const labelLayers = (map.getStyle().layers ?? []).filter((layer) => layer.type === "symbol" && layer.id.startsWith("country-label")).map((layer) => layer.id);
+    const labels = labelLayers.length
+      ? map.queryRenderedFeatures(undefined, { layers: labelLayers }).flatMap((feature) => {
+          const text = String(feature.properties?.NAME ?? feature.properties?.name ?? feature.properties?.[`name:${locale}`] ?? "");
+          if (!text || feature.geometry.type !== "Point") return [];
+          const point = map.project(feature.geometry.coordinates as [number, number]);
+          return [labelRect(point.x, point.y, text, fontSize)];
+        })
+      : [];
+    signOffsets.current = placeSigns(signs, dots, labels);
+    updateMarkerPositions();
+  }, [visibleGroups, updateMarkerPositions, locale]);
+
+  useEffect(() => {
+    if (mapReady) window.requestAnimationFrame(updateSignLayout);
+  }, [mapReady, updateSignLayout]);
 
   const updatePopupAnchorPoint = useCallback(() => {
     const map = mapRef.current?.getMap();
@@ -662,7 +724,7 @@ export function ConflictMapPreview({
           mapStyle={previewMapStyle}
           pixelRatio={mapRenderProfile.pixelRatio}
           refreshExpiredTiles={false}
-          canvasContextAttributes={{ antialias: false, alpha: false }}
+          canvasContextAttributes={{ antialias: mapRenderProfile.quality === "balanced", alpha: false }}
           validateStyle={false}
           initialViewState={INITIAL_VIEW_STATE}
           minZoom={MIN_ZOOM}
@@ -687,6 +749,7 @@ export function ConflictMapPreview({
             setTileHealth("ready");
             updateHotspotSource();
             window.requestAnimationFrame(updateMarkerPositions);
+            window.requestAnimationFrame(updateSignLayout);
             applyEventCountryState();
             applySelectedCountryState();
             markMapReady();
@@ -706,14 +769,14 @@ export function ConflictMapPreview({
             setEngineCamera(`${event.viewState.longitude.toFixed(4)},${event.viewState.latitude.toFixed(4)},${event.viewState.zoom.toFixed(3)}`);
             setZoom(event.viewState.zoom);
             window.requestAnimationFrame(() => {
-              updateMarkerPositions();
+              updateSignLayout();
               updatePopupAnchorPoint();
               if (shellRef.current) shellRef.current.dataset.mapMoving = "false";
             });
           }}
           onResize={() => {
             measurePopup();
-            updateMarkerPositions();
+            updateSignLayout();
             updatePopupAnchorPoint();
           }}
           onClick={() => setHoveredEvent(null)}
@@ -724,13 +787,57 @@ export function ConflictMapPreview({
           }}
         />
 
-        {mapReady && markerContainer ? createPortal(<div className={styles.markerOverlay}>
+        {mapReady && markerContainer ? createPortal(<div className={styles.markerOverlay} data-zoom-tier={signTier}>
           {mapReady
             ? visibleGroups.map((group, index) => {
                 const event = group.primary;
                 const hotspot = group.hotspot;
                 const selected = group.id === selectedVisibleGroup?.id;
                 const hovered = event.id === hoveredEventId;
+
+                if (group.kind !== "conflict") {
+                  const kind = group.kind as SignKind;
+                  return (
+                    <div
+                      key={group.id}
+                      ref={(element) => {
+                        if (element) markerElements.current.set(event.id, element);
+                        else markerElements.current.delete(event.id);
+                      }}
+                      className={styles.markerAnchor}
+                      style={{
+                        transform: "translate3d(-10000px, -10000px, 0)",
+                        "--event-tone": "#c2ccda",
+                        "--marker-strength": hotspot.markerStrength,
+                      } as React.CSSProperties}
+                      data-event-id={event.id}
+                      data-selected={selected ? "true" : "false"}
+                      data-sign-kind={kind}
+                      data-sign-hidden={signVisible(event.volume, signTier) ? "false" : "true"}
+                      data-location-event-count={hotspot.eventCount}
+                      data-marker-offset={`${hotspot.pixelOffset[0].toFixed(1)},${hotspot.pixelOffset[1].toFixed(1)}`}
+                    >
+                      <span className={styles.signBadge} aria-hidden="true"><SignIcon kind={kind} /></span>
+                      <button
+                        type="button"
+                        className={`${styles.hotspotTarget} ${styles.signTarget}`}
+                        aria-label={`${event.region}: ${event.locationLabel}. ${event.title}. Current Polymarket odds ${event.yesOdds} percent yes.`}
+                        aria-pressed={selected}
+                        data-market-event-id={event.id}
+                        onMouseEnter={() => setHoveredEvent(event.id)}
+                        onMouseLeave={() => setHoveredEvent(null)}
+                        onFocus={() => setHoveredEvent(event.id)}
+                        onBlur={() => setHoveredEvent(null)}
+                        onClick={handleHotspotClick}
+                      >
+                        <span className={styles.screenReaderOnly}>Select event</span>
+                      </button>
+                      <span className={styles.hotspotLabel} data-visible={hovered ? "true" : "false"} aria-hidden="true">
+                        {translate(event.locationLabel)}
+                      </span>
+                    </div>
+                  );
+                }
 
                 return (
                   <div
@@ -783,7 +890,7 @@ export function ConflictMapPreview({
                       data-visible={hovered ? "true" : "false"}
                       aria-hidden="true"
                     >
-                      {event.locationLabel}
+                      {translate(event.locationLabel)}
                     </span>
 
                   </div>

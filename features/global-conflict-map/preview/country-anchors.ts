@@ -60,6 +60,25 @@ const COMMON_COUNTRY_ALIASES: Readonly<Record<string, readonly string[]>> = {
   ],
 };
 
+// Leaders and capitals that stand for their country in market questions ("Putin out by…?",
+// "Will Xi Jinping…"). A named target or place still wins over these when both appear.
+const LEADER_ALIASES: Readonly<Record<string, readonly string[]>> = {
+  CHN: ["Xi Jinping", "Beijing"],
+  CUB: ["Díaz-Canel", "Diaz-Canel", "Raul Castro", "Raúl Castro", "Havana"],
+  ESP: ["Pedro Sánchez", "Pedro Sanchez"],
+  IND: ["Modi", "New Delhi"],
+  IRN: ["Khamenei", "Pahlavi", "Pezeshkian", "Tehran"],
+  ISR: ["Netanyahu", "Jerusalem"],
+  PRK: ["Kim Jong Un", "Kim Jong-un", "Pyongyang"],
+  RUS: ["Putin", "Kremlin", "Moscow"],
+  SAU: ["Mohammed bin Salman", "Riyadh"],
+  TUR: ["Erdoğan", "Erdogan", "Ankara"],
+  TWN: ["Lai Ching-te", "Taipei"],
+  UKR: ["Zelensky", "Zelenskyy", "Kyiv"],
+  USA: ["Trump", "White House", "Pentagon", "Hegseth"],
+  VEN: ["Maduro", "Machado", "Delcy Rodríguez", "Delcy Rodriguez", "Caracas"],
+};
+
 const COUNTRY_LABEL_OVERRIDES: Readonly<Record<string, string>> = {
   COD: "DR Congo",
   COG: "Republic of the Congo",
@@ -110,6 +129,7 @@ export const COUNTRY_ANCHORS: readonly CountryAnchor[] = (
   const aliases = [
     ...anchor.aliases,
     ...(COMMON_COUNTRY_ALIASES[anchor.featureId] ?? []),
+    ...(LEADER_ALIASES[anchor.featureId] ?? []),
   ];
   return {
     id: `country-${anchor.featureId.toLowerCase()}`,

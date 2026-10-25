@@ -12,6 +12,7 @@ interface PolymarketActivityMarketCandidate {
   volume: number;
   endDate: string | null;
   marketConditionId: string | null;
+  markerKind?: string;
 }
 
 export function isPolymarketActivityEventCurrent(
@@ -23,6 +24,8 @@ export function isPolymarketActivityEventCurrent(
   const endAt = Date.parse(event.endDate ?? "");
   return (
     /^polymarket-\d{1,12}$/.test(event.id) &&
+    // Alerts stay with the conflict markets; the geopolitical signs are map context only.
+    (event.markerKind ?? "conflict") === "conflict" &&
     Number.isFinite(event.volume) &&
     event.volume >= POLYMARKET_ACTIVITY_EVENT_MIN_VOLUME &&
     Number.isFinite(endAt) &&
