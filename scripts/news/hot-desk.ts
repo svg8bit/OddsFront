@@ -6,7 +6,7 @@ import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { spawnSync } from "node:child_process";
 import path from "node:path";
 import { executeSubscriptionWriter, WriterUsageLimitError } from "../../lib/news/writer.ts";
-import { clusterHeadlines, collectHeadlines } from "../../lib/news/hot-desk/headlines.ts";
+import { clusterHeadlines, collectHeadlines, mergeTopicClusters, topicMatcher } from "../../lib/news/hot-desk/headlines.ts";
 import { candidateMarkets, priceHistory, refreshMarket, DEFAULT_MARKET_POLICY } from "../../lib/news/hot-desk/markets.ts";
 import { acceptedPair, acceptedStoryPicks, pairSelectionPrompt, storySelectionPrompt, MIN_HYPE, MIN_PAIR_CONFIDENCE, PAIR_SELECTION_SCHEMA, STORY_SELECTION_SCHEMA } from "../../lib/news/hot-desk/editor.ts";
 import { betKeyboard, hotDeskCaption, HOT_DESK_CHANNELS, type HotDeskLocale } from "../../lib/news/hot-desk/post.ts";
@@ -17,6 +17,8 @@ import { botToken, telegramClient, TelegramRejection } from "../../lib/news/hot-
 
 const mode = process.argv.includes("--send") ? "send" : process.argv.includes("--preview") ? "preview" : "dry-run";
 const force = process.argv.includes("--force");
+// --topic=WORDS: a manual run about one story ("iran,tehran+strike,war,deal"), never scheduled.
+const topic = topicMatcher(process.argv.find(argument => argument.startsWith("--topic="))?.slice("--topic=".length) || "");
 const directory = process.env.ODDSFRONT_NEWS_DIRECTORY || "/root/OddsFront/.local/news";
 const output = path.join(directory, "hot-desk");
 await mkdir(output, { recursive: true, mode: 0o700 });
@@ -33,7 +35,8 @@ const tracked = mode === "send" || watching;
 const stateFile = path.join(output, watching ? "preview-state.json" : "state.json");
 const usageFile = path.join(output, "writer-usage.jsonl");
 const policy = hotDeskPolicy();
-const minHype = Number(process.env.ODDSFRONT_HOT_DESK_MIN_HYPE) || MIN_HYPE;
+// The owner picked a --topic story himself: its newsworthiness bar is lower, the market bar is not.
+const minHype = topic ? Math.min(6, Number(process.env.ODDSFRONT_HOT_DESK_MIN_HYPE) || MIN_HYPE) : Number(process.env.ODDSFRONT_HOT_DESK_MIN_HYPE) || MIN_HYPE;
 const minConfidence = Number(process.env.ODDSFRONT_HOT_DESK_MIN_CONFIDENCE) || MIN_PAIR_CONFIDENCE;
 const windowHours = Number(process.env.ODDSFRONT_HOT_DESK_WINDOW_HOURS) || 8;
 const model = process.env.ODDSFRONT_HOT_DESK_MODEL || "sonnet";
@@ -67,10 +70,14 @@ try {
   const now = Date.now();
   const collection = await collectHeadlines(undefined, now, windowHours * 60 * 60_000);
   if (collection.feeds.filter(feed => feed.status === "ok").length < 5) throw new Error("Too few news feeds are reachable");
-  const clusters = clusterHeadlines(collection.headlines).filter(cluster => !storyAlreadyPosted(state, cluster.fingerprint, policy, now));
-  if (!clusters.length) finish("no-fresh-headlines");
+  let clusters = clusterHeadlines(collection.headlines).filter(cluster => !storyAlreadyPosted(state, cluster.fingerprint, policy, now));
+  if (topic) {
+    const merged = mergeTopicClusters(clusters, topic);
+    clusters = merged ? [merged] : [];
+  }
+  if (!clusters.length) finish(topic ? "no-topic-headlines" : "no-fresh-headlines");
   // An unchanged news cycle was already judged: skip the model call.
-  if (tracked && !force && !needsEvaluation(state, clusters, policy, now)) finish("no-new-developments");
+  if (tracked && !force && !topic && !needsEvaluation(state, clusters, policy, now)) finish("no-new-developments");
 
   const recent = state.posts.filter(post => now - Date.parse(post.at) <= policy.storyMemoryHours * 60 * 60_000).map(post => post.storyTitle);
   const picks = acceptedStoryPicks(await editor(storySelectionPrompt(clusters, recent, now), STORY_SELECTION_SCHEMA), clusters, minHype);
