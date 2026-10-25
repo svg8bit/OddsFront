@@ -5,7 +5,7 @@
 
 .app {
   --bg: #0b0c0f;
-  --surface: rgb(255 255 255 / 0.045);
+  --surface: rgb(255 255 255 / 0.05);
   --surface-strong: rgb(255 255 255 / 0.075);
   --surface-press: rgb(255 255 255 / 0.1);
   --hairline: rgb(255 255 255 / 0.08);
@@ -18,13 +18,16 @@
   --violet-deep: #d9dce1;
   --violet-ink: #e4e6ea;
   --violet-tint: rgb(255 255 255 / 0.1);
-  --yes: #2fbf5b;
-  --yes-ink: #4fd17a;
-  --yes-tint: rgb(47 191 91 / 0.13);
-  --no: #e5484d;
-  --no-ink: #f2707a;
-  --no-tint: rgb(229 72 77 / 0.13);
-  --radius: 22px;
+  /* Calm, deep data colours: readable white text on fills, no neon. */
+  --yes: #1d8a4c;
+  --yes-ink: #57c084;
+  --yes-tint: rgb(29 138 76 / 0.16);
+  --no: #c2413f;
+  --no-ink: #e57b78;
+  --no-tint: rgb(194 65 63 / 0.15);
+  --radius: 20px;
+  --lift: inset 0 0.5px 0 rgb(255 255 255 / 0.07), 0 10px 28px -18px rgb(0 0 0 / 0.9);
+  --panel: linear-gradient(180deg, rgb(255 255 255 / 0.065), rgb(255 255 255 / 0.035));
   --radius-sm: 14px;
   --ease: cubic-bezier(0.32, 0.72, 0, 1);
   --fast: 180ms;
@@ -32,9 +35,9 @@
   min-height: 100dvh;
   background: linear-gradient(180deg, #121317 0%, var(--bg) 320px);
   color: var(--ink);
-  font-family: "Inter", -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
-  font-feature-settings: "tnum" 1, "cv11" 1, "ss01" 1;
-  letter-spacing: -0.006em;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter", "Segoe UI", Roboto, system-ui, sans-serif;
+  font-feature-settings: "tnum" 1;
+  letter-spacing: -0.003em;
   padding: 16px 16px calc(20px + env(safe-area-inset-bottom));
   -webkit-tap-highlight-color: transparent;
   -webkit-font-smoothing: antialiased;
@@ -111,18 +114,18 @@
 }
 
 .brandName {
-  font-size: 22px;
-  font-weight: 800;
-  letter-spacing: -0.03em;
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
 }
 
 .screenTitle,
 .title {
   margin: 0;
-  font-size: 30px;
-  font-weight: 750;
-  letter-spacing: -0.035em;
-  line-height: 1.1;
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: -0.025em;
+  line-height: 1.15;
 }
 
 .screenHint,
@@ -219,7 +222,8 @@
   gap: 12px;
   padding: 14px;
   border-radius: var(--radius);
-  background: var(--surface);
+  background: var(--panel);
+  box-shadow: var(--lift);
   transition: background var(--fast);
 }
 
@@ -277,10 +281,10 @@
 }
 
 .marketQuestion {
-  font-size: 15.5px;
-  font-weight: 620;
-  line-height: 1.3;
-  letter-spacing: -0.012em;
+  font-size: 15px;
+  font-weight: 590;
+  line-height: 1.32;
+  letter-spacing: -0.008em;
   display: -webkit-box;
   -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
@@ -296,9 +300,9 @@
 }
 
 .marketChance strong {
-  font-size: 24px;
-  font-weight: 760;
-  letter-spacing: -0.035em;
+  font-size: 21px;
+  font-weight: 650;
+  letter-spacing: -0.02em;
 }
 
 .chanceLabel {
@@ -335,15 +339,15 @@
   gap: 6px;
   border: 0;
   border-radius: 13px;
-  padding: 11px 14px;
+  padding: 10px 14px;
   font-size: 14px;
-  font-weight: 600;
+  font-weight: 560;
   transition: transform var(--fast) var(--ease), background var(--fast);
 }
 
 .quickYes b,
 .quickNo b {
-  font-weight: 750;
+  font-weight: 650;
 }
 
 .quickYes {
@@ -417,10 +421,10 @@
 
 .sheetQuestion {
   margin: 0;
-  font-size: 20px;
-  font-weight: 720;
-  line-height: 1.24;
-  letter-spacing: -0.025em;
+  font-size: 18px;
+  font-weight: 650;
+  line-height: 1.28;
+  letter-spacing: -0.015em;
 }
 
 .sourceLink {
@@ -429,11 +433,21 @@
   gap: 3px;
   align-self: flex-start;
   border: 0;
-  padding: 2px 0;
+  padding: 1px 0;
   background: transparent;
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--violet-ink);
+  font-size: 12.5px;
+  font-weight: 560;
+  color: var(--soft);
+}
+
+.sourceLink:disabled {
+  cursor: default;
+}
+
+.sourceMeta {
+  margin-left: 4px;
+  font-weight: 450;
+  color: var(--muted);
 }
 
 /* The chart card takes the free height between the market and the dock (big on a full screen,
@@ -447,7 +461,8 @@
   max-height: 340px;
   padding: 14px 16px 10px;
   border-radius: var(--radius);
-  background: var(--surface);
+  background: var(--panel);
+  box-shadow: var(--lift);
   overflow: hidden;
 }
 
@@ -462,9 +477,9 @@
   display: inline-flex;
   align-items: baseline;
   gap: 8px;
-  font-size: 30px;
-  font-weight: 780;
-  letter-spacing: -0.04em;
+  font-size: 28px;
+  font-weight: 680;
+  letter-spacing: -0.03em;
 }
 
 .chanceValue small {
@@ -481,10 +496,10 @@
 
 .pillUp,
 .pillDown {
-  padding: 5px 10px;
+  padding: 4px 9px;
   border-radius: 999px;
-  font-size: 12.5px;
-  font-weight: 650;
+  font-size: 12px;
+  font-weight: 560;
   white-space: nowrap;
 }
 
@@ -525,10 +540,11 @@
   flex-direction: column;
   align-items: center;
   gap: 1px;
-  padding: 14px 8px 12px;
+  padding: 12px 8px 11px;
   border: 0;
   border-radius: 18px;
-  background: var(--surface);
+  background: var(--panel);
+  box-shadow: var(--lift);
   transition: background 240ms var(--ease), transform var(--fast) var(--ease), box-shadow 240ms var(--ease);
 }
 
@@ -540,16 +556,18 @@
 }
 
 .sideYesActive {
-  background: var(--yes);
+  background: linear-gradient(180deg, #1f9353, #187b44);
+  box-shadow: inset 0 0.5px 0 rgb(255 255 255 / 0.18), 0 12px 26px -16px rgb(24 123 68 / 0.75);
 }
 
 .sideNoActive {
-  background: var(--no);
+  background: linear-gradient(180deg, #c94a47, #ab3735);
+  box-shadow: inset 0 0.5px 0 rgb(255 255 255 / 0.18), 0 12px 26px -16px rgb(171 55 53 / 0.75);
 }
 
 .sideLabel {
-  font-size: 14px;
-  font-weight: 650;
+  font-size: 13.5px;
+  font-weight: 590;
 }
 
 .sideYes .sideLabel {
@@ -561,9 +579,9 @@
 }
 
 .sideChance {
-  font-size: 26px;
-  font-weight: 780;
-  letter-spacing: -0.04em;
+  font-size: 23px;
+  font-weight: 680;
+  letter-spacing: -0.025em;
 }
 
 .sideOdds {
@@ -582,7 +600,8 @@
   gap: 8px;
   padding: 8px;
   border-radius: var(--radius);
-  background: var(--surface);
+  background: var(--panel);
+  box-shadow: var(--lift);
 }
 
 .amountField {
@@ -593,9 +612,9 @@
   padding: 0 14px;
   border-radius: var(--radius-sm);
   background: var(--surface-strong);
-  font-size: 22px;
-  font-weight: 750;
-  letter-spacing: -0.03em;
+  font-size: 20px;
+  font-weight: 640;
+  letter-spacing: -0.02em;
 }
 
 .amountField span {
@@ -632,7 +651,7 @@
   background: transparent;
   padding: 10px 2px;
   font-size: 14px;
-  font-weight: 620;
+  font-weight: 560;
   color: var(--soft);
   min-width: 0;
   transition: background var(--fast), color var(--fast);
@@ -663,9 +682,9 @@
 
 .summary strong {
   color: var(--ink);
-  font-size: 19px;
-  font-weight: 760;
-  letter-spacing: -0.02em;
+  font-size: 17px;
+  font-weight: 650;
+  letter-spacing: -0.01em;
 }
 
 /* ---------- Buttons ---------- */
@@ -679,45 +698,69 @@
   justify-content: center;
   gap: 8px;
   width: 100%;
-  min-height: 54px;
+  min-height: 52px;
   border: 0;
-  border-radius: 16px;
-  padding: 13px 18px;
-  font-size: 16.5px;
-  font-weight: 680;
-  letter-spacing: -0.01em;
+  border-radius: 15px;
+  padding: 11px 18px;
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: -0.005em;
   text-decoration: none;
   text-align: center;
   transition: transform var(--fast) var(--ease), opacity var(--fast), filter var(--fast);
 }
 
 .primary {
-  background: #f2f3f5;
+  background: linear-gradient(180deg, #ffffff, #e6e8ec);
   color: #0b0c0f;
+  box-shadow: inset 0 -0.5px 0 rgb(0 0 0 / 0.08), 0 12px 26px -18px rgb(255 255 255 / 0.5);
 }
 
 .primaryYes {
-  background: var(--yes);
+  background: linear-gradient(180deg, #1f9353, #187b44);
   color: #fff;
+  box-shadow: inset 0 0.5px 0 rgb(255 255 255 / 0.18), 0 14px 28px -18px rgb(24 123 68 / 0.75);
 }
 
 .primaryNo {
-  background: var(--no);
+  background: linear-gradient(180deg, #c94a47, #ab3735);
   color: #fff;
+  box-shadow: inset 0 0.5px 0 rgb(255 255 255 / 0.18), 0 14px 28px -18px rgb(171 55 53 / 0.75);
+}
+
+/* A failed attempt shows its reason inside the button; the next tap retries. */
+.primaryError {
+  background: rgb(194 65 63 / 0.16);
+  color: var(--no-ink);
+}
+
+.buttonRow {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
 }
 
 .primary,
 .primaryYes,
-.primaryNo {
+.primaryNo,
+.primaryError {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   flex-direction: column;
-  gap: 2px;
+  gap: 1px;
+  width: 100%;
+  min-height: 52px;
+  border: 0;
+  border-radius: 15px;
+  padding: 9px 18px;
+  font-size: 16px;
+  font-weight: 600;
 }
 
-.primary:has(.spinnerLight),
-.primaryYes:has(.spinnerLight),
-.primaryNo:has(.spinnerLight) {
-  flex-direction: row;
-  gap: 10px;
+.primary .spinnerLight {
+  border-color: rgb(0 0 0 / 0.18);
+  border-top-color: #0b0c0f;
 }
 
 .primary:active,
@@ -737,14 +780,15 @@
 
 .primaryNote {
   font-size: 12px;
-  font-weight: 500;
-  opacity: 0.85;
+  font-weight: 480;
+  opacity: 0.72;
 }
 
 .secondary {
-  background: var(--surface-strong);
+  background: var(--panel);
+  box-shadow: var(--lift);
   color: var(--ink);
-  font-weight: 620;
+  font-weight: 560;
 }
 
 .linkButton {
@@ -1085,9 +1129,9 @@
 
 .successTitle {
   margin: 0;
-  font-size: 28px;
-  font-weight: 780;
-  letter-spacing: -0.035em;
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: -0.025em;
 }
 
 .receiptQuestion {
@@ -1253,9 +1297,9 @@
 }
 
 .walletBalance {
-  font-size: 44px;
-  font-weight: 800;
-  letter-spacing: -0.045em;
+  font-size: 40px;
+  font-weight: 680;
+  letter-spacing: -0.03em;
 }
 
 .walletHint {
@@ -1276,7 +1320,8 @@
   display: flex;
   flex-direction: column;
   border-radius: var(--radius);
-  background: var(--surface);
+  background: var(--panel);
+  box-shadow: var(--lift);
   overflow: hidden;
 }
 
@@ -1314,8 +1359,8 @@
 }
 
 .listValue {
-  font-size: 15.5px;
-  font-weight: 600;
+  font-size: 15px;
+  font-weight: 560;
 }
 
 .listIcon {

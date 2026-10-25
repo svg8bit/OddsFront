@@ -8,7 +8,7 @@ import { MIN_BET_USD } from "@/lib/telegram-app/client/trader";
 import { haptic, telegramWebApp } from "@/lib/telegram-app/client/webapp";
 import { buildPolymarketEventUrl } from "@/lib/polymarket-links";
 import { localizeError, type MiniAppCopy } from "./copy";
-import { floorUsd, formatChance, formatMove, formatOdds, formatUsd } from "./format";
+import { floorUsd, formatChance, formatEndDate, formatMove, formatOdds, formatUsd } from "./format";
 import { MarketImage } from "./MarketsTab";
 import { readJson, useMiniApp } from "./Provider";
 import styles from "./mini-app.module.css";
@@ -33,7 +33,7 @@ export function marketQuestion(market: Pick<BinaryMarket, "question" | "question
   return copy.lang === "ru" && market.questionRu ? market.questionRu : market.question;
 }
 
-/** The Yes chance over 7 days as a soft area chart (no axes: the number above tells the level). */
+/** The Yes chance over the market's life as a soft area chart (no axes: the number above tells the level). */
 function ChanceChart({ token, up }: { token: string; up: boolean | null }) {
   const [points, setPoints] = useState<number[] | null>(null);
   useEffect(() => {
@@ -54,7 +54,7 @@ function ChanceChart({ token, up }: { token: string; up: boolean | null }) {
   const x = (index: number) => (index / (points.length - 1)) * width;
   const y = (value: number) => height - 6 - ((value - min) / span) * (height - 12);
   const line = points.map((value, index) => `${index ? "L" : "M"}${x(index).toFixed(1)},${y(value).toFixed(1)}`).join(" ");
-  const tone = up === false ? "#ef5350" : up ? "#2fbf5b" : "#c9ced6";
+  const tone = up === false ? "#d4625f" : up ? "#3fae6c" : "#c9ced6";
   return (
     <svg className={styles.chart} viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none" aria-hidden>
       <defs>
@@ -85,6 +85,7 @@ export function BetSheet({ market }: { market: BinaryMarket }) {
   const polymarketUrl = buildPolymarketEventUrl(market.eventSlug || market.slug);
   const cost = betCost(amount);
   const shortfall = balance === null ? null : Math.max(0, Math.round((cost - balance) * 100) / 100);
+  const end = formatEndDate(market.endDate, copy.lang);
 
   const placeBet = useCallback(async () => {
     setError("");
@@ -143,12 +144,11 @@ export function BetSheet({ market }: { market: BinaryMarket }) {
       <header className={styles.sheetHead}>
         <MarketImage src={market.image} size={52} />
         <div className={styles.sheetHeadText}>
+          {/* The source line is the Polymarket link (our referral code), as on the map. */}
+          <button type="button" className={styles.sourceLink} disabled={!polymarketUrl} onClick={() => { if (polymarketUrl) { haptic("select"); app.openLink(polymarketUrl); } }}>
+            Polymarket{polymarketUrl ? <ArrowUpRight size={13} aria-hidden /> : null}{end ? <span className={styles.sourceMeta}>· {copy.endsBy(end)}</span> : null}
+          </button>
           <h1 className={styles.sheetQuestion}>{marketQuestion(market, copy)}</h1>
-          {polymarketUrl ? (
-            <button type="button" className={styles.sourceLink} onClick={() => { haptic("select"); app.openLink(polymarketUrl); }}>
-              {copy.openOnPolymarket}<ArrowUpRight size={14} aria-hidden />
-            </button>
-          ) : null}
         </div>
       </header>
 
@@ -199,12 +199,18 @@ export function BetSheet({ market }: { market: BinaryMarket }) {
               </div>
             </div>
 
-            <button type="button" className={action.tone === "yes" ? styles.primaryYes : action.tone === "no" ? styles.primaryNo : styles.primary}
-              disabled={Boolean(busy) || action.disabled || !config || amount <= 0 || (action.tone !== "brand" && !price)} onClick={action.run}>
-              {busy ? <><span className={styles.spinnerLight} />{busyLabel}</> : action.label}
+            {/* Everything the player needs to know lives inside the one button: the step, the shortfall, an error. */}
+            <button type="button" className={error ? styles.primaryError : action.tone === "yes" ? styles.primaryYes : action.tone === "no" ? styles.primaryNo : styles.primary}
+              disabled={Boolean(busy) || action.disabled || !config || amount <= 0 || (action.tone !== "brand" && !price)} onClick={() => { setError(""); action.run(); }}>
+              {busy ? <span className={styles.buttonRow}><span className={styles.spinnerLight} />{busyLabel}</span> : (
+                <>
+                  <span>{action.label}</span>
+                  {error ? <span className={styles.primaryNote} role="alert">{error}</span>
+                    : hasAccount && shortfall !== null && shortfall > 0.0001 ? <span className={styles.primaryNote}>{copy.needMore(formatUsd(shortfall))}</span>
+                      : null}
+                </>
+              )}
             </button>
-            {hasAccount && shortfall !== null && shortfall > 0.0001 && !busy ? <p className={styles.hint}>{copy.needMore(formatUsd(shortfall))} · {copy.balance} {floorUsd(balance ?? 0)}</p> : null}
-            {error ? <p className={styles.error} role="alert">{error}</p> : null}
           </>
         ) : (
           <p className={styles.notice}>{copy.closed}</p>
