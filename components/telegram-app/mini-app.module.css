@@ -461,7 +461,7 @@
   flex: 1 1 auto;
   gap: 6px;
   min-height: 104px;
-  max-height: 300px;
+  max-height: 196px;
   padding: 11px 13px 8px;
   border-radius: var(--radius);
   background: var(--panel);
