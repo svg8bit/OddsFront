@@ -2,6 +2,9 @@
 // searches, as liquid binary markets with their current Yes chance. The writer
 // may cite one of them; numbers are always taken from here, never invented.
 import { DEFAULT_MARKET_POLICY, marketsById, normalizeMarket, searchMarkets, type GammaEvent, type GammaMarket, type HotDeskMarket, type MarketPolicy } from "../hot-desk/markets.ts";
+import { headlineTokens, similarTokens } from "../hot-desk/headlines.ts";
+import { sameMarketTheme } from "../hot-desk/state.ts";
+import type { ArticleMarket } from "../types.ts";
 
 export type StoryMarket = HotDeskMarket & { queries: string[] };
 
@@ -46,4 +49,28 @@ export function marketBrief(market: StoryMarket) {
     volumeUsd: Math.round(market.volume),
     endDate: market.endDate.slice(0, 10),
   };
+}
+
+/**
+ * The markets an article shows beside it: the one the writer cited (it asks about exactly this
+ * development), then search hits (already found by the story's own queries) whose question shares at
+ * least two word stems with the story. A hit that only shares a country never qualifies, so an article
+ * without a real market shows none.
+ */
+export function articleMarkets(markets: readonly StoryMarket[], citedId: string | null, story: { title: string; development: string; topics: readonly string[] }, limit = 3): ArticleMarket[] {
+  const storyTokens = [...new Set([...headlineTokens(story.title), ...headlineTokens(story.development), ...story.topics.flatMap(topic => headlineTokens(topic))])];
+  const cited = citedId ? markets.find(market => market.id === citedId) : undefined;
+  const shared = (market: StoryMarket) => headlineTokens(`${market.question} ${market.eventTitle}`).filter(token => storyTokens.some(other => similarTokens(token, other))).length;
+  const related = markets.filter(market => market.id !== citedId && shared(market) >= 2)
+    .toSorted((a, b) => b.queries.length - a.queries.length || b.volume - a.volume);
+  // One market per theme: "ceasefire by October 31" and "ceasefire by December 31" are one card.
+  const chosen: StoryMarket[] = [];
+  for (const market of [...(cited ? [cited] : []), ...related]) {
+    if (chosen.length < limit && !chosen.some(other => sameMarketTheme(other.question, market.question))) chosen.push(market);
+  }
+  return chosen.map(market => ({
+    id: market.id, question: market.question, eventTitle: market.eventTitle !== market.question ? market.eventTitle : undefined, eventSlug: market.eventSlug,
+    conditionId: market.conditionId, yesTokenId: market.yesTokenId, image: market.image, chance: market.chance, weekChange: market.weekChange,
+    volume: Math.round(market.volume), endDate: market.endDate,
+  }));
 }

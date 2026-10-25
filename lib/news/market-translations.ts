@@ -37,6 +37,21 @@ export function collectMapStrings(payload: unknown): string[] {
   return [...strings];
 }
 
+/** The English strings beside site articles: their markets' questions and event titles. */
+export function collectArticleMarketStrings(payload: unknown): string[] {
+  const articles = payload && typeof payload === "object" && Array.isArray((payload as { articles?: unknown }).articles) ? (payload as { articles: unknown[] }).articles : [];
+  const strings = new Set<string>();
+  for (const article of articles) {
+    const markets = article && typeof article === "object" && Array.isArray((article as { markets?: unknown }).markets) ? (article as { markets: unknown[] }).markets : [];
+    for (const market of markets) {
+      if (!market || typeof market !== "object") continue;
+      const { question, eventTitle } = market as { question?: unknown; eventTitle?: unknown };
+      for (const text of [question, eventTitle]) if (typeof text === "string" && text.trim().length >= 4 && text.length <= 300 && !CYRILLIC.test(text)) strings.add(text.trim());
+    }
+  }
+  return [...strings];
+}
+
 /** Questions the hot desk already put into Russian for its posts: free translations. */
 export function mergeHotDeskPairs(ru: Record<string, string>, drafts: readonly unknown[]): Record<string, string> {
   const next = { ...ru };

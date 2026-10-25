@@ -85,6 +85,11 @@ export function marketTheme(question: string) {
   return headlineTokens(question).filter(token => !DEADLINE_WORDS.has(token) && !/^\d/.test(token));
 }
 
+/** Two market questions on one theme once their deadlines are ignored. */
+export function sameMarketTheme(left: string, right: string) {
+  return sameTheme(marketTheme(left), marketTheme(right));
+}
+
 function sameTheme(left: readonly string[], right: readonly string[]) {
   const shared = left.filter(token => right.some(other => similarTokens(token, other))).length;
   return shared >= 2 && shared / Math.max(1, Math.min(left.length, right.length)) >= 0.75;

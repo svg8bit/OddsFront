@@ -7,11 +7,11 @@ import { useLocale } from "@/components/locale-provider";
 import { SiteNavigation } from "@/components/site-navigation";
 import { TelegramChannelLink } from "@/components/telegram-channel";
 import { articleText } from "@/lib/news/locale";
-import type { NewsArticle } from "@/lib/news/types";
+import type { ArticleMarket, NewsArticle } from "@/lib/news/types";
 import type { ConflictPreviewEvent, ConflictPreviewFeed } from "@/features/global-conflict-map/preview/types";
 import { useLiveConflictFeed } from "@/features/global-conflict-map/preview/use-live-conflict-feed";
 import { relatedMarkets } from "@/lib/news/related-markets";
-import { buildDropsBotTrackUrl, toPolymarketReferralUrl } from "@/lib/polymarket-links";
+import { buildDropsBotTrackUrl, buildPolymarketEventUrl, toPolymarketReferralUrl } from "@/lib/polymarket-links";
 import { CountryFlag } from "@/features/global-conflict-map/preview/country-flag";
 import { availableNewsArticlePath, newsArchivePath, newsArticlePath, newsPath, newsTopicPath } from "@/lib/news/routing";
 import { NEWS_CATEGORIES, articleCategory, categoryLabel, allNewsLabel, newsCategoriesLabel, type NewsCategory } from "@/lib/news/categories";
@@ -136,9 +136,30 @@ function LiveMarketCard({ event, fresh, history = [] }: { event: ConflictPreview
   return <article className={styles.marketCard} data-testid="news-related-market"><div className={styles.marketKicker}><span className={fresh?styles.liveDot:undefined}/>{t(fresh?"live":"updated")}<span>{event.countryCodes.slice(0,3).map(code=><CountryFlag key={code} code={code}/>)}</span></div><div className={styles.marketHeadline}>{event.imageUrl?<span className={styles.marketImage} aria-hidden="true"><Image src={`/api/market-image/${encodeURIComponent(event.id)}`} alt="" width={42} height={42} loading="lazy" onError={image=>{image.currentTarget.parentElement?.setAttribute("hidden","");}} data-market-image/></span>:null}<h3>{translate(event.title)}</h3></div><div className={styles.marketMetrics} dir="ltr"><div className={styles.currentProbability}><span>{t("yes")}</span><strong>{event.yesOdds}%</strong></div><div className={styles.marketTrend}><div><span>MAX</span>{weekly===null?null:<strong data-direction={weekly>=0?"up":"down"}>{weekly>=0?"+":""}{weekly.toFixed(1)}% <small>7D</small></strong>}</div><ProbabilitySparkline points={history} title={translate(event.title)}/></div></div><div className={styles.marketVolume}>{t("volume")} <b dir="ltr">{new Intl.NumberFormat(locale,{style:"currency",currency:"USD",notation:"compact",maximumFractionDigits:1}).format(event.marketVolume??event.volume)}</b></div><div className={styles.marketActions}>{track?<a href={track} target="_blank" rel="noreferrer"><Send size={14} aria-hidden="true"/>{t("track")}</a>:null}{market?<a href={market} target="_blank" rel="noreferrer">{t("market")}<ArrowUpRight size={14}/></a>:null}</div></article>;
 }
 
+const chanceText = (chance: number) => { const percent = chance * 100; return `${percent > 0 && percent < 9.95 ? percent.toFixed(1) : Math.round(percent)}%`; };
+
+/** A market found for the article's own story: live chance, all-time line and a one-tap bet in Telegram. */
+function StoryMarketCard({ market }: { market: ArticleMarket }) {
+  const { t, translate, locale } = useLocale();
+  const [live, setLive] = useState<{ chance: number; change7d: number | null; volume: number } | null>(null);
+  const [history, setHistory] = useState<HistoryPoint[]>([]);
+  useEffect(() => {
+    const controller = new AbortController();
+    fetch(`/api/tg/market?id=${encodeURIComponent(market.id)}`, { signal: controller.signal }).then(response => response.ok ? response.json() : null)
+      .then(data => { const value = data?.market; if (value?.yes && !controller.signal.aborted) setLive({ chance: value.yes.price, change7d: value.change7d ?? null, volume: value.volume }); }).catch(() => {});
+    if (market.yesTokenId) fetch(`/api/tg/history?token=${encodeURIComponent(market.yesTokenId)}`, { signal: controller.signal }).then(response => response.ok ? response.json() : null)
+      .then(data => { if (Array.isArray(data?.points) && !controller.signal.aborted) setHistory((data.points as number[]).map((p, index) => ({ t: index, p }))); }).catch(() => {});
+    return () => controller.abort();
+  }, [market.id, market.yesTokenId]);
+  const weekly = live ? live.change7d : market.weekChange ?? null;
+  const url = buildPolymarketEventUrl(market.eventSlug);
+  const title = translate(market.question);
+  return <article className={styles.marketCard} data-testid="news-story-market"><div className={styles.marketKicker}><span className={live?styles.liveDot:undefined}/>{t(live?"live":"updated")}</div><div className={styles.marketHeadline}><h3>{title}</h3></div><div className={styles.marketMetrics} dir="ltr"><div className={styles.currentProbability}><span>{t("yes")}</span><strong>{chanceText(live?.chance ?? market.chance)}</strong></div><div className={styles.marketTrend}><div><span>MAX</span>{weekly===null||weekly===undefined?null:<strong data-direction={weekly>=0?"up":"down"}>{weekly>=0?"+":""}{(weekly*100).toFixed(1)}% <small>7D</small></strong>}</div><ProbabilitySparkline points={history} title={title}/></div></div><div className={styles.marketVolume}>{t("volume")} <b dir="ltr">{new Intl.NumberFormat(locale,{style:"currency",currency:"USD",notation:"compact",maximumFractionDigits:1}).format(live?.volume ?? market.volume)}</b></div><div className={styles.marketActions}><a href={`https://t.me/OddsFrontBot?startapp=m${market.id}_0&mode=compact`} target="_blank" rel="noopener"><Send size={14} aria-hidden="true"/>{t("betTelegram")}</a>{url?<a href={url} target="_blank" rel="noreferrer">{t("market")}<ArrowUpRight size={14}/></a>:null}</div></article>;
+}
+
 export function NewsArticleView({ article, initialFeed }: { article: NewsArticle; initialFeed: ConflictPreviewFeed }) {
   useArticleReadership(article.slug);
-  const { locale,t }=useLocale(); const text=articleText(article,locale); const feed=useLiveConflictFeed(initialFeed,false); const events=relatedMarkets(article,feed.events);
+  const { locale,t }=useLocale(); const text=articleText(article,locale); const feed=useLiveConflictFeed(initialFeed,false); const ownMarkets=article.markets??[]; const events=ownMarkets.length?[]:relatedMarkets(article,feed.events);
   const [histories,setHistories]=useState<Record<string,HistoryPoint[]>>({});
   const eventIds=events.map(event=>event.id).join(",");
   useEffect(()=>{if(!eventIds)return;const controller=new AbortController();fetch(`/api/market-history?eventIds=${encodeURIComponent(eventIds)}`,{signal:controller.signal}).then(response=>response.ok?response.json():null).then(data=>{if(data?.histories&&!controller.signal.aborted)setHistories(Object.fromEntries(Object.entries(data.histories).map(([id,value])=>[id,Array.isArray((value as {points?:unknown}).points)?(value as {points:HistoryPoint[]}).points:[]])));}).catch(()=>{});return()=>controller.abort();},[eventIds]);
@@ -153,5 +174,5 @@ export function NewsArticleView({ article, initialFeed }: { article: NewsArticle
     <StoryArt key={article.slug} article={article} featured headingLevel="h1"/>
     <div className={styles.articleLead}><p>{text.description}</p><div className={styles.byline}><strong>{article.author}</strong><time dateTime={article.publishedAt}>{new Intl.DateTimeFormat(locale,{dateStyle:"medium",timeStyle:"short"}).format(new Date(article.publishedAt))}</time></div>{translated?<p className={styles.translationNote}>{text.editorReviewed?null:<>{t("translated")} · </>}<a href={newsArticlePath(article,"en")} hrefLang="en">{t("original")}</a></p>:null}</div>
     <div className={styles.prose}>{text.body.map((block,index)=>block.type==="heading"?<h2 key={index}>{block.text}</h2>:<p key={index}>{block.text}</p>)}</div>
-    </article><aside className={styles.marketRail} aria-label={t("related")}><span className={styles.eyebrow}>{t("related")}</span>{events.length?events.map(event=><LiveMarketCard key={event.id} event={event} fresh={fresh} history={histories[event.id]}/>):showUnavailable?<div className={styles.empty}>{t("unavailable")}<Link href="/" prefetch={false}>{t("browseMap")}<ArrowUpRight size={14}/></Link></div>:null}</aside></div></NewsChrome>;
+    </article><aside className={styles.marketRail} aria-label={t("related")}><span className={styles.eyebrow}>{t("related")}</span>{ownMarkets.length?ownMarkets.map(market=><StoryMarketCard key={market.id} market={market}/>):events.length?events.map(event=><LiveMarketCard key={event.id} event={event} fresh={fresh} history={histories[event.id]}/>):showUnavailable?<div className={styles.empty}>{t("unavailable")}<Link href="/" prefetch={false}>{t("browseMap")}<ArrowUpRight size={14}/></Link></div>:null}</aside></div></NewsChrome>;
 }
