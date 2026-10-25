@@ -77,7 +77,8 @@ export function normalizeMarket(raw: GammaMarket, event: GammaEvent | null, poli
   if (!Number.isFinite(endDate) || (endDate > now && endDate - now < policy.minHoursToEnd * 60 * 60_000)) return null;
   const volume = number(raw.volumeNum) ?? number(raw.volume) ?? 0;
   const liquidity = number(raw.liquidityNum);
-  if (volume < policy.minVolume && (liquidity ?? 0) < policy.minLiquidity) return null;
+  // Both, not either: a post's buttons must lead to a book people actually trade.
+  if (volume < policy.minVolume || (liquidity ?? 0) < policy.minLiquidity) return null;
   const ask = number(raw.bestAsk);
   const spread = number(raw.spread);
   const bid = number(raw.bestBid) ?? (ask !== null && spread !== null ? Math.round((ask - spread) * 10_000) / 10_000 : null);

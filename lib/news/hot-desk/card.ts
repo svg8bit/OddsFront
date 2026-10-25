@@ -3,7 +3,7 @@ import path from "node:path";
 import sharp from "sharp";
 import type { Page } from "@playwright/test";
 import type { HotDeskMarket, PricePoint } from "./markets.ts";
-import { captureMapShot, mapCardHtml, MAP_SCALE, MAP_VIEWPORT, type MapFocus } from "./map-card.ts";
+import { captureMapShot, mapCardHtml, MAP_SCALE, MAP_VIEWPORT, type MapFocus, type MarketPlaque } from "./map-card.ts";
 import { categoryLabel, escapeHtml, formatChange, formatPercent, type HotDeskCopy, type HotDeskLocale } from "./post.ts";
 
 export const CARD_WIDTH = 1280;
@@ -150,6 +150,30 @@ async function fitHeadline(page: Page, from: number, to: number) {
 }
 
 export type PostCardInput = CardInput & { focus: MapFocus | null };
+
+function compactUsd(value: number) {
+  if (value >= 1_000_000) return `$${(Math.round(value / 100_000) / 10).toString()}M`;
+  if (value >= 1_000) return `$${(Math.round(value / 100) / 10).toString()}K`;
+  return `$${Math.round(value)}`;
+}
+
+/** The post's own market as the map-style plaque: same question and numbers as the caption. */
+export function marketPlaque({ locale, copy, market, thumbnail }: CardInput): MarketPlaque {
+  const ru = locale === "ru";
+  const move = oddsMove(market, locale);
+  return {
+    label: "Polymarket",
+    question: ru ? copy.marketQuestionRu : market.question,
+    yesLabel: ru ? "ДА" : "YES",
+    noLabel: ru ? "НЕТ" : "NO",
+    yes: formatPercent(market.chance, locale),
+    no: formatPercent(1 - market.chance, locale),
+    change: move.change,
+    up: move.up,
+    volume: ru ? `Объём ${compactUsd(market.volume)}` : `${compactUsd(market.volume)} Vol`,
+    thumbnail,
+  };
+}
 export type PostCard = { png: Buffer; style: "map" | "classic"; mapFocus: MapFocus["kind"] | null; popupOpen: boolean; fallbackReason: string | null };
 
 /**
@@ -184,7 +208,7 @@ export async function renderCards(inputs: readonly PostCardInput[], root = proce
           const key = JSON.stringify(input.focus);
           const map = shots.get(key) ?? await captureMapShot(browser, input.focus, siteUrl);
           shots.set(key, map);
-          const html = mapCardHtml({ locale: input.locale, title: input.locale === "ru" ? input.copy.cardTitleRu : input.copy.cardTitleEn, map }, fonts);
+          const html = mapCardHtml({ locale: input.locale, title: input.locale === "ru" ? input.copy.cardTitleRu : input.copy.cardTitleEn, map, plaque: marketPlaque(input) }, fonts);
           cards.push({ png: await compose(html, MAP_VIEWPORT.width, MAP_VIEWPORT.height, MAP_SCALE, [62, 40]), style: "map", mapFocus: input.focus.kind, popupOpen: map.popupOpen, fallbackReason: null });
           continue;
         } catch (error) {

@@ -1,7 +1,9 @@
 "use client";
 
+import { ArrowUp } from "lucide-react";
 import Script from "next/script";
-import { Component, useState, type ReactNode } from "react";
+import { Component, useEffect, useState, type ReactNode } from "react";
+import { haptic } from "@/lib/telegram-app/client/webapp";
 import { ODDSFRONT_MINI_APP_BOT_USERNAME } from "@/lib/telegram-app/init-data";
 import { BetSheet, SuccessScreen } from "./BetSheet";
 import { ConnectScreen, FundingScreen, KeyScreen } from "./FundingScreen";
@@ -89,6 +91,23 @@ function MarketGone({ message }: { message: string }) {
   );
 }
 
+/** A small "back to top" button once a list has scrolled a screen down. */
+function ScrollTop() {
+  const { copy } = useMiniApp();
+  const [visible, setVisible] = useState(false);
+  useEffect(() => {
+    const update = () => setVisible(window.scrollY > Math.max(480, window.innerHeight * 0.8));
+    window.addEventListener("scroll", update, { passive: true });
+    return () => window.removeEventListener("scroll", update);
+  }, []);
+  if (!visible) return null;
+  return (
+    <button type="button" className={styles.scrollTop} aria-label={copy.toTop} onClick={() => { haptic("select"); window.scrollTo({ top: 0, behavior: "smooth" }); }}>
+      <ArrowUp size={18} strokeWidth={2.2} aria-hidden />
+    </button>
+  );
+}
+
 function MiniAppShell() {
   const { phase, copy, view, tab, market, marketError, tabBarVisible, toast } = useMiniApp();
   return (
@@ -113,6 +132,7 @@ function MiniAppShell() {
       {phase === "ready" && view === "key" ? <KeyScreen /> : null}
       {phase === "ready" && view === "connect" ? <ConnectScreen /> : null}
 
+      {phase === "ready" && view === "" ? <ScrollTop /> : null}
       {tabBarVisible ? <TabBar /> : null}
       {toast ? <div className={styles.toast} role="status">{toast}</div> : null}
     </main>
