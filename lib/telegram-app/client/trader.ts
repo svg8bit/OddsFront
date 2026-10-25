@@ -9,7 +9,7 @@ import { POLYMARKET_CONTRACTS } from "../contracts.ts";
 import { browserPolygonRpcUrl, polygon, polygonRpcUrls, polygonTransport } from "../polygon.ts";
 import type { DeviceKey } from "./device-key.ts";
 import { walletActionFailure } from "./errors.ts";
-import { createOddsFrontSecureClient, fetchSpotTradingApprovals, parseClobCredentials, setupSpotTradingApprovals } from "./polymarket.ts";
+import { createOddsFrontSecureClient, fetchSpotTradingApprovals, parseClobCredentials, setupSpotTradingApprovals, type ClobCredentials } from "./polymarket.ts";
 
 /**
  * Trading for the Telegram account. The owner key sits on the phone, so every signature (wallet
@@ -74,6 +74,8 @@ export class TelegramTrader {
   private readonly key: DeviceKey;
   private readonly config: MiniAppConfig;
   private client: { value: SecureClient; at: number } | null = null;
+  // The market login is kept in memory only: the phone's key re-derives it on the next app open.
+  private credentials: ClobCredentials | null = null;
   private readonly rpcUrl = browserPolygonRpcUrl();
 
   constructor(key: DeviceKey, depositWallet: string, config: MiniAppConfig) {
@@ -92,14 +94,13 @@ export class TelegramTrader {
     const value = await createOddsFrontSecureClient({
       walletClient: this.walletClient(),
       wallet: this.depositWallet,
-      credentials: parseClobCredentials(readStored(storageKey("clob", this.depositWallet))),
+      credentials: this.credentials,
       rpcUrl: this.rpcUrl,
     });
     if (value.account.wallet.toLowerCase() !== this.depositWallet.toLowerCase()) {
       throw new Error("The trading service authenticated a different wallet.");
     }
-    const credentials = parseClobCredentials(value.credentials);
-    if (credentials) writeStored(storageKey("clob", this.depositWallet), credentials);
+    this.credentials = parseClobCredentials(value.credentials);
     this.client = { value, at: Date.now() };
     return value;
   }
