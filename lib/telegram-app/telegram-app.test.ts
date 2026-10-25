@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { createHmac, generateKeyPairSync, sign } from "node:crypto";
 import { describe, it } from "node:test";
+import { botReply } from "./bot-replies.ts";
 import { parseBuilderSigningPayload, relayerSubmissionBelongsTo } from "./builder-signing.ts";
 import { miniAppConfig, restrictedRegion } from "./config.ts";
 import { deriveBeaconDepositWalletAddress, deriveLegacyDepositWalletAddress } from "./deposit-wallet.ts";
@@ -31,16 +32,16 @@ describe("Telegram initData", () => {
   const fields = { auth_date: String(NOW - 30), query_id: "AAE", start_param: "m601826_0", user: USER };
 
   it("accepts Telegram's Ed25519 signature for the OddsFront bot with no secret", () => {
-    const { initData, publicKeyHex } = ed25519InitData("8783764515", fields);
-    const login = verifyInitData(initData, { botId: "8783764515", botToken: "", publicKeyHex }, NOW);
+    const { initData, publicKeyHex } = ed25519InitData("8924256010", fields);
+    const login = verifyInitData(initData, { botId: "8924256010", botToken: "", publicKeyHex }, NOW);
     assert.equal(login?.userId, "753260973");
     assert.equal(login?.startParam, "m601826_0");
     assert.equal(login?.languageCode, "ru");
   });
 
   it("rejects forged, other-bot and stale data", () => {
-    const { initData, publicKeyHex } = ed25519InitData("8783764515", fields);
-    const config = { botId: "8783764515", botToken: "", publicKeyHex };
+    const { initData, publicKeyHex } = ed25519InitData("8924256010", fields);
+    const config = { botId: "8924256010", botToken: "", publicKeyHex };
     assert.equal(verifyInitData(initData.replace("Max", "Eve"), config, NOW), null);
     assert.equal(verifyInitData(initData, { ...config, botId: "8120327887" }, NOW), null);
     assert.equal(verifyInitData(initData, config, NOW + 2 * 24 * 60 * 60), null);
@@ -48,13 +49,13 @@ describe("Telegram initData", () => {
   });
 
   it("uses the bot-token HMAC when a token is configured", () => {
-    const config = { botId: "8783764515", botToken: "8783764515:test-token", publicKeyHex: "" };
+    const config = { botId: "8924256010", botToken: "8924256010:test-token", publicKeyHex: "" };
     assert.equal(verifyInitData(hmacInitData(config.botToken, fields), config, NOW)?.userId, "753260973");
-    assert.equal(verifyInitData(hmacInitData("8783764515:other", fields), config, NOW), null);
+    assert.equal(verifyInitData(hmacInitData("8924256010:other", fields), config, NOW), null);
   });
 
-  it("defaults to @DropsAnalyticsAIbot and Telegram's production key", () => {
-    assert.equal(initDataConfig({})?.botId, "8783764515");
+  it("defaults to @OddsFrontBot and Telegram's production key", () => {
+    assert.equal(initDataConfig({})?.botId, "8924256010");
     assert.equal(initDataConfig({ ODDSFRONT_TG_BOT_ID: "123456" })?.botId, "123456");
     assert.equal(initDataConfig({ ODDSFRONT_TG_BOT_ID: "nope" }), null);
   });
@@ -241,5 +242,29 @@ describe("deposit wallet and limits", () => {
     assert.equal(limiter.take("a", 20), false);
     assert.equal(limiter.take("b", 20), true);
     assert.equal(limiter.take("a", 1_011), true);
+  });
+});
+
+describe("bot replies", () => {
+  const message = (text: string, extra: Record<string, unknown> = {}) => ({ message: { chat: { id: 42, type: "private" }, from: { language_code: "ru" }, text, ...extra } });
+
+  it("answers /start with a button that opens the Mini App, in the player's language", () => {
+    const reply = botReply(message("/start"))!;
+    assert.equal(reply.chat_id, 42);
+    assert.match(reply.text, /в один тап/);
+    assert.deepEqual(reply.reply_markup.inline_keyboard[0]![0], { text: "Открыть OddsFront", web_app: { url: "https://oddsfront.com/tg" } });
+    assert.match(botReply({ message: { chat: { id: 1, type: "private" }, from: { language_code: "en" }, text: "hi" } })!.text, /one tap/);
+  });
+
+  it("carries a market deep link through to the bet sheet", () => {
+    const reply = botReply(message("/start m601826_1"))!;
+    assert.deepEqual(reply.reply_markup.inline_keyboard[0]![0], { text: "Открыть ставку", web_app: { url: "https://oddsfront.com/tg?tgWebAppStartParam=m601826_1" } });
+    assert.equal(botReply(message("/start evil<script>"))!.reply_markup.inline_keyboard[0]![0]!.web_app.url, "https://oddsfront.com/tg");
+  });
+
+  it("stays silent outside private chats and for bots", () => {
+    assert.equal(botReply({ message: { chat: { id: -100, type: "channel" }, text: "/start" } }), null);
+    assert.equal(botReply(message("/start", { from: { is_bot: true } })), null);
+    assert.equal(botReply(null), null);
   });
 });

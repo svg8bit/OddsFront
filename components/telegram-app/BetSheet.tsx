@@ -29,7 +29,7 @@ export function BetSheet({ market }: { market: BinaryMarket }) {
   const price = sharePrice(market, side);
   const payout = price ? amount / price : null;
   const sideLabel = side === 0 ? copy.yes : copy.no;
-  const move = formatMove(market.change24h, copy.lang);
+  const move = formatMove(market.change24h);
   const end = formatEndDate(market.endDate, copy.lang);
   const event = market.eventTitle && market.eventTitle !== market.question ? market.eventTitle : null;
 
