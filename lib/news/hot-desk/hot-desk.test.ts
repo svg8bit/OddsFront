@@ -1,7 +1,7 @@
 // Unit tests for the Telegram hot desk: `npm run test:hot-desk` (node:test, no server).
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { clusterHeadlines, parseHeadlines, sameStory, similarTokens, type Headline } from "./headlines.ts";
+import { mergeTopicClusters, clusterHeadlines, parseHeadlines, sameStory, similarTokens, type Headline } from "./headlines.ts";
 import { foreignElectionMarket, normalizeMarket, type GammaMarket } from "./markets.ts";
 import { betKeyboard, copyProblems, formatChange, formatPercent, hotDeskCaption, miniAppBetUrl, oddsLine, type HotDeskCopy } from "./post.ts";
 import { acceptedPair, acceptedStoryPicks } from "./editor.ts";
@@ -217,4 +217,17 @@ test("map focusing projects coordinates like MapLibre and keeps zoom anchors on 
   // Doubling around 2M - T lands the marker on the target.
   assert.deepEqual(zoomAnchor({ x: 700, y: 400 }, { x: 768, y: 438 }, { left: 24, top: 60, right: 1256, bottom: 660 }), { x: 632, y: 362 });
   assert.deepEqual(zoomAnchor({ x: 1250, y: 30 }, { x: 768, y: 438 }, { left: 24, top: 60, right: 1256, bottom: 660 }), { x: 1256, y: 60 });
+});
+
+test("a topic run merges every differently worded report of one story", () => {
+  const cluster = (id: string, title: string, outlets: string[], latestAt: string) => ({ id, title, titles: [title], description: "", outlets, coverage: outlets.length, topStory: false, latestAt, fingerprint: title.toLowerCase().split(" ").slice(0, 3) });
+  const merged = mergeTopicClusters([
+    cluster("s1", "Serbia votes in election", ["BBC", "NPR"], "2026-10-25T10:00:00Z"),
+    cluster("s2", "Trump Prepares for Iran Escalation After Elections", ["Bloomberg"], "2026-10-25T11:00:00Z"),
+    cluster("s3", "CENTCOM reportedly has plans for Iran strikes", ["Al Jazeera", "Bloomberg"], "2026-10-25T09:00:00Z"),
+  ], /iran.*(strike|escalation)|(strike|escalation).*iran/i)!;
+  assert.equal(merged.coverage, 2);
+  assert.deepEqual(merged.titles, ["CENTCOM reportedly has plans for Iran strikes", "Trump Prepares for Iran Escalation After Elections"]);
+  assert.equal(merged.latestAt, "2026-10-25T11:00:00Z");
+  assert.equal(mergeTopicClusters([], /iran/i), null);
 });

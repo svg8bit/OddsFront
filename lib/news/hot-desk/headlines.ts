@@ -199,6 +199,29 @@ export function clusterHeadlines(headlines: readonly Headline[], threshold = 0.5
     .map((cluster, index) => ({ id: `s${index + 1}`, ...cluster }));
 }
 
+/**
+ * A manual "post on this topic" run (--topic=REGEX): every cluster whose headlines or summary match is
+ * one story told by several outlets (word clustering splits differently worded reports of it), so they
+ * merge into a single story whose coverage counts all of their outlets. Null when nothing matches.
+ */
+export function mergeTopicClusters(clusters: readonly HeadlineCluster[], topic: RegExp): HeadlineCluster | null {
+  const matching = clusters.filter(cluster => topic.test([cluster.title, ...cluster.titles, cluster.description].join(" ")));
+  if (!matching.length) return null;
+  const ordered = matching.toSorted((a, b) => b.coverage - a.coverage || Date.parse(b.latestAt) - Date.parse(a.latestAt));
+  const outlets = [...new Set(ordered.flatMap(cluster => cluster.outlets))];
+  return {
+    id: "t1",
+    title: ordered[0]!.title,
+    titles: [...new Set(ordered.flatMap(cluster => cluster.titles))].slice(0, 10),
+    description: ordered.map(cluster => cluster.description).filter(Boolean).join(" ").slice(0, 600),
+    outlets,
+    coverage: outlets.length,
+    topStory: ordered.some(cluster => cluster.topStory),
+    latestAt: ordered.map(cluster => cluster.latestAt).toSorted().at(-1)!,
+    fingerprint: [...new Set(ordered.flatMap(cluster => cluster.fingerprint))].slice(0, 12),
+  };
+}
+
 /** True when two story fingerprints describe the same development. */
 export function sameStory(left: readonly string[], right: readonly string[]) {
   const shared = left.filter(token => right.some(other => similarTokens(token, other))).length;
