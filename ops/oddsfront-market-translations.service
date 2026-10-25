@@ -1,0 +1,23 @@
+[Unit]
+Description=Translate new OddsFront Mini App market questions into Russian (each string once)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/root/OddsFront
+ExecStart=/usr/bin/env node scripts/news/market-translations.ts
+Environment=NODE_ENV=production
+Environment=HOME=/root
+Environment=ODDSFRONT_WRITER=claude
+Environment=PATH=/root/.local/bin:/usr/local/bin:/usr/bin:/bin
+Nice=10
+CPUQuota=50%
+MemoryMax=1G
+PrivateTmp=true
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/opt/oddsfront-market-feed/news /root/OddsFront/.local/news /root/.claude -/root/.claude.json
+InaccessiblePaths=-/root/.ssh
+TimeoutStartSec=10min

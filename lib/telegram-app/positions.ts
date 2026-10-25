@@ -23,6 +23,8 @@ export type Bet = {
   redeemable: boolean;
   endDate: string | null;
   updatedAt: number | null;
+  /** Russian wording of the market question, when the translation cache has it. */
+  titleRu?: string;
 };
 
 type Raw = Record<string, unknown>;

@@ -46,6 +46,11 @@ export function foreignElectionMarket(text: string) {
   return ELECTION.test(text) && !UNITED_STATES.test(text);
 }
 
+/** Any election contest, US ones included (they rank last: "elections are the weakest topic"). */
+export function electionMarket(text: string) {
+  return ELECTION.test(text) || /\b(midterms?|balance of power|nominee|nomination)\b/i.test(text);
+}
+
 const number = (value: unknown) => {
   const parsed = typeof value === "number" ? value : typeof value === "string" && value.trim() ? Number(value) : Number.NaN;
   return Number.isFinite(parsed) ? parsed : null;
