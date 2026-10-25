@@ -130,7 +130,7 @@ export function sharePrice(market: BinaryMarket, side: 0 | 1) {
 export const HOT_MARKET_TAGS = ["geopolitics", "politics", "world", "ukraine", "middle-east"] as const;
 
 /** Counting games (tweets, mentions, words said) sit under politics tags but are not news markets. */
-const NOT_NEWS_MARKET = /\b(?:tweets?|truth social posts?|posts? \d|mentions?|say "|says "|followers)\b/i;
+const NOT_NEWS_MARKET = /\b(?:tweets?|truth social posts?|posts? \d|mentions?|say "|says "|followers|aliens?|ufos?|extraterrestrial)\b/i;
 
 /** A market for the app's lists: news, not a counting game, and no election outside the US (owner rule). */
 export function isNewsMarket(market: Pick<BinaryMarket, "question" | "eventTitle">) {
@@ -139,6 +139,12 @@ export function isNewsMarket(market: Pick<BinaryMarket, "question" | "eventTitle
 }
 
 const isElection = (market: BinaryMarket) => electionMarket(`${market.question} ${market.eventTitle || ""}`);
+
+/** A book a player can actually trade: some volume today and Yes + No asks within 8% of a dollar. */
+export function isLiquid(market: Pick<BinaryMarket, "volume24h" | "yes" | "no">) {
+  const spreadOk = market.yes.buyPrice === null || market.no.buyPrice === null || market.yes.buyPrice + market.no.buyPrice <= 1.08;
+  return market.volume24h >= 1_000 && spreadOk;
+}
 
 /**
  * The Рынки tab. Hot: the biggest open Yes/No markets by total volume, at most two per event, none
@@ -157,7 +163,7 @@ export function hotMarketsFromEvents(eventLists: unknown[][], limit = 40) {
       seenEvents.add(eventId);
       const markets = (Array.isArray(event.markets) ? event.markets : [])
         .map((market) => parseGammaMarket(market, event))
-        .filter((market): market is BinaryMarket => Boolean(market?.open && market.yes.price >= 0.02 && market.yes.price <= 0.98 && isNewsMarket(market)))
+        .filter((market): market is BinaryMarket => Boolean(market?.open && market.yes.price >= 0.02 && market.yes.price <= 0.98 && isNewsMarket(market) && isLiquid(market)))
         .sort((left, right) => right.volume24h - left.volume24h)
         .slice(0, 2);
       for (const market of markets) {
@@ -192,7 +198,7 @@ export function mapAlert(change24h: number | null, change7d: number | null): Bin
 /** Map alerts first (biggest move first), then the other big 24 h moves; each market once. */
 export function moversWithAlerts(alerts: readonly BinaryMarket[], movers: readonly BinaryMarket[], limit = 40) {
   const seen = new Set<string>();
-  const sortedAlerts = alerts.filter((market) => market.open && isNewsMarket(market) && !isElection(market) && market.alert)
+  const sortedAlerts = alerts.filter((market) => market.open && isNewsMarket(market) && isLiquid(market) && !isElection(market) && market.alert)
     .toSorted((left, right) => Math.abs(right.alert!.change) - Math.abs(left.alert!.change));
   const out: BinaryMarket[] = [];
   for (const market of [...sortedAlerts, ...movers]) {

@@ -4,35 +4,33 @@
  */
 
 .app {
-  --bg: #070b16;
+  --bg: #0b0c0f;
   --surface: rgb(255 255 255 / 0.045);
   --surface-strong: rgb(255 255 255 / 0.075);
-  --surface-press: rgb(255 255 255 / 0.11);
-  --hairline: rgb(255 255 255 / 0.07);
-  --ink: #f5f7fb;
-  --soft: rgb(235 240 255 / 0.78);
-  --muted: rgb(235 240 255 / 0.5);
-  --faint: rgb(235 240 255 / 0.32);
-  --violet: #6d6bff;
-  --violet-deep: #5146ff;
-  --violet-ink: #b4b3ff;
-  --violet-tint: rgb(109 107 255 / 0.16);
-  --yes: #30d158;
-  --yes-ink: #5eea84;
-  --yes-tint: rgb(48 209 88 / 0.14);
-  --no: #ff453a;
-  --no-ink: #ff7a70;
-  --no-tint: rgb(255 69 58 / 0.14);
+  --surface-press: rgb(255 255 255 / 0.1);
+  --hairline: rgb(255 255 255 / 0.08);
+  --ink: #f2f3f5;
+  --soft: rgb(242 243 245 / 0.76);
+  --muted: rgb(242 243 245 / 0.5);
+  --faint: rgb(242 243 245 / 0.3);
+  /* Colour is for data only (Yes/No, moves); the brand violet lives in the logo. */
+  --violet: #f2f3f5;
+  --violet-deep: #d9dce1;
+  --violet-ink: #e4e6ea;
+  --violet-tint: rgb(255 255 255 / 0.1);
+  --yes: #2fbf5b;
+  --yes-ink: #4fd17a;
+  --yes-tint: rgb(47 191 91 / 0.13);
+  --no: #e5484d;
+  --no-ink: #f2707a;
+  --no-tint: rgb(229 72 77 / 0.13);
   --radius: 22px;
   --radius-sm: 14px;
   --ease: cubic-bezier(0.32, 0.72, 0, 1);
   --fast: 180ms;
 
   min-height: 100dvh;
-  background:
-    radial-gradient(90% 50% at 85% -8%, rgb(109 107 255 / 0.22), transparent 62%),
-    radial-gradient(70% 40% at -10% 0%, rgb(48 120 255 / 0.1), transparent 60%),
-    var(--bg);
+  background: linear-gradient(180deg, #121317 0%, var(--bg) 320px);
   color: var(--ink);
   font-family: "Inter", -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
   font-feature-settings: "tnum" 1, "cv11" 1, "ss01" 1;
@@ -46,7 +44,8 @@
   padding-bottom: calc(96px + env(safe-area-inset-bottom));
 }
 
-.app button {
+/* Zero-specificity reset: every component class below still sets its own colour and type. */
+:where(.app) button {
   font: inherit;
   color: inherit;
   cursor: pointer;
@@ -54,13 +53,25 @@
   user-select: none;
 }
 
-.app button:disabled {
+:where(.app) button:disabled {
   cursor: default;
 }
 
 .app :focus-visible {
-  outline: 2px solid var(--violet);
+  outline: 2px solid rgb(255 255 255 / 0.5);
   outline-offset: 2px;
+}
+
+/* No orphan words: headings and short texts wrap in balanced lines. */
+.app h1,
+.app h2,
+.app p,
+.marketQuestion,
+.sheetQuestion,
+.screenHint,
+.stepHint,
+.receiptQuestion {
+  text-wrap: balance;
 }
 
 /* ---------- Screens ---------- */
@@ -359,6 +370,29 @@
 
 /* ---------- Bet sheet ---------- */
 
+/* Market on top, the action dock pinned to the bottom (above the frosted tab bar). */
+.betLayout {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  max-width: 560px;
+  margin: 0 auto;
+  min-height: calc(100dvh - 112px - env(safe-area-inset-bottom));
+  animation: rise 360ms var(--ease) both;
+}
+
+.actionDock {
+  position: sticky;
+  bottom: calc(78px + env(safe-area-inset-bottom));
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: auto;
+  padding-top: 14px;
+  background: linear-gradient(180deg, rgb(11 12 15 / 0) 0, var(--bg) 14px);
+}
+
 .sheetHead {
   display: grid;
   grid-template-columns: auto 1fr;
@@ -402,10 +436,15 @@
   color: var(--violet-ink);
 }
 
+/* The chart card takes the free height between the market and the dock (big on a full screen,
+   compact in Telegram's half-height sheet). */
 .chanceCard {
   display: flex;
   flex-direction: column;
+  flex: 1 1 auto;
   gap: 6px;
+  min-height: 136px;
+  max-height: 340px;
   padding: 14px 16px 10px;
   border-radius: var(--radius);
   background: var(--surface);
@@ -462,8 +501,9 @@
 .chart,
 .chartEmpty {
   display: block;
+  flex: 1 1 64px;
   width: calc(100% + 32px);
-  height: 64px;
+  min-height: 64px;
   margin: 0 -16px -10px;
 }
 
@@ -500,13 +540,11 @@
 }
 
 .sideYesActive {
-  background: linear-gradient(160deg, #34d65c, #1fa847);
-  box-shadow: 0 12px 28px -14px rgb(48 209 88 / 0.85);
+  background: var(--yes);
 }
 
 .sideNoActive {
-  background: linear-gradient(160deg, #ff5a4f, #e0352b);
-  box-shadow: 0 12px 28px -14px rgb(255 69 58 / 0.85);
+  background: var(--no);
 }
 
 .sideLabel {
@@ -654,21 +692,18 @@
 }
 
 .primary {
-  background: linear-gradient(135deg, #7d7bff, var(--violet-deep));
-  color: #fff;
-  box-shadow: 0 14px 30px -16px rgb(109 107 255 / 0.95), inset 0 0.5px 0 rgb(255 255 255 / 0.25);
+  background: #f2f3f5;
+  color: #0b0c0f;
 }
 
 .primaryYes {
-  background: linear-gradient(135deg, #36d95f, #1d9e43);
+  background: var(--yes);
   color: #fff;
-  box-shadow: 0 14px 30px -16px rgb(48 209 88 / 0.9), inset 0 0.5px 0 rgb(255 255 255 / 0.25);
 }
 
 .primaryNo {
-  background: linear-gradient(135deg, #ff5c51, #d8312a);
+  background: var(--no);
   color: #fff;
-  box-shadow: 0 14px 30px -16px rgb(255 69 58 / 0.9), inset 0 0.5px 0 rgb(255 255 255 / 0.25);
 }
 
 .primary,
@@ -777,7 +812,7 @@
   border-radius: 12px;
   padding: 9px 16px;
   background: var(--yes);
-  color: #04210d;
+  color: #fff;
   font-size: 14px;
   font-weight: 720;
   white-space: nowrap;
@@ -949,7 +984,7 @@
 
 .step[data-state="done"] .stepMark {
   background: var(--yes);
-  color: #04210d;
+  color: #fff;
 }
 
 .step[data-state="failed"] .stepMark {
@@ -1201,11 +1236,8 @@
   gap: 8px;
   padding: 20px;
   border-radius: 26px;
-  background:
-    radial-gradient(120% 140% at 100% 0%, rgb(125 123 255 / 0.45), transparent 55%),
-    radial-gradient(90% 90% at 0% 100%, rgb(48 120 255 / 0.22), transparent 60%),
-    linear-gradient(160deg, #161b36, #0d1124);
-  box-shadow: 0 24px 50px -30px rgb(109 107 255 / 0.8), inset 0 0.5px 0 rgb(255 255 255 / 0.12);
+  background: linear-gradient(165deg, #1b1d22, #121317);
+  box-shadow: inset 0 0.5px 0 rgb(255 255 255 / 0.1);
 }
 
 .walletBalanceRow {
@@ -1349,7 +1381,7 @@
   height: 38px;
   flex-shrink: 0;
   border-radius: 12px;
-  background: linear-gradient(145deg, #2fb3ff, #0088cc);
+  background: #0098ea;
   color: #fff;
   font-size: 16px;
 }
@@ -1485,7 +1517,7 @@
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   padding: 6px 10px calc(8px + env(safe-area-inset-bottom));
-  background: rgb(10 14 28 / 0.72);
+  background: rgb(14 15 18 / 0.78);
   backdrop-filter: saturate(180%) blur(24px);
   -webkit-backdrop-filter: saturate(180%) blur(24px);
   box-shadow: inset 0 0.5px 0 var(--hairline);

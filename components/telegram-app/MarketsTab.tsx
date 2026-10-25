@@ -1,6 +1,5 @@
 "use client";
 
-import { Radar } from "lucide-react";
 import { useEffect, useState } from "react";
 import type { BinaryMarket } from "@/lib/telegram-app/markets";
 import { haptic } from "@/lib/telegram-app/client/webapp";
@@ -50,9 +49,7 @@ function MarketCard({ market }: { market: BinaryMarket }) {
       <button type="button" className={styles.marketTop} onClick={() => open(0)}>
         <MarketImage src={market.image} size={48} />
         <span className={styles.marketText}>
-          {alert && market.alert ? (
-            <span className={styles.alertTag}><Radar size={12} aria-hidden />{copy.alertLabel} · {market.alert.window === "24h" ? copy.inDay : copy.inWeek}</span>
-          ) : event ? <span className={styles.marketEvent}>{event}</span> : null}
+          {event ? <span className={styles.marketEvent}>{event}</span> : null}
           <span className={styles.marketQuestion}>{marketQuestion(market, copy)}</span>
         </span>
         <span className={styles.marketChance}>
@@ -84,8 +81,6 @@ export function MarketsTab() {
   }, [loadMarkets]);
 
   const list = markets ? (mode === "hot" ? markets.hot : markets.movers) : null;
-  const alerts = mode === "movers" && list ? list.filter((market) => market.alert) : [];
-  const rest = mode === "movers" && list ? list.filter((market) => !market.alert) : list ?? [];
 
   return (
     <section className={styles.screen}>
@@ -113,20 +108,11 @@ export function MarketsTab() {
       ) : null}
       {list && !list.length ? <p className={styles.empty}>{copy.marketsEmpty}</p> : null}
 
-      {alerts.length ? (
-        <>
-          <h2 className={styles.sectionTitle}>{copy.sectionAlerts}</h2>
-          <div className={styles.marketList}>{alerts.map((market) => <MarketCard key={market.id} market={market} />)}</div>
-        </>
-      ) : null}
-      {list && rest.length ? (
-        <>
-          {mode === "movers" ? <h2 className={styles.sectionTitle}>{copy.sectionMoves}</h2> : null}
-          <div className={styles.marketList}>
-            {rest.slice(0, shown).map((market) => <MarketCard key={market.id} market={market} />)}
-            {rest.length > shown ? <button type="button" className={styles.secondary} onClick={() => setShown((value) => value + PAGE)}>{copy.showMore}</button> : null}
-          </div>
-        </>
+      {list && list.length ? (
+        <div className={styles.marketList}>
+          {list.slice(0, shown).map((market) => <MarketCard key={market.id} market={market} />)}
+          {list.length > shown ? <button type="button" className={styles.secondary} onClick={() => setShown((value) => value + PAGE)}>{copy.showMore}</button> : null}
+        </div>
       ) : null}
     </section>
   );

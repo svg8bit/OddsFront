@@ -26,8 +26,13 @@ export function marketQuestion(market: Pick<BinaryMarket, "question" | "question
   return copy.lang === "ru" && market.questionRu ? market.questionRu : market.question;
 }
 
+/** The event line above a question, unless it only repeats it ("Russia-Ukraine peace talks by...?"). */
 export function marketEvent(market: Pick<BinaryMarket, "question" | "eventTitle" | "eventTitleRu">, copy: MiniAppCopy) {
   if (!market.eventTitle || market.eventTitle === market.question) return null;
+  const words = (text: string) => text.toLowerCase().replace(/[^\p{L}\p{N}\s]/gu, " ").split(/\s+/).filter(Boolean);
+  const event = words(market.eventTitle);
+  const question = words(market.question);
+  if (/\.\.\.\?|…\?/.test(market.eventTitle) || event.slice(0, 3).join(" ") === question.slice(0, 3).join(" ")) return null;
   return copy.lang === "ru" && market.eventTitleRu ? market.eventTitleRu : market.eventTitle;
 }
 
@@ -52,7 +57,7 @@ function ChanceChart({ token, up }: { token: string; up: boolean | null }) {
   const x = (index: number) => (index / (points.length - 1)) * width;
   const y = (value: number) => height - 6 - ((value - min) / span) * (height - 12);
   const line = points.map((value, index) => `${index ? "L" : "M"}${x(index).toFixed(1)},${y(value).toFixed(1)}`).join(" ");
-  const tone = up === false ? "#ff6b6b" : up ? "#34d399" : "#8b8dff";
+  const tone = up === false ? "#ef5350" : up ? "#2fbf5b" : "#c9ced6";
   return (
     <svg className={styles.chart} viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none" aria-hidden>
       <defs>
@@ -138,7 +143,7 @@ export function BetSheet({ market }: { market: BinaryMarket }) {
   } else action = { label: copy.place(formatUsd(amount), sideLabel), tone: side === 0 ? "yes" : "no", run: () => void placeBet() };
 
   return (
-    <section className={styles.sheet}>
+    <section className={styles.betLayout}>
       <header className={styles.sheetHead}>
         <MarketImage src={market.image} size={52} />
         <div className={styles.sheetHeadText}>
@@ -154,7 +159,7 @@ export function BetSheet({ market }: { market: BinaryMarket }) {
 
       <div className={styles.chanceCard}>
         <div className={styles.chanceRow}>
-          <span className={styles.chanceValue}>{formatChance(market.yes.price)}<small>{copy.chance} «{copy.yes}»</small></span>
+          <span className={styles.chanceValue}>{formatChance(market.yes.price)}<small>{copy.chanceOfYes}</small></span>
           {move ? <span className={move.up ? styles.pillUp : styles.pillDown}>{move.text} {copy.inDay}</span> : <span className={styles.chanceMeta}>{copy.chartWeek}</span>}
         </div>
         <ChanceChart token={market.yes.assetId} up={move ? move.up : null} />
@@ -176,54 +181,56 @@ export function BetSheet({ market }: { market: BinaryMarket }) {
         })}
       </div>
 
-      {market.open ? (
-        <>
-          <div className={styles.amountCard}>
-            <label className={styles.amountField}>
-              <span aria-hidden>$</span>
-              <input aria-label={copy.amount} inputMode="decimal" placeholder="0" value={amountText}
-                onChange={(input) => setAmountText(input.target.value.replace(",", ".").replace(/[^0-9.]/g, "").replace(/(\..*)\./g, "$1").slice(0, 7))} />
-            </label>
-            <div className={styles.quickAmounts} role="group" aria-label={copy.amount}>
-              {BET_AMOUNTS.map((value) => (
-                <button key={value} type="button" className={value === amount ? styles.chipActive : styles.chip} onClick={() => { haptic("select"); setAmountText(String(value)); }}>
-                  {formatUsd(value)}
-                </button>
-              ))}
+      {/* The action dock sits at the bottom, above the tab bar: the next step is always under the thumb. */}
+      <div className={styles.actionDock}>
+        {market.open ? (
+          <>
+            <div className={styles.amountCard}>
+              <label className={styles.amountField}>
+                <span aria-hidden>$</span>
+                <input aria-label={copy.amount} inputMode="decimal" placeholder="0" value={amountText}
+                  onChange={(input) => setAmountText(input.target.value.replace(",", ".").replace(/[^0-9.]/g, "").replace(/(\..*)\./g, "$1").slice(0, 7))} />
+              </label>
+              <div className={styles.quickAmounts} role="group" aria-label={copy.amount}>
+                {BET_AMOUNTS.map((value) => (
+                  <button key={value} type="button" className={value === amount ? styles.chipActive : styles.chip} onClick={() => { haptic("select"); setAmountText(String(value)); }}>
+                    {formatUsd(value)}
+                  </button>
+                ))}
+              </div>
+              <div className={styles.summary}>
+                <span>{copy.payout}</span>
+                <strong>{payout ? floorUsd(payout) : "—"}</strong>
+              </div>
             </div>
-            <div className={styles.summary}>
-              <span>{copy.payout}</span>
-              <strong>{payout ? floorUsd(payout) : "—"}</strong>
-            </div>
+
+            <button type="button" className={action.tone === "yes" ? styles.primaryYes : action.tone === "no" ? styles.primaryNo : styles.primary}
+              disabled={Boolean(busy) || action.disabled || !config || amount <= 0 || (action.tone !== "brand" && !price)} onClick={action.run}>
+              {busy ? <><span className={styles.spinnerLight} />{busyLabel}</> : action.label}
+            </button>
+            {hasAccount && shortfall !== null && shortfall > 0.0001 && !busy ? <p className={styles.hint}>{copy.needMore(formatUsd(shortfall))} · {copy.balance} {floorUsd(balance ?? 0)}</p> : null}
+            {error ? <p className={styles.error} role="alert">{error}</p> : null}
+          </>
+        ) : (
+          <p className={styles.notice}>{copy.closed}</p>
+        )}
+
+        {winnings && winnings.usd > 0.009 ? (
+          <div className={styles.winnings}>
+            <span>{copy.winnings(floorUsd(winnings.usd))}</span>
+            <button type="button" className={styles.winningsButton} disabled={collecting} onClick={() => void collect()}>{collecting ? copy.collecting : copy.collect}</button>
           </div>
+        ) : null}
 
-          <button type="button" className={action.tone === "yes" ? styles.primaryYes : action.tone === "no" ? styles.primaryNo : styles.primary}
-            disabled={Boolean(busy) || action.disabled || !config || amount <= 0 || (action.tone !== "brand" && !price)} onClick={action.run}>
-            {busy ? <><span className={styles.spinnerLight} />{busyLabel}</> : action.label}
-          </button>
-          {hasAccount && shortfall !== null && shortfall > 0.0001 && !busy ? <p className={styles.hint}>{copy.needMore(formatUsd(shortfall))} · {copy.balance} {floorUsd(balance ?? 0)}</p> : null}
-          {error ? <p className={styles.error} role="alert">{error}</p> : null}
-        </>
-      ) : (
-        <p className={styles.notice}>{copy.closed}</p>
-      )}
-
-      {winnings && winnings.usd > 0.009 ? (
-        <div className={styles.winnings}>
-          <span>{copy.winnings(floorUsd(winnings.usd))}</span>
-          <button type="button" className={styles.winningsButton} disabled={collecting} onClick={() => void collect()}>{collecting ? copy.collecting : copy.collect}</button>
-        </div>
-      ) : null}
-
-      <footer className={styles.footer}>
-        <span>{copy.balance} <strong>{balance === null ? "—" : floorUsd(balance)}</strong></span>
-        <span className={styles.footerLinks}>
-          {hasAccount ? <button type="button" className={styles.linkButton} onClick={() => { app.setNeedUsd(null); app.openView("topup"); }}>{copy.topUp}</button> : null}
-          {balance && balance >= 2 ? <button type="button" className={styles.linkButton} onClick={() => app.openView("withdraw")}>{copy.withdraw}</button> : null}
-          {key || needsRestore ? <button type="button" className={styles.linkButton} onClick={() => app.openView("key")}>{copy.settings}</button> : null}
-        </span>
-      </footer>
-      <p className={styles.fineprint}>{copy.priceNote}</p>
+        <footer className={styles.footer}>
+          <span>{copy.balance} <strong>{balance === null ? "—" : floorUsd(balance)}</strong></span>
+          <span className={styles.footerLinks}>
+            {hasAccount ? <button type="button" className={styles.linkButton} onClick={() => { app.setNeedUsd(null); app.openView("topup"); }}>{copy.topUp}</button> : null}
+            {balance && balance >= 2 ? <button type="button" className={styles.linkButton} onClick={() => app.openView("withdraw")}>{copy.withdraw}</button> : null}
+            {key || needsRestore ? <button type="button" className={styles.linkButton} onClick={() => app.openView("key")}>{copy.settings}</button> : null}
+          </span>
+        </footer>
+      </div>
     </section>
   );
 }

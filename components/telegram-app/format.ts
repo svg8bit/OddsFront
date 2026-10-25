@@ -39,19 +39,21 @@ export function formatCompactUsd(value: number) {
   return `$${Math.round(value)}`;
 }
 
-/** "31 окт" / "Oct 31"; the year only when it is not this year's. */
+/** "31 окт" / "Oct 31"; the year only when it is not this year's ("1 янв 2027" / "Jan 1, 2027"). */
+const RU_MONTHS = ["янв", "фев", "мар", "апр", "мая", "июн", "июл", "авг", "сен", "окт", "ноя", "дек"];
+const EN_MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
 export function formatEndDate(value: string | null, language: "ru" | "en") {
   if (!value) return null;
   const date = new Date(value);
   // A past schedule date says nothing useful: markets often keep trading until they resolve.
   if (!Number.isFinite(date.getTime()) || date.getTime() < Date.now()) return null;
-  const sameYear = date.getUTCFullYear() === new Date().getUTCFullYear();
-  return date.toLocaleDateString(language === "ru" ? "ru-RU" : "en-US", {
-    day: "numeric",
-    month: "short",
-    ...(sameYear ? {} : { year: "numeric" }),
-    timeZone: "UTC",
-  }).replace(/\.$/, "");
+  const day = date.getUTCDate();
+  const month = date.getUTCMonth();
+  const year = date.getUTCFullYear() === new Date().getUTCFullYear() ? "" : String(date.getUTCFullYear());
+  return language === "ru"
+    ? `${day} ${RU_MONTHS[month]}${year ? ` ${year}` : ""}`
+    : `${EN_MONTHS[month]} ${day}${year ? `, ${year}` : ""}`;
 }
 
 export function shortAddress(value: string) {

@@ -8,7 +8,7 @@ import { parseBuilderSigningPayload, relayerSubmissionBelongsTo } from "./builde
 import { miniAppConfig, restrictedRegion } from "./config.ts";
 import { deriveBeaconDepositWalletAddress, deriveLegacyDepositWalletAddress } from "./deposit-wallet.ts";
 import { initDataConfig, verifyInitData } from "./init-data.ts";
-import { hotMarketsFromEvents, isNewsMarket, mapAlert, moversWithAlerts, parseGammaMarket, parseStartParam, sharePrice, startParamFor } from "./markets.ts";
+import { hotMarketsFromEvents, isLiquid, isNewsMarket, mapAlert, moversWithAlerts, parseGammaMarket, parseStartParam, sharePrice, startParamFor } from "./markets.ts";
 import { betFromPosition, betsFromPositions } from "./positions.ts";
 import { WindowLimiter } from "./rate-limit.ts";
 import { decodeSession, encodeSession, readCookie, sessionCookieHeader } from "./session.ts";
@@ -185,6 +185,7 @@ describe("Yes/No markets", () => {
     assert.equal(isNewsMarket({ ...market, question: "Will Trump say \"tariff\" during the speech?" }), false);
     assert.equal(isNewsMarket({ ...market, question: "Will Aleksandar Vučić win the most seats in the 2026 Serbian parliamentary election?", eventTitle: "Serbia Parliamentary Election Winner" }), false);
     assert.equal(isNewsMarket({ ...market, question: "Will the Republicans win the Senate in the 2026 midterms?" }), true);
+    assert.equal(isNewsMarket({ ...market, question: "Will the US confirm that aliens exist before 2027?" }), false);
   });
 
   it("reads and writes channel start parameters", () => {
@@ -197,16 +198,24 @@ describe("Yes/No markets", () => {
   it("lists the biggest markets by volume, two per event, elections last and only American ones", () => {
     const market = (id: string, volumeNum: number, volume24hr: number, change: number, question = gammaMarket.question, yes = "0.4") => ({ ...gammaMarket, id, question, volumeNum, volume24hr, oneDayPriceChange: change, outcomePrices: `["${yes}", "${1 - Number(yes)}"]` });
     const { hot, movers } = hotMarketsFromEvents([
-      [{ id: "e1", title: "Small", markets: [market("1", 1_000, 10, 0.2)] }],
-      [{ id: "e2", title: "Big", markets: [market("2", 5_000, 50, 0.01), market("3", 9_000, 90, -0.05), market("4", 7_000, 20, 0), market("5", 99_000, 99, 0, gammaMarket.question, "0.99")] }],
-      [{ id: "e2", title: "Big again", markets: [market("6", 1, 1, 0)] }],
-      [{ id: "e4", title: "Midterms", markets: [market("9", 50_000, 500, 0, "2026 Balance of Power: D Senate, D House")] }],
-      [{ id: "e5", title: "Brazil", markets: [market("10", 90_000, 900, 0.3, "Will Flávio Bolsonaro win the 2026 Brazilian presidential election?")] }],
+      [{ id: "e1", title: "Small", markets: [market("1", 1_000, 1_000, 0.2)] }],
+      [{ id: "e2", title: "Big", markets: [market("2", 5_000, 5_000, 0.01), market("3", 9_000, 9_000, -0.05), market("4", 7_000, 2_000, 0), market("5", 99_000, 9_900, 0, gammaMarket.question, "0.99")] }],
+      [{ id: "e2", title: "Big again", markets: [market("6", 1, 1_000, 0)] }],
+      [{ id: "e4", title: "Midterms", markets: [market("9", 50_000, 50_000, 0, "2026 Balance of Power: D Senate, D House")] }],
+      [{ id: "e5", title: "Brazil", markets: [market("10", 90_000, 90_000, 0.3, "Will Flávio Bolsonaro win the 2026 Brazilian presidential election?")] }],
+      [{ id: "e6", title: "Thin", markets: [market("11", 80_000, 10, 0.4)] }],
     ]);
     assert.deepEqual(hot.map((item) => item.id), ["3", "2", "1", "9"]);
-    assert.deepEqual(movers.map((item) => item.id), []);
+    assert.deepEqual(movers.map((item) => item.id), ["3", "2"]);
     const big = hotMarketsFromEvents([[{ id: "e3", markets: [market("7", 1, 9_000, 0.12), market("8", 1, 9_000, -0.3)] }]]);
     assert.deepEqual(big.movers.map((item) => item.id), ["8", "7"]);
+  });
+
+  it("keeps only books a player can trade", () => {
+    const base = parseGammaMarket(gammaMarket)!;
+    assert.equal(isLiquid(base), true);
+    assert.equal(isLiquid({ ...base, volume24h: 0 }), false);
+    assert.equal(isLiquid({ ...base, yes: { ...base.yes, buyPrice: 0.46 }, no: { ...base.no, buyPrice: 0.97 } }), false);
   });
 
   it("puts the map's alerts first in Movers, biggest move first", () => {
