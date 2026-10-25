@@ -109,3 +109,19 @@ systemctl enable --now oddsfront-hot-desk.timer
 
 Roll back with `systemctl disable --now oddsfront-hot-desk.timer`; posts already
 published stay. The units write only under `.local/news` and the Claude login.
+
+## Preview watch (before the channel launch)
+
+To let the owner see real posts as news breaks without publishing them, the timer can run in
+preview mode with its own ledger (`.local/news/hot-desk/preview-state.json`): same interval, daily
+cap and repeat rules as `--send`, each story previewed once in the owner's DM. Drop-in
+`/etc/systemd/system/oddsfront-hot-desk.service.d/preview.conf`:
+
+```
+[Service]
+ExecStart=
+ExecStart=/usr/bin/env node scripts/news/hot-desk.ts --preview
+Environment=ODDSFRONT_HOT_DESK_PREVIEW_WATCH=1
+```
+
+Channel launch: remove the drop-in, `systemctl daemon-reload`; the next run posts to both channels.

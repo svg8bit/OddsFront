@@ -25,7 +25,12 @@ if (!process.env.ODDSFRONT_HOT_DESK_LOCKED) {
   process.exit(run.status ?? 1);
 }
 
-const stateFile = path.join(output, "state.json");
+// A scheduled preview run (ODDSFRONT_HOT_DESK_PREVIEW_WATCH=1) follows the same interval, cap and
+// repeat rules as --send, but with its own ledger: the owner's DM sees each story once and a later
+// channel launch is not blocked by stories that were only previewed.
+const watching = mode === "preview" && process.env.ODDSFRONT_HOT_DESK_PREVIEW_WATCH === "1";
+const tracked = mode === "send" || watching;
+const stateFile = path.join(output, watching ? "preview-state.json" : "state.json");
 const usageFile = path.join(output, "writer-usage.jsonl");
 const policy = hotDeskPolicy();
 const minHype = Number(process.env.ODDSFRONT_HOT_DESK_MIN_HYPE) || MIN_HYPE;
@@ -54,7 +59,7 @@ try {
   let state: HotDeskState = EMPTY_STATE;
   try { state = { ...EMPTY_STATE, ...JSON.parse(await readFile(stateFile, "utf8")) }; } catch (error) { if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error; }
   if (mode === "send" && state.pending) throw new Error("Previous send has an unknown outcome; reconcile it before retrying");
-  if (mode === "send" && !force) {
+  if (tracked && !force) {
     const block = publicationBlock(state, policy);
     if (block) finish(block);
   }
@@ -65,11 +70,11 @@ try {
   const clusters = clusterHeadlines(collection.headlines).filter(cluster => !storyAlreadyPosted(state, cluster.fingerprint, policy, now));
   if (!clusters.length) finish("no-fresh-headlines");
   // An unchanged news cycle was already judged: skip the model call.
-  if (mode === "send" && !force && !needsEvaluation(state, clusters, policy, now)) finish("no-new-developments");
+  if (tracked && !force && !needsEvaluation(state, clusters, policy, now)) finish("no-new-developments");
 
   const recent = state.posts.filter(post => now - Date.parse(post.at) <= policy.storyMemoryHours * 60 * 60_000).map(post => post.storyTitle);
   const picks = acceptedStoryPicks(await editor(storySelectionPrompt(clusters, recent, now), STORY_SELECTION_SCHEMA), clusters, minHype);
-  if (mode === "send") {
+  if (tracked) {
     state = { ...state, evaluated: { at: new Date(now).toISOString(), fingerprints: clusters.filter(cluster => cluster.coverage >= 2).map(cluster => cluster.fingerprint).slice(0, 80) } };
     await atomic(stateFile, state);
   }
@@ -125,6 +130,7 @@ try {
     if (!chat || !/^-?\d{5,20}$/.test(chat)) throw new Error("ODDSFRONT_HOT_DESK_PREVIEW_CHAT is not configured");
     const sent = [];
     for (const post of posts) sent.push((await telegram.sendPhoto(chat, post.image, post.caption, post.keyboard)).message_id);
+    if (watching) await atomic(stateFile, recordPost(state, { at: new Date().toISOString(), storyTitle: pair.cluster.title, storyFingerprint: pair.cluster.fingerprint, marketId: market.id, dayChange: market.dayChange, messages: { en: sent[0] ?? null, ru: sent[1] ?? null } }));
     finish("previewed", { chat, messages: sent, draft: path.join(output, `${stamp}-draft.json`) });
   }
 
