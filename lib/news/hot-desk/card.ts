@@ -4,7 +4,7 @@ import sharp from "sharp";
 import type { Page } from "@playwright/test";
 import type { HotDeskMarket, PricePoint } from "./markets.ts";
 import { captureMapShot, mapCardHtml, MAP_SCALE, MAP_VIEWPORT, type MapFocus } from "./map-card.ts";
-import { categoryLabel, escapeHtml, formatChange, formatPercent, oddsLine, type HotDeskCopy, type HotDeskLocale } from "./post.ts";
+import { categoryLabel, escapeHtml, formatChange, formatPercent, type HotDeskCopy, type HotDeskLocale } from "./post.ts";
 
 export const CARD_WIDTH = 1280;
 export const CARD_HEIGHT = 720;
@@ -184,8 +184,7 @@ export async function renderCards(inputs: readonly PostCardInput[], root = proce
           const key = JSON.stringify(input.focus);
           const map = shots.get(key) ?? await captureMapShot(browser, input.focus, siteUrl);
           shots.set(key, map);
-          const { up } = oddsMove(input.market, input.locale);
-          const html = mapCardHtml({ locale: input.locale, title: input.locale === "ru" ? input.copy.cardTitleRu : input.copy.cardTitleEn, subtitle: oddsLine(input.market, input.locale), direction: oddsMove(input.market, input.locale).change ? (up ? "up" : "down") : null, map }, fonts);
+          const html = mapCardHtml({ locale: input.locale, title: input.locale === "ru" ? input.copy.cardTitleRu : input.copy.cardTitleEn, map }, fonts);
           cards.push({ png: await compose(html, MAP_VIEWPORT.width, MAP_VIEWPORT.height, MAP_SCALE, [62, 40]), style: "map", mapFocus: input.focus.kind, popupOpen: map.popupOpen, fallbackReason: null });
           continue;
         } catch (error) {

@@ -97,7 +97,8 @@ export function hotDeskCaption(copy: HotDeskCopy, market: Pick<HotDeskMarket, "q
   const caption = [
     `⚡️ <b>${escapeHtml(ru ? copy.titleRu : copy.titleEn)}</b>`,
     escapeHtml(ru ? copy.contextRu : copy.contextEn),
-    `📊 ${escapeHtml(ru ? copy.marketQuestionRu : market.question)}\n${odds}`,
+    // The odds belong to the market's own question, labelled as such, never to the headline.
+    `📊 <b>${ru ? "Рынок" : "Market"}:</b> ${escapeHtml(ru ? copy.marketQuestionRu : market.question)}\n${odds}`,
     ru ? "Ставка в один тап 👇" : "One-tap bet 👇",
   ].join("\n\n");
   // Telegram counts the visible text; markup tags are a safe upper bound.
