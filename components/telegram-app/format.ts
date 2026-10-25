@@ -23,13 +23,13 @@ export function formatOdds(price: number | null | undefined) {
   return typeof price === "number" && price > 0 && price < 1 ? (1 / price).toFixed(2) : "—";
 }
 
-/** A 24 h move in percentage points ("▲ 4.1 pp" / "▼ 12 п.п."), or null when it rounds to nothing. */
-export function formatMove(change: number | null | undefined, language: "ru" | "en") {
+/** A 24 h move of the chance ("▲ 4.1%" / "▼ 12%"; always percent, never "pp"), or null when it rounds to nothing. */
+export function formatMove(change: number | null | undefined) {
   if (typeof change !== "number" || !Number.isFinite(change)) return null;
   const points = change * 100;
   if (Math.abs(points) < 0.5) return null;
   const size = Math.abs(points) < 10 ? Math.round(Math.abs(points) * 10) / 10 : Math.round(Math.abs(points));
-  return { up: points > 0, text: `${points > 0 ? "▲" : "▼"} ${size} ${language === "ru" ? "п.п." : "pp"}` };
+  return { up: points > 0, text: `${points > 0 ? "▲" : "▼"} ${size}%` };
 }
 
 export function formatCompactUsd(value: number) {

@@ -16,9 +16,9 @@ export const TELEGRAM_INIT_DATA_PUBLIC_KEYS = {
   test: "40055058a4ee38156a06562e52eece92a771bcd8346a8c4615cb7376eddf72ec",
 } as const;
 
-/** @DropsAnalyticsAIbot, the bot behind the OddsFront channels and their Mini App. */
-export const ODDSFRONT_MINI_APP_BOT_ID = "8783764515";
-export const ODDSFRONT_MINI_APP_BOT_USERNAME = "DropsAnalyticsAIbot";
+/** @OddsFrontBot, the bot behind the OddsFront channels and their Mini App. */
+export const ODDSFRONT_MINI_APP_BOT_ID = "8924256010";
+export const ODDSFRONT_MINI_APP_BOT_USERNAME = "OddsFrontBot";
 
 export type InitDataConfig = { botId: string; botToken: string; publicKeyHex: string };
 
