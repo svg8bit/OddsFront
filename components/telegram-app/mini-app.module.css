@@ -1,0 +1,1262 @@
+/* OddsFront Telegram Mini App — the site's navy canvas and violet mark, sized for a phone sheet. */
+
+.app {
+  --bg: #0b1220;
+  --card: #111a2e;
+  --card-raised: #16213a;
+  --line: #1f2b45;
+  --line-strong: #2b3a5c;
+  --ink: #f8fafc;
+  --soft: #cbd5e1;
+  --muted: #8a9ab5;
+  --violet: #6366f1;
+  --violet-ink: #a5a6ff;
+  --violet-bg: rgb(99 102 241 / 0.14);
+  --yes: #16a34a;
+  --yes-ink: #4ade80;
+  --yes-bg: rgb(34 197 94 / 0.12);
+  --no: #e11d48;
+  --no-ink: #fb7185;
+  --no-bg: rgb(244 63 94 / 0.12);
+  --radius: 16px;
+  --fast: 140ms;
+
+  min-height: 100dvh;
+  background:
+    radial-gradient(120% 60% at 100% -10%, rgb(99 102 241 / 0.16), transparent 60%),
+    var(--bg);
+  color: var(--ink);
+  font-family: "Inter", ui-sans-serif, system-ui, -apple-system, sans-serif;
+  font-feature-settings: "tnum" 1, "cv11" 1;
+  padding: 14px 16px calc(18px + env(safe-area-inset-bottom));
+  -webkit-tap-highlight-color: transparent;
+}
+
+.appWithTabs {
+  padding-bottom: calc(86px + env(safe-area-inset-bottom));
+}
+
+.app button {
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
+.app button:disabled {
+  cursor: default;
+}
+
+/* ---------- Screens ---------- */
+
+.screen,
+.sheet {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-width: 560px;
+  margin: 0 auto;
+}
+
+.screenHead {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-top: 2px;
+}
+
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.brandMark {
+  flex-shrink: 0;
+}
+
+.brandName {
+  font-size: 19px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.screenTitle,
+.title {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+}
+
+.screenHint,
+.note,
+.fineprint {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--muted);
+}
+
+.fineprint {
+  font-size: 12px;
+  text-align: center;
+  padding-top: 4px;
+}
+
+/* ---------- Segmented control ---------- */
+
+.segmented {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+  padding: 4px;
+  border-radius: 12px;
+  background: var(--card);
+  border: 1px solid var(--line);
+}
+
+.segment,
+.segmentActive {
+  border: 0;
+  border-radius: 9px;
+  padding: 8px 10px;
+  font-size: 14px;
+  font-weight: 600;
+  background: transparent;
+  color: var(--muted);
+  transition: background var(--fast), color var(--fast);
+}
+
+.segmentActive {
+  background: var(--card-raised);
+  color: var(--ink);
+  box-shadow: 0 1px 0 rgb(255 255 255 / 0.04) inset, 0 4px 12px -6px rgb(0 0 0 / 0.6);
+}
+
+/* ---------- Market cards ---------- */
+
+.marketList,
+.betList,
+.skeletonList {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.marketCard,
+.betCard {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  border-radius: var(--radius);
+  background: var(--card);
+  border: 1px solid var(--line);
+}
+
+.marketTop {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 12px;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  text-align: left;
+}
+
+.marketImage,
+.marketImageEmpty {
+  flex-shrink: 0;
+  border-radius: 12px;
+  object-fit: cover;
+  background: var(--card-raised);
+}
+
+.marketImageEmpty {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.marketText {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.marketEvent {
+  font-size: 11.5px;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.marketQuestion {
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.3;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.marketChance {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  min-width: 56px;
+}
+
+.marketChance strong {
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.chanceLabel {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.moveUp,
+.moveDown {
+  font-size: 11.5px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.moveUp {
+  color: var(--yes-ink);
+}
+
+.moveDown {
+  color: var(--no-ink);
+}
+
+.marketActions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.quickYes,
+.quickNo {
+  border-radius: 11px;
+  padding: 10px 8px;
+  font-size: 14px;
+  font-weight: 700;
+  transition: transform var(--fast), background var(--fast);
+}
+
+.quickYes {
+  border: 1px solid rgb(34 197 94 / 0.35);
+  background: var(--yes-bg);
+  color: var(--yes-ink);
+}
+
+.quickNo {
+  border: 1px solid rgb(244 63 94 / 0.35);
+  background: var(--no-bg);
+  color: var(--no-ink);
+}
+
+.quickYes:active,
+.quickNo:active {
+  transform: scale(0.98);
+}
+
+.marketMeta {
+  margin: 0;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+/* ---------- Bet sheet ---------- */
+
+.sheetHead {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 12px;
+  align-items: center;
+}
+
+.sheetHeadText {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.sheetEvent {
+  font-size: 12px;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sheetQuestion {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1.28;
+  letter-spacing: -0.01em;
+}
+
+.sheetStats {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--violet-bg);
+  border: 1px solid rgb(99 102 241 / 0.25);
+}
+
+.sheetChance {
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.sheetChance small {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--soft);
+  letter-spacing: 0;
+  margin-left: 4px;
+}
+
+.sides {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.sideYes,
+.sideNo,
+.sideYesActive,
+.sideNoActive {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 12px 8px;
+  border-radius: 14px;
+  border: 1.5px solid var(--line-strong);
+  background: var(--card);
+  transition: background var(--fast), border-color var(--fast), transform var(--fast);
+}
+
+.sideYes:active,
+.sideNo:active {
+  transform: scale(0.98);
+}
+
+.sideYesActive {
+  border-color: var(--yes);
+  background: var(--yes-bg);
+  box-shadow: 0 0 0 3px rgb(34 197 94 / 0.12);
+}
+
+.sideNoActive {
+  border-color: var(--no);
+  background: var(--no-bg);
+  box-shadow: 0 0 0 3px rgb(244 63 94 / 0.12);
+}
+
+.sideLabel {
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.sideYes .sideLabel,
+.sideYesActive .sideLabel {
+  color: var(--yes-ink);
+}
+
+.sideNo .sideLabel,
+.sideNoActive .sideLabel {
+  color: var(--no-ink);
+}
+
+.sideChance {
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.sideOdds {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.amountRow {
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+}
+
+.amountField {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: 0 0 34%;
+  min-width: 0;
+  padding: 0 12px;
+  border-radius: 12px;
+  background: var(--card);
+  border: 1px solid var(--line-strong);
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.amountField:focus-within {
+  border-color: var(--violet);
+}
+
+.amountField span {
+  color: var(--muted);
+}
+
+.amountField input {
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  padding: 10px 0;
+}
+
+.quickAmounts,
+.chips {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+  flex: 1;
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+}
+
+.chip,
+.chipActive {
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: var(--card);
+  padding: 9px 4px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--soft);
+  min-width: 52px;
+}
+
+.chipActive {
+  border-color: var(--violet);
+  background: var(--violet-bg);
+  color: var(--ink);
+}
+
+.quickAmounts .chip,
+.quickAmounts .chipActive {
+  min-width: 0;
+  padding: 9px 2px;
+}
+
+.summary {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-size: 14px;
+  color: var(--muted);
+  padding: 0 2px;
+}
+
+.summary strong {
+  color: var(--ink);
+  font-size: 18px;
+  font-weight: 800;
+}
+
+/* ---------- Buttons ---------- */
+
+.primary,
+.primaryYes,
+.primaryNo,
+.secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 50px;
+  border-radius: 14px;
+  padding: 12px 16px;
+  font-size: 16px;
+  font-weight: 700;
+  text-decoration: none;
+  transition: transform var(--fast), opacity var(--fast);
+}
+
+.primary {
+  border: 0;
+  background: linear-gradient(135deg, #7778ff, #5548ff);
+  color: #fff;
+  box-shadow: 0 10px 24px -14px rgb(99 102 241 / 0.9);
+}
+
+.primaryYes {
+  border: 0;
+  background: linear-gradient(135deg, #22c55e, #15803d);
+  color: #fff;
+  box-shadow: 0 10px 24px -14px rgb(34 197 94 / 0.9);
+}
+
+.primaryNo {
+  border: 0;
+  background: linear-gradient(135deg, #f43f5e, #be123c);
+  color: #fff;
+  box-shadow: 0 10px 24px -14px rgb(244 63 94 / 0.9);
+}
+
+.primary,
+.primaryYes,
+.primaryNo {
+  flex-direction: column;
+  gap: 2px;
+}
+
+.primary:active,
+.primaryYes:active,
+.primaryNo:active,
+.secondary:active {
+  transform: scale(0.985);
+}
+
+.primary:disabled,
+.primaryYes:disabled,
+.primaryNo:disabled,
+.secondary:disabled {
+  opacity: 0.5;
+}
+
+.primaryNote {
+  font-size: 12px;
+  font-weight: 500;
+  opacity: 0.85;
+}
+
+.secondary {
+  border: 1px solid var(--line-strong);
+  background: var(--card);
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.linkButton {
+  border: 0;
+  background: transparent;
+  padding: 4px 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--violet-ink);
+}
+
+.iconButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: var(--card-raised);
+  color: var(--soft);
+}
+
+.spinIcon {
+  animation: spin 0.8s linear infinite;
+}
+
+/* ---------- Footer, winnings, notices ---------- */
+
+.footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-top: 4px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.footer strong {
+  color: var(--ink);
+}
+
+.footerLinks {
+  display: inline-flex;
+  gap: 14px;
+}
+
+.winnings {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--yes-bg);
+  border: 1px solid rgb(34 197 94 / 0.3);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--yes-ink);
+}
+
+.winningsButton {
+  border: 0;
+  border-radius: 10px;
+  padding: 9px 14px;
+  background: var(--yes);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.winningsButton:disabled {
+  opacity: 0.6;
+}
+
+.notice,
+.empty {
+  margin: 0;
+  padding: 28px 12px;
+  text-align: center;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--muted);
+}
+
+.empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+}
+
+.empty p {
+  margin: 0;
+}
+
+.empty .secondary {
+  width: auto;
+  min-height: 42px;
+  padding: 8px 20px;
+}
+
+.error {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--no-ink);
+  text-align: center;
+}
+
+.status {
+  margin: 0;
+  font-size: 13px;
+  color: var(--soft);
+  text-align: center;
+}
+
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: calc(92px + env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  max-width: calc(100% - 32px);
+  padding: 10px 16px;
+  border-radius: 12px;
+  background: var(--card-raised);
+  border: 1px solid var(--line-strong);
+  font-size: 13px;
+  box-shadow: 0 12px 30px -12px rgb(0 0 0 / 0.7);
+  z-index: 30;
+}
+
+/* ---------- Loading ---------- */
+
+.loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 40dvh;
+  font-size: 14px;
+  color: var(--muted);
+}
+
+.spinner,
+.spinnerLight {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 2px solid var(--line-strong);
+  border-top-color: var(--violet-ink);
+  animation: spin 0.8s linear infinite;
+  flex-shrink: 0;
+}
+
+.spinnerLight {
+  border-color: rgb(255 255 255 / 0.35);
+  border-top-color: #fff;
+}
+
+.primary .spinnerLight,
+.primaryYes .spinnerLight,
+.primaryNo .spinnerLight {
+  display: inline-block;
+}
+
+.skeletonCard {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px 12px;
+  border-radius: var(--radius);
+  background: var(--card);
+  border: 1px solid var(--line);
+}
+
+.skeletonLine {
+  height: 12px;
+  border-radius: 6px;
+  background: linear-gradient(90deg, var(--card-raised), #1d2a47, var(--card-raised));
+  background-size: 200% 100%;
+  animation: shimmer 1.4s ease-in-out infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes shimmer {
+  from {
+    background-position: 100% 0;
+  }
+  to {
+    background-position: -100% 0;
+  }
+}
+
+/* ---------- Success ---------- */
+
+.success {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  max-width: 480px;
+  margin: 0 auto;
+  padding-top: 18px;
+  text-align: center;
+}
+
+.checkYes,
+.checkNo {
+  width: 64px;
+  height: 64px;
+}
+
+.checkYes svg,
+.checkNo svg {
+  width: 100%;
+  height: 100%;
+  fill: none;
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.checkYes svg {
+  stroke: var(--yes-ink);
+}
+
+.checkNo svg {
+  stroke: var(--no-ink);
+}
+
+.checkYes circle,
+.checkNo circle {
+  stroke-dasharray: 160;
+  stroke-dashoffset: 160;
+  animation: draw 0.5s ease-out forwards;
+}
+
+.checkYes path,
+.checkNo path {
+  stroke-dasharray: 40;
+  stroke-dashoffset: 40;
+  animation: draw 0.35s 0.35s ease-out forwards;
+}
+
+@keyframes draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+.successTitle {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 800;
+}
+
+.receiptQuestion {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.4;
+  color: var(--soft);
+}
+
+.receiptLine {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.receiptPayout {
+  margin: 0;
+  font-size: 14px;
+  color: var(--muted);
+}
+
+.receiptPayout strong {
+  color: var(--yes-ink);
+  font-size: 18px;
+}
+
+.successActions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+  padding-top: 8px;
+}
+
+/* ---------- My bets ---------- */
+
+.betHead {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 10px;
+}
+
+.betTitle {
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.3;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.status_open,
+.status_won,
+.status_lost,
+.status_closed {
+  border-radius: 999px;
+  padding: 3px 9px;
+  font-size: 11.5px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.status_open {
+  background: var(--violet-bg);
+  color: var(--violet-ink);
+}
+
+.status_won {
+  background: var(--yes-bg);
+  color: var(--yes-ink);
+}
+
+.status_lost {
+  background: var(--no-bg);
+  color: var(--no-ink);
+}
+
+.status_closed {
+  background: var(--card-raised);
+  color: var(--muted);
+}
+
+.betNumbers {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 14px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.betNumbers strong {
+  color: var(--ink);
+}
+
+.outcomeYes,
+.outcomeNo {
+  border-radius: 8px;
+  padding: 2px 8px;
+  font-weight: 700;
+}
+
+.outcomeYes {
+  background: var(--yes-bg);
+  color: var(--yes-ink);
+}
+
+.outcomeNo {
+  background: var(--no-bg);
+  color: var(--no-ink);
+}
+
+.betCard .winningsButton {
+  align-self: flex-start;
+}
+
+/* ---------- Wallet ---------- */
+
+.walletCard {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 16px;
+  border-radius: 20px;
+  background:
+    radial-gradient(120% 120% at 100% 0%, rgb(99 102 241 / 0.28), transparent 55%),
+    linear-gradient(160deg, #141f38, #0f1729);
+  border: 1px solid var(--line-strong);
+}
+
+.walletBalanceRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.walletBalanceLabel {
+  font-size: 13px;
+  color: var(--soft);
+}
+
+.walletBalance {
+  font-size: 38px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+}
+
+.walletHint {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--soft);
+}
+
+.walletActions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  padding-top: 6px;
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  border-radius: var(--radius);
+  background: var(--card);
+  border: 1px solid var(--line);
+  overflow: hidden;
+}
+
+.listButton {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  background: transparent;
+  text-align: left;
+}
+
+.listButton:last-child {
+  border-bottom: 0;
+}
+
+.listText {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.listLabel {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.listValue {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.listIcon {
+  display: inline-flex;
+  color: var(--violet-ink);
+}
+
+.listTrail {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+/* ---------- Funding & key ---------- */
+
+.subHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.subHeader strong {
+  color: var(--ink);
+}
+
+.funding {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.fundingCard {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px;
+  border-radius: var(--radius);
+  background: var(--card);
+  border: 1px solid var(--line);
+}
+
+.fundingHead {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.tonMark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: #0098ea;
+  color: #fff;
+  font-size: 16px;
+}
+
+.fundingTitle {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.fundingHint {
+  margin: 2px 0 0;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--muted);
+}
+
+.walletRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 13px;
+  color: var(--soft);
+}
+
+.addressList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.addressRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--card-raised);
+}
+
+.addressText {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.addressLabel {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.addressValue {
+  font-size: 14px;
+  font-weight: 600;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.copyButton {
+  border: 1px solid var(--line-strong);
+  border-radius: 9px;
+  background: transparent;
+  padding: 6px 10px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--violet-ink);
+  white-space: nowrap;
+}
+
+.keyInput {
+  width: 100%;
+  border-radius: 12px;
+  border: 1px solid var(--line-strong);
+  background: var(--card);
+  color: var(--ink);
+  padding: 12px;
+  font: 13px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace;
+  resize: none;
+}
+
+.keyValue {
+  display: block;
+  word-break: break-all;
+  padding: 12px;
+  border-radius: 12px;
+  background: var(--card-raised);
+  border: 1px solid var(--line-strong);
+  font-size: 13px;
+  line-height: 1.5;
+  user-select: all;
+}
+
+/* ---------- Outside Telegram ---------- */
+
+.outside {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  max-width: 420px;
+  margin: 12vh auto 0;
+  text-align: center;
+}
+
+.outsideTitle {
+  margin: 6px 0 0;
+  font-size: 26px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.outsideText {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--soft);
+}
+
+/* ---------- Tab bar ---------- */
+
+.tabBar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  padding: 6px 8px calc(8px + env(safe-area-inset-bottom));
+  background: rgb(11 18 32 / 0.92);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-top: 1px solid var(--line);
+  z-index: 20;
+}
+
+.tabButton,
+.tabButtonActive {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  border: 0;
+  background: transparent;
+  padding: 6px 4px;
+  color: var(--muted);
+}
+
+.tabButtonActive {
+  color: var(--violet-ink);
+}
+
+.tabIcon {
+  flex-shrink: 0;
+}
+
+.tabLabel {
+  font-size: 11px;
+  font-weight: 600;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app *,
+  .app *::before,
+  .app *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

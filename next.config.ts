@@ -43,6 +43,26 @@ const contentSecurityPolicy = [
   .filter(Boolean)
   .join("; ");
 
+// The Telegram Mini App (/tg) runs inside Telegram (an iframe on web.telegram.org) and talks to
+// Polymarket, TON Connect wallets and Telegram's own script, so it gets its own, wider policy.
+const miniAppContentSecurityPolicy = [
+  "default-src 'self'",
+  `script-src ${[...scriptSources, "https://telegram.org"].join(" ")}`,
+  "style-src 'self' 'unsafe-inline'",
+  "img-src 'self' data: blob: https:",
+  "font-src 'self' data:",
+  "connect-src 'self' https: wss:",
+  "worker-src 'self' blob:",
+  "frame-src https:",
+  "object-src 'none'",
+  "base-uri 'none'",
+  "form-action 'self'",
+  "frame-ancestors 'self' https://web.telegram.org https://*.telegram.org",
+  process.env.NODE_ENV === "production" ? "upgrade-insecure-requests" : "",
+]
+  .filter(Boolean)
+  .join("; ");
+
 const securityHeaders = [
   {
     key: "Content-Security-Policy",
@@ -147,6 +167,24 @@ const nextConfig: NextConfig = {
       {
         source: "/:path*",
         headers: [...securityHeaders],
+      },
+      {
+        // Later entries win for the same header key.
+        source: "/tg",
+        headers: [
+          { key: "Content-Security-Policy", value: miniAppContentSecurityPolicy },
+          { key: "X-Frame-Options", value: "ALLOWALL" },
+          { key: "Cross-Origin-Opener-Policy", value: "unsafe-none" },
+          { key: "Cache-Control", value: "public, max-age=0, must-revalidate" },
+        ],
+      },
+      {
+        // TON wallets read the app manifest from their own origins.
+        source: "/tonconnect-manifest.json",
+        headers: [
+          { key: "Access-Control-Allow-Origin", value: "*" },
+          { key: "Cache-Control", value: "public, max-age=3600" },
+        ],
       },
       {
         source: "/maps/:path*",
