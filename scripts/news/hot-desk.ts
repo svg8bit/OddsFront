@@ -6,13 +6,13 @@ import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { spawnSync } from "node:child_process";
 import path from "node:path";
 import { executeSubscriptionWriter, WriterUsageLimitError } from "../../lib/news/writer.ts";
-import { clusterHeadlines, collectHeadlines, mergeTopicClusters, topicMatcher } from "../../lib/news/hot-desk/headlines.ts";
+import { clusterHeadlines, collectHeadlines, headlineTokens, mergeTopicClusters, topicMatcher } from "../../lib/news/hot-desk/headlines.ts";
 import { candidateMarkets, priceHistory, refreshMarket, DEFAULT_MARKET_POLICY } from "../../lib/news/hot-desk/markets.ts";
 import { acceptedPair, acceptedStoryPicks, pairSelectionPrompt, storySelectionPrompt, MIN_HYPE, MIN_PAIR_CONFIDENCE, PAIR_SELECTION_SCHEMA, STORY_SELECTION_SCHEMA } from "../../lib/news/hot-desk/editor.ts";
 import { betKeyboard, hotDeskCaption, HOT_DESK_CHANNELS, type HotDeskLocale } from "../../lib/news/hot-desk/post.ts";
 import { marketThumbnail, renderCards } from "../../lib/news/hot-desk/card.ts";
 import { chooseMapFocus, fetchMapFeed, loadCountryAnchors } from "../../lib/news/hot-desk/map-card.ts";
-import { EMPTY_STATE, hotDeskPolicy, marketResting, needsEvaluation, publicationBlock, recordPost, storyAlreadyPosted, type HotDeskState } from "../../lib/news/hot-desk/state.ts";
+import { EMPTY_STATE, hotDeskPolicy, marketResting, needsEvaluation, publicationBlock, recentPostLines, recordPost, repeatReason, storyAlreadyPosted, type HotDeskPost, type HotDeskState } from "../../lib/news/hot-desk/state.ts";
 import { botToken, telegramClient, TelegramRejection } from "../../lib/news/hot-desk/telegram-api.ts";
 import { fetchSiteArticles, matchSiteArticle } from "../../lib/news/hot-desk/site-article.ts";
 import { fetchTrendSignals, scoreStories, type ViralScore } from "../../lib/news/viral/signals.ts";
@@ -86,7 +86,8 @@ try {
   const scores = await scoreStories(scored, await fetchTrendSignals(), { now, stateFile: path.join(directory, "viral", "gdelt.json") }).catch(() => [] as ViralScore[]);
   const viral = new Map(scored.flatMap((cluster, index) => (scores[index] ? [[cluster.id, scores[index]!] as const] : [])));
 
-  const recent = state.posts.filter(post => now - Date.parse(post.at) <= policy.storyMemoryHours * 60 * 60_000).map(post => post.storyTitle);
+  // What the channels actually carry (headline and market), never a merged cluster's first title.
+  const recent = recentPostLines(state, policy, now);
   const picks = acceptedStoryPicks(await editor(storySelectionPrompt(clusters, recent, now, viral), STORY_SELECTION_SCHEMA), clusters, minHype);
   if (tracked) {
     state = { ...state, evaluated: { at: new Date(now).toISOString(), fingerprints: clusters.filter(cluster => cluster.coverage >= 2).map(cluster => cluster.fingerprint).slice(0, 80) } };
@@ -115,7 +116,7 @@ try {
   draft.candidates = markets.length;
   if (!markets.length) { await saveDraft("no-market"); finish("no-market", { picks }); }
 
-  const { pair, problems } = acceptedPair(await editor(pairSelectionPrompt(picks, clusters, markets, now), PAIR_SELECTION_SCHEMA), picks, clusters, markets, minConfidence);
+  const { pair, problems } = acceptedPair(await editor(pairSelectionPrompt(picks, clusters, markets, now, recent), PAIR_SELECTION_SCHEMA), picks, clusters, markets, minConfidence);
   if (!pair) { draft.problems = problems; await saveDraft("no-pair"); finish("no-pair", { picks, problems }); }
 
   // Refresh prices right before rendering so the card, caption and buttons agree.
@@ -123,6 +124,15 @@ try {
   if (!refreshed) { draft.problems = ["selected market is no longer tradable"]; await saveDraft("market-closed"); finish("market-closed"); }
   // A single-market read carries no parent event: keep the candidate's identity fields.
   const market = { ...pair.market, ...refreshed, eventId: refreshed.eventId ?? pair.market.eventId, conditionId: refreshed.conditionId ?? pair.market.conditionId, eventTitle: pair.market.eventTitle, eventSlug: pair.market.eventSlug, image: refreshed.image ?? pair.market.image };
+  // The last gate before anything is rendered or sent: no repeat of what the channels already carry.
+  const postRecord: Omit<HotDeskPost, "at" | "messages"> = {
+    storyTitle: pair.copy.titleEn,
+    storyFingerprint: [...new Set([...pair.cluster.fingerprint, ...headlineTokens(pair.copy.titleEn)])].slice(0, 20),
+    marketId: market.id, dayChange: market.dayChange,
+    titleEn: pair.copy.titleEn, titleRu: pair.copy.titleRu, contextEn: pair.copy.contextEn, marketQuestion: market.question, eventTitle: market.eventTitle,
+  };
+  const repeat = tracked && !topic ? repeatReason(state, { ...postRecord, titleEn: pair.copy.titleEn, contextEn: pair.copy.contextEn, marketQuestion: market.question }, policy, Date.now()) : null;
+  if (repeat) { draft.problems = [repeat]; await saveDraft("repeat"); finish("repeat-blocked", { reason: repeat, story: pair.copy.titleEn }); }
   const [history, thumbnail] = await Promise.all([priceHistory(market.yesTokenId), marketThumbnail(market.image)]);
   const locales: HotDeskLocale[] = ["en", "ru"];
   const focus = chooseMapFocus(mapFeed, market, pair.selection.countryCodes, await loadCountryAnchors());
@@ -149,13 +159,13 @@ try {
     if (!chat || !/^-?\d{5,20}$/.test(chat)) throw new Error("ODDSFRONT_HOT_DESK_PREVIEW_CHAT is not configured");
     const sent = [];
     for (const post of posts) sent.push((await telegram.sendPhoto(chat, post.image, post.caption, post.keyboard)).message_id);
-    if (watching) await atomic(stateFile, recordPost(state, { at: new Date().toISOString(), storyTitle: pair.cluster.title, storyFingerprint: pair.cluster.fingerprint, marketId: market.id, dayChange: market.dayChange, messages: { en: sent[0] ?? null, ru: sent[1] ?? null } }));
+    if (watching) await atomic(stateFile, recordPost(state, { ...postRecord, at: new Date().toISOString(), messages: { en: sent[0] ?? null, ru: sent[1] ?? null } }));
     finish("previewed", { chat, messages: sent, draft: path.join(output, `${stamp}-draft.json`) });
   }
 
   for (const locale of locales) await telegram.verifyChannel(locale, bot.id);
   const sent: { en: number | null; ru: number | null } = { en: null, ru: null };
-  const pending = () => ({ marketId: market.id, storyTitle: pair.cluster.title, attemptedAt: new Date().toISOString(), sent: { ...sent } });
+  const pending = () => ({ marketId: market.id, storyTitle: pair.copy.titleEn, attemptedAt: new Date().toISOString(), sent: { ...sent } });
   await atomic(stateFile, { ...state, pending: pending() });
   const failures: string[] = [];
   for (const post of posts) {
@@ -180,7 +190,7 @@ try {
     urls: locales.filter(locale => sent[locale] !== null).map(locale => `https://t.me/${HOT_DESK_CHANNELS[locale].username}/${sent[locale]}`),
   };
   await atomic(path.join(output, `${stamp}-receipt.json`), receipt);
-  await atomic(stateFile, recordPost(state, { at: receipt.sentAt, storyTitle: pair.cluster.title, storyFingerprint: pair.cluster.fingerprint, marketId: market.id, dayChange: market.dayChange, messages: sent }));
+  await atomic(stateFile, recordPost(state, { ...postRecord, at: receipt.sentAt, messages: sent }));
   console.log(JSON.stringify(receipt));
 } catch (error) {
   if (error instanceof WriterUsageLimitError) finish("writer-usage-limit");

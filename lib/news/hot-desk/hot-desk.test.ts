@@ -234,3 +234,29 @@ test("a topic run merges every differently worded report of one story", () => {
   assert.equal(topicMatcher("iran,tehran+war")!("Tehran fears war"), true);
   assert.equal(topicMatcher("iran,tehran+war")!("Tehran talks"), false);
 });
+
+test("repeats: same market, same market theme with another deadline, or the same copy never go out twice", async () => {
+  const { repeatReason, marketTheme, recentPostLines } = await import("./state.ts");
+  const policy = hotDeskPolicy({});
+  const earlier = {
+    at: new Date(NOW - 2 * 3_600_000).toISOString(), storyTitle: "Pentagon reportedly has Iran strike plans for after the midterms as US embassies tighten security",
+    storyFingerprint: ["saudi", "houthi", "airport", "riyadh"], marketId: "5447182", dayChange: 0.01, messages: { en: 261, ru: 245 },
+    titleEn: "Pentagon reportedly has Iran strike plans for after the midterms as US embassies tighten security", titleRu: "У Пентагона есть планы ударов по Ирану",
+    contextEn: "Reports say the Pentagon has drawn up plans for strikes on Iran after the midterms.", marketQuestion: "US-Iran ceasefire continues through the midterms?", eventTitle: "US-Iran ceasefire continues through the midterms?",
+  };
+  const state: HotDeskState = { lastSentAt: Date.parse(earlier.at), posts: [earlier] };
+  assert.deepEqual(marketTheme("US x Iran ceasefire continues through October 31?"), ["iran", "ceasefire"]);
+  // The 15:42 repeat: another ceasefire market of the same pair, a different deadline.
+  const repeat = { marketId: "4641065", marketQuestion: "US x Iran ceasefire continues through October 31?", eventTitle: "US-Iran ceasefire continues through...?", titleEn: "US-Iran ceasefire under strain as risk of return to full war grows", contextEn: "New intelligence is pushing the war in Iran into a dangerous phase.", storyFingerprint: ["level", "threat", "full", "war", "iran"], dayChange: 0.01 };
+  assert.match(repeatReason(state, repeat, policy, NOW) ?? "", /same market theme/);
+  // The same market inside its rest period.
+  assert.match(repeatReason(state, { ...repeat, marketId: "5447182" }, policy, NOW) ?? "", /market 5447182/);
+  // A different theme and different copy may go out.
+  const fresh = { marketId: "5167211", marketQuestion: "Saudi Arabia military action against Yemen on October 30?", eventTitle: "Saudi Arabia military action against Yemen on...?", titleEn: "Saudi Arabia strikes Houthi positions in Yemen", contextEn: "Saudi jets hit Houthi sites.", storyFingerprint: ["saudi", "strike", "houthi", "yemen"], dayChange: 0.2 };
+  assert.equal(repeatReason(state, fresh, policy, NOW), null);
+  // The same copy on another market is still a repeat.
+  assert.match(repeatReason(state, { ...fresh, titleEn: "Pentagon has Iran strike plans for after the midterms, US embassies tighten security" }, policy, NOW) ?? "", /same copy/);
+  // After the theme window the theme may return.
+  assert.equal(repeatReason(state, repeat, policy, NOW + 11 * 3_600_000), null);
+  assert.deepEqual(recentPostLines(state, policy, NOW), ["Pentagon reportedly has Iran strike plans for after the midterms as US embassies tighten security — market: US-Iran ceasefire continues through the midterms? (2 h ago)"]);
+});
