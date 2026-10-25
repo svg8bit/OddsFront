@@ -93,7 +93,8 @@ export function zoomAnchor(marker: Point, target: Point, bounds: { left: number;
 
 // Site chrome that does not belong in the picture: the activity cards, zoom
 // buttons, News/language buttons and hover labels.
-const HIDE_CHROME = `[class*="activityRail"], [class*="__controls"], nav[class*="site-navigation"], [class*="zoomReadout"], [class*="hotspotLabel"] { display: none !important; }`;
+// The site's own DropsBot button is not ours to show: the post carries its own Yes/No bet buttons.
+const HIDE_CHROME = `[class*="activityRail"], [class*="__controls"], nav[class*="site-navigation"], [class*="zoomReadout"], [class*="hotspotLabel"], [class*="trackButton"] { display: none !important; }`;
 
 async function camera(page: Page) {
   return page.evaluate(() => {
@@ -124,11 +125,13 @@ async function bareMapPoint(page: Page, point: Point): Promise<Point> {
 }
 
 /** Screenshot of the live map framed on `focus` (PNG at MAP_SCALE), or an error. */
-export async function captureMapShot(browser: Browser, focus: MapFocus, locale: HotDeskLocale, siteUrl = MAP_SITE_URL): Promise<{ png: Buffer; stripHeight: number; popupOpen: boolean }> {
-  const context = await browser.newContext({ viewport: MAP_VIEWPORT, deviceScaleFactor: MAP_SCALE, locale: locale === "ru" ? "ru-RU" : "en-US", colorScheme: "dark" });
+// The map is always shot in English: the site's machine-translated Russian market titles read badly
+// ("Выход из гормона"), while the original Polymarket question is what the Mini App shows too.
+export async function captureMapShot(browser: Browser, focus: MapFocus, siteUrl = MAP_SITE_URL): Promise<{ png: Buffer; stripHeight: number; popupOpen: boolean }> {
+  const context = await browser.newContext({ viewport: MAP_VIEWPORT, deviceScaleFactor: MAP_SCALE, locale: "en-US", colorScheme: "dark" });
   try {
     const page = await context.newPage();
-    await page.goto(`${siteUrl}?lang=${locale}`, { waitUntil: "domcontentloaded", timeout: 45_000 });
+    await page.goto(`${siteUrl}?lang=en`, { waitUntil: "domcontentloaded", timeout: 45_000 });
     await page.waitForSelector('main[data-map-ready="true"][data-tile-health="ready"]', { timeout: 60_000 });
     await page.addStyleTag({ content: HIDE_CHROME });
     await settle(page);
@@ -156,7 +159,9 @@ export async function captureMapShot(browser: Browser, focus: MapFocus, locale: 
       await settle(page);
     }
     let popupOpen = false;
-    if (focus.eventId) {
+    // Only the post's own market gets an open popup: another market of the same event would show
+    // numbers that contradict the card's subtitle.
+    if (focus.eventId && focus.kind === "market") {
       const markerId = await page.evaluate(ids => ids.find(id => document.querySelector(`[data-market-event-id="${CSS.escape(id)}"]`)) ?? null, focus.groupIds);
       if (markerId) {
         await page.locator(`[data-market-event-id="${markerId}"]`).click({ force: true });

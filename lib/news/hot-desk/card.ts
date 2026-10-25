@@ -175,11 +175,15 @@ export async function renderCards(inputs: readonly PostCardInput[], root = proce
   };
   try {
     const cards: PostCard[] = [];
+    // Both locales share one English map shot of the same focus.
+    const shots = new Map<string, Awaited<ReturnType<typeof captureMapShot>>>();
     for (const input of inputs) {
       let fallbackReason = input.focus ? null : "no related marker or country on the map";
       if (input.focus) {
         try {
-          const map = await captureMapShot(browser, input.focus, input.locale, siteUrl);
+          const key = JSON.stringify(input.focus);
+          const map = shots.get(key) ?? await captureMapShot(browser, input.focus, siteUrl);
+          shots.set(key, map);
           const { up } = oddsMove(input.market, input.locale);
           const html = mapCardHtml({ locale: input.locale, title: input.locale === "ru" ? input.copy.cardTitleRu : input.copy.cardTitleEn, subtitle: oddsLine(input.market, input.locale), direction: oddsMove(input.market, input.locale).change ? (up ? "up" : "down") : null, map }, fonts);
           cards.push({ png: await compose(html, MAP_VIEWPORT.width, MAP_VIEWPORT.height, MAP_SCALE, [62, 40]), style: "map", mapFocus: input.focus.kind, popupOpen: map.popupOpen, fallbackReason: null });
