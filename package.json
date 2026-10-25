@@ -25,6 +25,7 @@
     "typecheck": "tsc --noEmit",
     "check": "npm run check:map-assets && npm run test:readership && npm run lint && npm run typecheck && npm run build",
     "test:readership": "python3 ops/market-feed/test_news_readership.py",
+    "test:telegram-app": "node --test lib/telegram-app/telegram-app.test.ts",
     "test:e2e": "playwright test",
     "benchmark:map": "node scripts/benchmark-map-performance.mjs",
     "test:visual:reference": "node scripts/compare-map-reference.mjs",
@@ -38,6 +39,8 @@
     "news:telegram": "node scripts/news/telegram.ts"
   },
   "dependencies": {
+    "@polymarket/client": "0.12.0",
+    "@tonconnect/ui": "3.0.2",
     "@vercel/analytics": "2.0.1",
     "lucide-react": "1.28.0",
     "maplibre-gl": "6.1.0",
@@ -46,6 +49,7 @@
     "react-dom": "19.2.8",
     "react-map-gl": "8.1.2",
     "sharp": "0.35.3",
+    "viem": "2.55.0",
     "zustand": "^5.0.14"
   },
   "devDependencies": {
