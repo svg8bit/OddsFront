@@ -158,25 +158,9 @@ export async function captureMapShot(browser: Browser, focus: MapFocus, siteUrl 
       await page.mouse.up();
       await settle(page);
     }
-    let popupOpen = false;
-    // Only the post's own market gets an open popup: another market of the same event would show
-    // numbers that contradict the caption.
-    if (focus.eventId && focus.kind === "market") {
-      const markerId = await page.evaluate(ids => ids.find(id => document.querySelector(`[data-market-event-id="${CSS.escape(id)}"]`)) ?? null, focus.groupIds);
-      if (markerId) {
-        await page.locator(`[data-market-event-id="${markerId}"]`).click({ force: true });
-        await page.waitForSelector('[data-testid="conflict-popup"]', { timeout: 5_000 });
-        // Step through the markers' shared popup to the chosen market.
-        for (let tries = 0; tries < focus.groupIds.length && !(await page.locator(`[id="preview-market-${focus.eventId}"]`).count()); tries += 1) {
-          await page.locator('[class*="marketPager"] button').last().click();
-          await page.waitForTimeout(150);
-        }
-        popupOpen = (await page.locator(`[id="preview-market-${focus.eventId}"]`).count()) > 0;
-        if (!popupOpen) await page.locator('[data-testid="conflict-popup"] button[class*="popupClose"]').click();
-        await page.mouse.move(canvas.x + canvas.width - 4, canvas.y + canvas.height - 4);
-        await page.waitForFunction(() => [...document.querySelectorAll<HTMLImageElement>("img[data-market-image]")].every(image => image.complete), undefined, { timeout: 5_000 }).catch(() => undefined);
-      }
-    }
+    // The map's own popup stays closed: the card draws its own plaque for the post's market, so the
+    // numbers always match the caption (and read in the channel's language).
+    const popupOpen = false;
     await page.waitForTimeout(700);
     return { png: await page.screenshot({ type: "png" }), stripHeight, popupOpen };
   } finally {
@@ -184,10 +168,23 @@ export async function captureMapShot(browser: Browser, focus: MapFocus, siteUrl 
   }
 }
 
-// The picture carries only the headline (owner, 2026-10-25): the odds and the story are in the caption.
-export type MapCardInput = { locale: HotDeskLocale; /** The short card headline, not the caption title. */ title: string; map: { png: Buffer; stripHeight: number } };
+/** The market plaque drawn over the map, in the style of the map's own popup. */
+export type MarketPlaque = { label: string; question: string; yesLabel: string; noLabel: string; yes: string; no: string; change: string | null; up: boolean; volume: string; thumbnail: string | null };
 
-export function mapCardHtml({ locale, title, map }: MapCardInput, fonts: { bold: string; variable: string }) {
+// The picture carries the headline and the market's plaque (owner, 2026-10-25); the story is in the caption.
+export type MapCardInput = { locale: HotDeskLocale; /** The short card headline, not the caption title. */ title: string; map: { png: Buffer; stripHeight: number }; plaque?: MarketPlaque | null };
+
+function plaqueHtml(plaque: MarketPlaque) {
+  return `<div class="plaque">
+  <div class="pHead"><i></i><span>${escapeHtml(plaque.label)}</span><b>✕</b></div>
+  <div class="pTitle">${plaque.thumbnail ? `<img src="${plaque.thumbnail}" alt="">` : ""}<p>${escapeHtml(plaque.question)}</p></div>
+  ${plaque.change ? `<div class="pChange ${plaque.up ? "up" : "down"}">${escapeHtml(plaque.change)}</div>` : ""}
+  <div class="pOdds"><div><small class="y">${escapeHtml(plaque.yesLabel)}</small><strong class="y">${escapeHtml(plaque.yes)}</strong></div><div><small class="n">${escapeHtml(plaque.noLabel)}</small><strong class="n">${escapeHtml(plaque.no)}</strong></div></div>
+  <div class="pFoot"><span>${escapeHtml(plaque.volume)}</span><em>POLYMARKET</em></div>
+</div>`;
+}
+
+export function mapCardHtml({ locale, title, map, plaque }: MapCardInput, fonts: { bold: string; variable: string }) {
   const strip = Math.round(map.stripHeight);
   return `<!doctype html><html lang="${locale}"><head><meta charset="utf-8"><style>
 @font-face { font-family: "Inter Card"; src: url(data:font/woff2;base64,${fonts.variable}) format("woff2"); font-weight: 100 900; }
@@ -205,6 +202,25 @@ body { font-family: "Inter Card", sans-serif; color: #f8fafc; position: relative
 .body { margin: auto 0; }
 .headline { font-family: "Inter Card Bold"; font-size: 64px; line-height: 1.07; letter-spacing: -0.028em; max-height: 360px; overflow: hidden; text-wrap: balance; text-shadow: 0 2px 24px rgba(0,0,0,0.35); }
 .site { font-size: 19px; color: #8fa1bb; letter-spacing: 0.02em; }
+.plaque { position: absolute; left: 790px; top: 50%; transform: translateY(-38%); width: 372px; padding: 18px 20px 16px; border-radius: 18px;
+  background: rgba(15,20,32,0.95); border: 1px solid rgba(255,255,255,0.09); box-shadow: 0 24px 60px -20px rgba(0,0,0,0.85); }
+.pHead { display: flex; align-items: center; gap: 9px; font-size: 14px; color: #aab6c8; }
+.pHead i { width: 9px; height: 9px; border-radius: 50%; background: #ef4444; box-shadow: 0 0 0 4px rgba(239,68,68,0.18); }
+.pHead span { flex: 1; }
+.pHead b { font-weight: 400; color: #8a96a8; font-size: 15px; }
+.pTitle { display: flex; gap: 12px; align-items: flex-start; margin-top: 12px; }
+.pTitle img { width: 52px; height: 52px; border-radius: 10px; object-fit: cover; flex-shrink: 0; }
+.pTitle p { font-family: "Inter Card Bold"; font-size: 21px; line-height: 1.22; letter-spacing: -0.012em; text-wrap: balance; }
+.pChange { display: inline-block; margin-top: 12px; padding: 5px 10px; border-radius: 8px; font-size: 14px; font-weight: 600; }
+.pChange.up { color: #4ade80; background: rgba(34,197,94,0.12); border: 1px solid rgba(34,197,94,0.28); }
+.pChange.down { color: #f87171; background: rgba(239,68,68,0.12); border: 1px solid rgba(239,68,68,0.28); }
+.pOdds { display: grid; grid-template-columns: 1fr 1fr; margin-top: 14px; padding-top: 12px; border-top: 1px solid rgba(255,255,255,0.08); }
+.pOdds div + div { padding-left: 16px; border-left: 1px solid rgba(255,255,255,0.08); }
+.pOdds small { display: block; font-size: 12px; font-weight: 700; letter-spacing: 0.06em; }
+.pOdds strong { display: block; margin-top: 2px; font-size: 32px; font-weight: 650; letter-spacing: -0.02em; }
+.y { color: #4ade80; } .n { color: #f87171; }
+.pFoot { display: flex; align-items: center; justify-content: space-between; margin-top: 12px; padding-top: 12px; border-top: 1px solid rgba(255,255,255,0.08); font-size: 14px; color: #c7d0dc; }
+.pFoot em { font-style: normal; font-size: 11px; font-weight: 700; letter-spacing: 0.08em; color: #a5b4fc; padding: 4px 8px; border-radius: 6px; border: 1px solid rgba(165,180,252,0.35); }
 </style></head><body><div class="map"></div><div class="shade"></div>
 <div class="copy">
   <div class="brand"><svg viewBox="0 0 300 224"><defs><linearGradient id="m" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#7778FF"/><stop offset="1" stop-color="#5548FF"/></linearGradient></defs><path d="M106 0H178L72 224H0Z M228 0H300L194 224H122Z" fill="url(#m)"/></svg>OddsFront</div>
@@ -212,5 +228,5 @@ body { font-family: "Inter Card", sans-serif; color: #f8fafc; position: relative
     <h1 class="headline" id="headline">${escapeHtml(title)}</h1>
   </div>
   <div class="site">oddsfront.com</div>
-</div></body></html>`;
+</div>${plaque ? plaqueHtml(plaque) : ""}</body></html>`;
 }

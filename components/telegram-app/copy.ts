@@ -23,6 +23,7 @@ const ru = {
   marketsEmpty: "Сейчас нет открытых рынков. Загляните чуть позже.",
   marketsFailed: "Не получилось загрузить рынки.",
   showMore: "Показать ещё",
+  toTop: "Наверх",
   volume24h: (value: string) => `${value} за сутки`,
   // Connect & smart button
   connectAccount: "Подключить кошелёк",
@@ -160,6 +161,7 @@ const en: MiniAppCopy = {
   marketsEmpty: "No open markets right now. Check back a little later.",
   marketsFailed: "The markets did not load.",
   showMore: "Show more",
+  toTop: "Back to top",
   volume24h: (value) => `${value} in 24h`,
   connectAccount: "Connect wallet",
   connectTitle: "Connect your wallet",
