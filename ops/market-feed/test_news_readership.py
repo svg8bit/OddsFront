@@ -121,6 +121,21 @@ class HandlerTests(unittest.TestCase):
             self.assertEqual(self.request("POST", "/v1/news/articles/development-story/view", body)[0], 400)
         self.assertEqual(feed.READERSHIP.counts(), {})
 
+    def test_covers_are_served_as_bounded_jpeg_only(self):
+        (self.root / "covers").mkdir()
+        (self.root / "covers/development-story.jpg").write_bytes(b"\xff\xd8\xff\xe0development-cover")
+        (self.root / "covers/not-a-jpeg.jpg").write_bytes(b"<svg/>")
+        connection = http.client.HTTPConnection("127.0.0.1", self.server.server_port)
+        connection.request("GET", "/v1/news/articles/development-story/cover.jpg", headers={"Authorization": "Bearer development-only-test-token"})
+        response = connection.getresponse()
+        self.assertEqual((response.status, response.getheader("Content-Type")), (200, "image/jpeg"))
+        self.assertEqual(response.read(), b"\xff\xd8\xff\xe0development-cover")
+        connection.close()
+        self.assertEqual(self.request("GET", "/v1/news/articles/development-story/cover.jpg", authorized=False)[0], 401)
+        self.assertEqual(self.request("GET", "/v1/news/articles/not-a-jpeg/cover.jpg")[0], 404)
+        self.assertEqual(self.request("GET", "/v1/news/articles/missing-story/cover.jpg")[0], 404)
+        self.assertEqual(self.request("GET", "/v1/news/articles/../catalog/cover.jpg")[0], 400)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -34,13 +34,15 @@ function StoryArt({ article, featured = false, headingLevel = "h2" }: { article:
   const { locale } = useLocale();
   const text = articleText(article, locale);
   const Heading = headingLevel;
-  const mediaSource = article.sources.find(source => source.kind === "media");
+  const coverKind = article.cover?.kind ?? "partner";
+  // OddsFront's own map cover, or a partner photo for older stories; desk stories marked "none" use the site artwork.
+  const hasCover = coverKind === "own" || (coverKind === "partner" && article.sources.some(source => source.kind === "media"));
   const [coverState, setCoverState] = useState<"loading" | "loaded" | "failed">(
-    mediaSource ? "loading" : "failed",
+    hasCover ? "loading" : "failed",
   );
-  return <div className={`${styles.art} ${featured ? styles.featuredArt : ""}`} data-cover-state={coverState}>
+  return <div className={`${styles.art} ${featured ? styles.featuredArt : ""}`} data-cover-state={coverState} data-cover-kind={coverKind}>
     <div className={styles.artGrid} aria-hidden="true"/><div className={styles.artMap} aria-hidden="true"/>
-    {mediaSource && coverState !== "failed" ? <Image className={styles.partnerCover} src={`/api/news-image/${encodeURIComponent(article.slug)}`} alt="" fill sizes={featured?"(max-width: 760px) 100vw, 50vw":"(max-width: 760px) 100vw, 33vw"} loading={featured?"eager":"lazy"} fetchPriority={featured?"high":"auto"} onLoad={()=>setCoverState("loaded")} onError={()=>setCoverState("failed")}/> : null}
+    {hasCover && coverState !== "failed" ? <Image className={styles.partnerCover} src={`/api/news-image/${encodeURIComponent(article.slug)}`} alt="" fill sizes={featured?"(max-width: 760px) 100vw, 50vw":"(max-width: 760px) 100vw, 33vw"} loading={featured?"eager":"lazy"} fetchPriority={featured?"high":"auto"} onLoad={()=>setCoverState("loaded")} onError={()=>setCoverState("failed")}/> : null}
     <div className={styles.artShade} aria-hidden="true"/>
     <div className={styles.coverContent}>
       <div className={styles.coverStory}><Heading className={styles.coverTitle}>{text.title}</Heading></div>
@@ -148,7 +150,7 @@ export function NewsArticleView({ article, initialFeed }: { article: NewsArticle
   const showUnavailable=settled||feed.dataMode==="live";
   return <NewsChrome><Link className={styles.back} href={newsPath(locale)} prefetch={false}><ArrowLeft size={15}/>{t("back")}</Link><div className={styles.articleGrid}><article className={styles.article} lang={translated?locale:"en"} dir={localeDirection(translated?locale:"en")}>
     <StoryArt key={article.slug} article={article} featured headingLevel="h1"/>
-    <div className={styles.articleLead}><p>{text.description}</p><div className={styles.byline}><strong>{article.author}</strong><time dateTime={article.publishedAt}>{new Intl.DateTimeFormat(locale,{dateStyle:"medium",timeStyle:"short"}).format(new Date(article.publishedAt))}</time></div>{translated?<p className={styles.translationNote}>{t("translated")} · <a href={newsArticlePath(article,"en")}>{t("original")}</a></p>:null}</div>
+    <div className={styles.articleLead}><p>{text.description}</p><div className={styles.byline}><strong>{article.author}</strong><time dateTime={article.publishedAt}>{new Intl.DateTimeFormat(locale,{dateStyle:"medium",timeStyle:"short"}).format(new Date(article.publishedAt))}</time></div>{translated?<p className={styles.translationNote}>{text.editorReviewed?null:<>{t("translated")} · </>}<a href={newsArticlePath(article,"en")} hrefLang="en">{t("original")}</a></p>:null}</div>
     <div className={styles.prose}>{text.body.map((block,index)=>block.type==="heading"?<h2 key={index}>{block.text}</h2>:<p key={index}>{block.text}</p>)}</div>
     </article><aside className={styles.marketRail} aria-label={t("related")}><span className={styles.eyebrow}>{t("related")}</span>{events.length?events.map(event=><LiveMarketCard key={event.id} event={event} fresh={fresh} history={histories[event.id]}/>):showUnavailable?<div className={styles.empty}>{t("unavailable")}<Link href="/" prefetch={false}>{t("browseMap")}<ArrowUpRight size={14}/></Link></div>:null}</aside></div></NewsChrome>;
 }

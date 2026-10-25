@@ -101,3 +101,24 @@ export const getNewsArticle = cache(async (slug: string): Promise<NewsArticle | 
     return fromSeed();
   }
 });
+
+const MAX_OWN_COVER_BYTES = 2_500_000;
+
+/** OddsFront's own map cover of an article (JPEG bytes), read from the feed; null when absent. */
+export async function getOwnNewsCover(slug: string): Promise<ArrayBuffer | null> {
+  if (!SLUG_PATTERN.test(slug) || slug.length > 100) return null;
+  const feed = liveFeed();
+  if (!feed || feedCoolingDown()) return null;
+  const url = new URL(feed.rawUrl);
+  if (url.protocol !== "https:" || url.username || url.password) return null;
+  url.pathname = `/v1/news/articles/${slug}/cover.jpg`; url.search = ""; url.hash = "";
+  try {
+    // Default fetch mode with an Authorization header: never stored in the Data Cache.
+    const response = await fetch(url, { headers: { Authorization: `Bearer ${feed.token}` }, signal: AbortSignal.timeout(FEED_TIMEOUT_MS) });
+    if (!response.ok || response.headers.get("content-type") !== "image/jpeg") { await response.body?.cancel(); return null; }
+    const body = await response.arrayBuffer();
+    return body.byteLength > 0 && body.byteLength <= MAX_OWN_COVER_BYTES ? body : null;
+  } catch {
+    return null;
+  }
+}

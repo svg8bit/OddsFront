@@ -10,7 +10,7 @@ import { spawn } from "node:child_process";
 export type WriterBackend = "claude" | "codex";
 export type WriterInvocation = { command: string; args: string[]; env: Record<string, string | undefined> };
 export type CodexWriterInvocation = WriterInvocation;
-export type WriterPurpose = "research" | "translation" | "selection";
+export type WriterPurpose = "research" | "translation" | "selection" | "article";
 export type WriterUsage = { inputTokens: number; cachedInputTokens: number; outputTokens: number; totalCostUsd?: number; turns?: number };
 export type WriterProcessRunner = (input: { invocation: WriterInvocation; prompt: string; cwd: string; timeoutMs: number; outputPath: string }) => Promise<WriterUsage | void>;
 export type CodexProcessRunner = WriterProcessRunner;
@@ -90,20 +90,26 @@ export function createCodexWriterInvocation(input: {
 }
 
 export function createClaudeWriterInvocation(input: {
-  schema: Record<string, unknown>;
+  /** null: plain-text answer (the caller parses it), no structured-output tool. */
+  schema: Record<string, unknown> | null;
   model?: string;
   purpose?: WriterPurpose;
   env: Record<string, string | undefined>;
+  /** Replaces Claude Code's own system prompt (about 7k tokens) with a short task prompt. */
+  systemPrompt?: string;
+  /** Turns extended thinking off (MAX_THINKING_TOKENS=0): faster and cheaper for writing from supplied text. */
+  disableThinking?: boolean;
 }): WriterInvocation {
   const env = isolatedEnv(input.env);
   // Callers pass a minimal environment without HOME; the CLI reads its
   // subscription login and state from $HOME/.claude.
   env.HOME ??= homedir();
+  if (input.disableThinking) env.MAX_THINKING_TOKENS = "0";
   const research = isResearch(input.purpose);
   const args = [
     "-p",
     "--output-format", "json",
-    "--json-schema", JSON.stringify(input.schema),
+    ...(input.schema ? ["--json-schema", JSON.stringify(input.schema)] : []),
     "--model", input.model || claudeWriterModel(input.purpose),
     "--max-turns", research ? "80" : "6",
     // No MCP servers, no user settings, memory or CLAUDE.md, no session files:
@@ -113,8 +119,9 @@ export function createClaudeWriterInvocation(input: {
     "--setting-sources", "",
     "--no-session-persistence",
   ];
-  // Only research may read the public web; translation and selection work
-  // from the prompt alone.
+  if (input.systemPrompt) args.push("--system-prompt", input.systemPrompt, "--disable-slash-commands");
+  // Only research may read the public web; translation, selection and article
+  // writing work from the prompt alone.
   if (research) args.push("--tools", "WebSearch", "WebFetch", "--allowedTools", "WebSearch", "WebFetch");
   else args.push("--tools", "");
   return { command: "claude", args, env };
@@ -145,7 +152,7 @@ function parseJsonResult(stdout: string): ClaudeCliResult | null {
   return null;
 }
 
-export function parseClaudeWriterResult(stdout: string, stderr = "", exitCode: number | null = 0): { output: unknown; usage: WriterUsage } {
+export function parseClaudeWriterResult(stdout: string, stderr = "", exitCode: number | null = 0, plainText = false): { output: unknown; usage: WriterUsage } {
   const result = parseJsonResult(stdout);
   const failed = !result || result.is_error === true || exitCode !== 0 || (typeof result.subtype === "string" && result.subtype !== "success");
   const text = `${typeof result?.result === "string" ? result.result : ""}\n${stderr}`;
@@ -157,10 +164,10 @@ export function parseClaudeWriterResult(stdout: string, stderr = "", exitCode: n
     const detail = typeof result.result === "string" ? result.result.slice(0, 2000) : stderr.trim().slice(-2000);
     throw new Error(`Claude writer failed (${result.subtype || "error"}, exit ${exitCode}${result.api_error_status ? `, api ${result.api_error_status}` : ""}): ${detail}`);
   }
-  if (result.structured_output === undefined || result.structured_output === null) throw new Error("Claude writer returned no structured output");
+  if (plainText ? typeof result.result !== "string" || !result.result.trim() : result.structured_output === undefined || result.structured_output === null) throw new Error(`Claude writer returned no ${plainText ? "text" : "structured output"}`);
   const usage = result.usage ?? {};
   return {
-    output: result.structured_output,
+    output: plainText ? result.result : result.structured_output,
     usage: {
       inputTokens: usage.input_tokens || 0,
       cachedInputTokens: (usage.cache_creation_input_tokens || 0) + (usage.cache_read_input_tokens || 0),
@@ -190,8 +197,9 @@ function spawnWriter(invocation: WriterInvocation, prompt: string, cwd: string, 
 
 const runClaudeProcess: WriterProcessRunner = async ({ invocation, prompt, cwd, timeoutMs, outputPath }) => {
   const { stdout, stderr, code } = await spawnWriter(invocation, prompt, cwd, timeoutMs, "Claude");
-  const parsed = parseClaudeWriterResult(stdout, stderr, code);
-  await writeFile(outputPath, JSON.stringify(parsed.output), "utf8");
+  const plainText = !invocation.args.includes("--json-schema");
+  const parsed = parseClaudeWriterResult(stdout, stderr, code, plainText);
+  await writeFile(outputPath, plainText ? String(parsed.output) : JSON.stringify(parsed.output), "utf8");
   return parsed.usage;
 };
 
@@ -247,7 +255,8 @@ const runCodexProcess: WriterProcessRunner = async ({ invocation, prompt, cwd, t
 
 export async function executeSubscriptionWriter(input: {
   prompt: string;
-  schema: Record<string, unknown>;
+  /** null (Claude backend only): the answer is plain text, returned as is. */
+  schema: Record<string, unknown> | null;
   env: Record<string, string | undefined>;
   model?: string;
   purpose?: WriterPurpose;
@@ -255,6 +264,9 @@ export async function executeSubscriptionWriter(input: {
   timeoutMs?: number;
   /** Defaults to ODDSFRONT_WRITER ("claude" unless set to "codex"). */
   backend?: WriterBackend;
+  /** Claude backend only: see createClaudeWriterInvocation. */
+  systemPrompt?: string;
+  disableThinking?: boolean;
 }, runProcess?: WriterProcessRunner) {
   const backend = input.backend ?? writerBackend();
   const workdir = await mkdtemp(path.join(tmpdir(), "oddsfront-news-"));
@@ -265,8 +277,8 @@ export async function executeSubscriptionWriter(input: {
   try {
     await writeFile(schemaPath, JSON.stringify(input.schema), "utf8");
     const invocation = backend === "claude"
-      ? createClaudeWriterInvocation({ schema: input.schema, model, purpose: input.purpose, env: input.env })
-      : createCodexWriterInvocation({ schemaPath, outputPath, model, purpose: input.purpose, env: input.env });
+      ? createClaudeWriterInvocation({ schema: input.schema, model, purpose: input.purpose, env: input.env, systemPrompt: input.systemPrompt, disableThinking: input.disableThinking })
+      : input.schema ? createCodexWriterInvocation({ schemaPath, outputPath, model, purpose: input.purpose, env: input.env }) : (() => { throw new Error("Plain-text answers need the Claude backend"); })();
     const run = runProcess ?? (backend === "claude" ? runClaudeProcess : runCodexProcess);
     const usage = await run({
       invocation,

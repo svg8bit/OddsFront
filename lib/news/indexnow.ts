@@ -50,10 +50,10 @@ function addArticleUrls(urls: Set<string>, article: IndexNowArticleSnapshot) {
   for (const locale of article.locales) urls.add(`${ORIGIN}${newsArticlePath(article, locale)}`);
 }
 
-function addListingUrls(urls: Set<string>, articles: IndexNowArticleSnapshot[]) {
+function addListingUrls(urls: Set<string>, articles: IndexNowArticleSnapshot[], locales: readonly Locale[] = LOCALES) {
   const countries = new Set(articles.flatMap((article) => article.countries));
   const categories = new Set(articles.map((article) => article.category));
-  for (const locale of LOCALES) {
+  for (const locale of locales) {
     urls.add(`${ORIGIN}${newsPath(locale)}`);
     for (const country of countries) urls.add(`${ORIGIN}${newsCountryPath(country, locale)}`);
     for (const category of categories) urls.add(`${ORIGIN}${newsTopicPath(category, locale)}`);
@@ -71,6 +71,8 @@ export function buildIndexNowPlan(
   catalog: NewsCatalog,
   previous: IndexNowSnapshot | null,
   full = false,
+  /** Listing languages to announce; the wire desk publishes English and Russian only. */
+  listingLocales: readonly Locale[] = LOCALES,
 ): IndexNowPlan {
   const snapshot = buildIndexNowSnapshot(catalog);
   const currentIds = Object.keys(snapshot.articles);
@@ -91,7 +93,7 @@ export function buildIndexNowPlan(
     if (current) { addArticleUrls(urls, current); affected.push(current); }
     if (old) { addArticleUrls(urls, old); affected.push(old); }
   }
-  addListingUrls(urls, full ? Object.values(snapshot.articles) : affected);
+  addListingUrls(urls, full ? Object.values(snapshot.articles) : affected, listingLocales);
   addArchiveUrls(urls, currentIds.length);
   if (previous) addArchiveUrls(urls, previousIds.length);
   if (!previous || full) {
