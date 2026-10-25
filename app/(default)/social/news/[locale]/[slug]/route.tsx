@@ -2,7 +2,7 @@ import { Buffer } from "node:buffer";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import sharp from "sharp";
-import { getNewsArticle } from "@/lib/news/catalog";
+import { getNewsArticle, getOwnNewsCover } from "@/lib/news/catalog";
 import { articleText, localeDirection, normalizeLocale } from "@/lib/news/locale";
 import { fetchPartnerCover } from "@/lib/news/partner-images";
 import { SOCIAL_PREVIEW_PATH } from "@/lib/oddsfront-site";
@@ -89,7 +89,10 @@ export async function GET(
   }
   const text = articleText(article, locale);
   const source = article.sources.find((candidate) => candidate.kind === "media");
-  const cover = source ? await fetchPartnerCover(article.cover?.sourceUrl || source.url, article.cover?.imageUrl) : null;
+  const coverKind = article.cover?.kind ?? "partner";
+  const cover = coverKind === "own"
+    ? await getOwnNewsCover(article.slug).then(body => (body ? { body } : null))
+    : coverKind === "partner" && source ? await fetchPartnerCover(article.cover?.sourceUrl || source.url, article.cover?.imageUrl) : null;
   let coverImage: Buffer | null = null;
   if (cover) {
     try {

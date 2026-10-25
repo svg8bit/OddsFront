@@ -248,6 +248,7 @@ class FeedState:
 STATE = FeedState()
 NEWS_ROOT = Path(os.environ.get("ODDSFRONT_NEWS_ROOT", "/opt/oddsfront-market-feed/news"))
 READERSHIP = Readership(Path(os.environ.get("ODDSFRONT_READERSHIP_DB", "/var/lib/oddsfront-market-feed/news-views.sqlite3")))
+COVER_PATH = re.compile(r"/v1/news/articles/([a-z0-9]+(?:-[a-z0-9]+)*)/cover\.jpg")
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -270,6 +271,30 @@ class Handler(BaseHTTPRequestHandler):
     def do_GET(self) -> None:  # noqa: N802 - BaseHTTPRequestHandler contract
         if not self._authorized():
             self._send_json(401, b'{"error":"unauthorized"}')
+            return
+        cover = COVER_PATH.fullmatch(self.path)
+        if cover:
+            # OddsFront's own map cover of a wire-desk article (bounded JPEG).
+            target = NEWS_ROOT / "covers" / f"{cover[1]}.jpg"
+            try:
+                if len(cover[1]) > 100 or not target.is_file() or target.stat().st_size > 3_000_000:
+                    raise FileNotFoundError
+                body = target.read_bytes()
+                if not body.startswith(b"\xff\xd8"):
+                    raise FileNotFoundError
+            except FileNotFoundError:
+                self._send_json(404, b'{"error":"not_found"}')
+                return
+            except OSError:
+                self._send_json(503, b'{"error":"news_unavailable"}')
+                return
+            self.send_response(200)
+            self.send_header("Content-Type", "image/jpeg")
+            self.send_header("Content-Length", str(len(body)))
+            self.send_header("Cache-Control", "no-store")
+            self.send_header("X-Content-Type-Options", "nosniff")
+            self.end_headers()
+            self.wfile.write(body)
             return
         if self.path == "/v1/news" or self.path.startswith("/v1/news/articles/"):
             from pathlib import Path

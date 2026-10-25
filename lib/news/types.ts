@@ -46,7 +46,12 @@ export interface NewsArticle extends ArticleText {
   countries: string[];
   topics: string[];
   alert?: NewsAlert | null;
-  cover?: { imageUrl: string; sourceUrl: string; verifiedAt: string };
+  /**
+   * Partner covers (default) are proxied from the source's Open Graph image.
+   * "own": OddsFront's map cover, served by the feed at /v1/news/articles/<slug>/cover.jpg.
+   * "none": never show a publisher photo; the site draws its own artwork.
+   */
+  cover?: { imageUrl: string; sourceUrl: string; verifiedAt: string; kind?: "partner" | "own" | "none" };
   sources: Omit<NewsSource, "evidence">[];
   translations: Partial<Record<Locale, ArticleText>>;
 }

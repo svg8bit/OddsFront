@@ -9,7 +9,12 @@ import { newsOverviewProps } from "@/lib/news/index-page";
 import { isNewsCountrySegment } from "@/lib/news/routing";
 
 type Props = { params: Promise<{ locale: string; country: string }> };
-export const revalidate = 3600;
+// Articles do not change after publication and carry no live data in their
+// HTML (the market rail loads in the browser), so they keep a day-long window.
+// The VPS wire desk refreshes the English and Russian listings it changes
+// through /api/news/revalidate; other localized country listings may lag by
+// up to a day, which only affects their English fallback cards.
+export const revalidate = 86400;
 // Articles and country listings render on first request and are then served
 // from the ISR cache until the revalidation window ends.
 export function generateStaticParams(): { country: string }[] { return []; }

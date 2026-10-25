@@ -1,5 +1,11 @@
 # OddsFront News operations
 
+> Since 2026-10-25 the website is published by the wire desk
+> (`scripts/news/wire-desk.ts`, see `docs/news-wire-desk.md`): English and
+> Russian articles, one at a time, from server-fetched outlet text. The
+> edition publisher described below stays paused; do not run both, they write
+> the same public catalog.
+
 Research uses a complete compact title index of published, staged and
 cover-rejected stories. Canonical media URLs are filtered against the full
 catalog before the model is invoked, while the deterministic validator still

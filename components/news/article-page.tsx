@@ -6,7 +6,7 @@ import { PREVIEW_MINIMUM_VOLUME } from "@/features/global-conflict-map/preview/f
 import type { ConflictPreviewFeed } from "@/features/global-conflict-map/preview/types";
 import type { Locale } from "@/lib/news/types";
 
-// Article HTML is cached by ISR for an hour, so it must not embed a live
+// Article HTML is cached by ISR for a day, so it must not embed a live
 // market snapshot: that snapshot is refreshed every minute through
 // `unstable_cache`, which would shrink the page's revalidation window to a
 // minute and change the HTML on every regeneration. The browser loads the

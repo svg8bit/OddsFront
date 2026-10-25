@@ -36,3 +36,5 @@
 @media(max-width:760px){.card .coverTitle,.featuredCard .coverTitle{font-size:clamp(18.75px,5.55vw,25.5px)}}
 
 @media(max-width:480px){.wordmark span{display:none}}
+/* OddsFront's own night-map covers are darker than partner photos: a lighter shade keeps the map visible behind the headline. */
+.art[data-cover-kind="own"][data-cover-state="loaded"] .artShade{background:linear-gradient(90deg,rgba(3,9,18,.74) 0%,rgba(3,9,18,.22) 62%,rgba(3,9,18,0) 100%),linear-gradient(0deg,rgba(3,9,18,.9) 0%,rgba(3,9,18,.4) 38%,rgba(3,9,18,0) 72%)}

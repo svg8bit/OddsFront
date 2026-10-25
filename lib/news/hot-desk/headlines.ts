@@ -33,6 +33,8 @@ export type HeadlineCluster = {
   topStory: boolean;
   latestAt: string;
   fingerprint: string[];
+  /** Every headline of the story (the website wire desk reads their links). */
+  members: Headline[];
 };
 
 const MAX_FEED_BYTES = 2_000_000;
@@ -192,6 +194,7 @@ export function clusterHeadlines(headlines: readonly Headline[], threshold = 0.5
       topStory: group.items.some(item => item.headline.topStory),
       latestAt: group.items.map(item => item.headline.publishedAt).toSorted().at(-1)!,
       fingerprint: [...counts.entries()].toSorted((a, b) => b[1] * idf(b[0]) - a[1] * idf(a[0])).slice(0, 10).map(([token]) => token),
+      members: group.items.map(item => item.headline),
     };
   });
   return clusters
@@ -233,6 +236,7 @@ export function mergeTopicClusters(clusters: readonly HeadlineCluster[], topic: 
     topStory: ordered.some(cluster => cluster.topStory),
     latestAt: ordered.map(cluster => cluster.latestAt).toSorted().at(-1)!,
     fingerprint: [...new Set(ordered.flatMap(cluster => cluster.fingerprint))].slice(0, 12),
+    members: ordered.flatMap(cluster => cluster.members),
   };
 }
 
