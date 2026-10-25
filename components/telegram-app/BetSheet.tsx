@@ -8,7 +8,7 @@ import { MIN_BET_USD } from "@/lib/telegram-app/client/trader";
 import { haptic, telegramWebApp } from "@/lib/telegram-app/client/webapp";
 import { buildPolymarketEventUrl } from "@/lib/polymarket-links";
 import { localizeError, type MiniAppCopy } from "./copy";
-import { floorUsd, formatChance, formatEndDate, formatMove, formatOdds, formatUsd } from "./format";
+import { floorUsd, formatChance, formatMove, formatOdds, formatUsd } from "./format";
 import { MarketImage } from "./MarketsTab";
 import { readJson, useMiniApp } from "./Provider";
 import styles from "./mini-app.module.css";
@@ -24,16 +24,6 @@ const MIN_TOP_UP_USD = 3;
 
 export function marketQuestion(market: Pick<BinaryMarket, "question" | "questionRu">, copy: MiniAppCopy) {
   return copy.lang === "ru" && market.questionRu ? market.questionRu : market.question;
-}
-
-/** The event line above a question, unless it only repeats it ("Russia-Ukraine peace talks by...?"). */
-export function marketEvent(market: Pick<BinaryMarket, "question" | "eventTitle" | "eventTitleRu">, copy: MiniAppCopy) {
-  if (!market.eventTitle || market.eventTitle === market.question) return null;
-  const words = (text: string) => text.toLowerCase().replace(/[^\p{L}\p{N}\s]/gu, " ").split(/\s+/).filter(Boolean);
-  const event = words(market.eventTitle);
-  const question = words(market.question);
-  if (/\.\.\.\?|…\?/.test(market.eventTitle) || event.slice(0, 3).join(" ") === question.slice(0, 3).join(" ")) return null;
-  return copy.lang === "ru" && market.eventTitleRu ? market.eventTitleRu : market.eventTitle;
 }
 
 /** The Yes chance over 7 days as a soft area chart (no axes: the number above tells the level). */
@@ -85,8 +75,6 @@ export function BetSheet({ market }: { market: BinaryMarket }) {
   const payout = price ? amount / price : null;
   const sideLabel = side === 0 ? copy.yes : copy.no;
   const move = formatMove(market.change24h);
-  const end = formatEndDate(market.endDate, copy.lang);
-  const event = marketEvent(market, copy);
   const polymarketUrl = buildPolymarketEventUrl(market.eventSlug || market.slug);
   const shortfall = balance === null ? null : Math.max(0, Math.round((amount - balance) * 100) / 100);
 
@@ -147,7 +135,6 @@ export function BetSheet({ market }: { market: BinaryMarket }) {
       <header className={styles.sheetHead}>
         <MarketImage src={market.image} size={52} />
         <div className={styles.sheetHeadText}>
-          <span className={styles.sheetEvent}>{event || "Polymarket"}{end ? ` · ${copy.endsBy(end)}` : ""}</span>
           <h1 className={styles.sheetQuestion}>{marketQuestion(market, copy)}</h1>
           {polymarketUrl ? (
             <button type="button" className={styles.sourceLink} onClick={() => { haptic("select"); app.openLink(polymarketUrl); }}>

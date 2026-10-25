@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import type { BinaryMarket } from "@/lib/telegram-app/markets";
 import { haptic } from "@/lib/telegram-app/client/webapp";
-import { marketEvent, marketQuestion } from "./BetSheet";
+import { marketQuestion } from "./BetSheet";
 import { BrandMark } from "./MiniApp";
 import { formatChance, formatCompactUsd, formatEndDate, formatMove } from "./format";
 import { useMiniApp } from "./Provider";
@@ -39,7 +39,6 @@ function MarketCard({ market }: { market: BinaryMarket }) {
   const alert = market.alert ? formatMove(market.alert.change) : null;
   const move = alert ? null : formatMove(market.change24h);
   const end = formatEndDate(market.endDate, copy.lang);
-  const event = marketEvent(market, copy);
   const open = (side: 0 | 1) => {
     haptic("tap");
     app.openMarket(market.id, side, market);
@@ -49,7 +48,6 @@ function MarketCard({ market }: { market: BinaryMarket }) {
       <button type="button" className={styles.marketTop} onClick={() => open(0)}>
         <MarketImage src={market.image} size={48} />
         <span className={styles.marketText}>
-          {event ? <span className={styles.marketEvent}>{event}</span> : null}
           <span className={styles.marketQuestion}>{marketQuestion(market, copy)}</span>
         </span>
         <span className={styles.marketChance}>
