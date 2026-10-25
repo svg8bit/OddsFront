@@ -5,7 +5,8 @@ import { ArrowLeft, ArrowUpRight, ArrowRight, Search, Send } from "lucide-react"
 import { useEffect, useState, useRef } from "react";
 import { useLocale } from "@/components/locale-provider";
 import { SiteNavigation } from "@/components/site-navigation";
-import { articleText, localeDirection } from "@/lib/news/locale";
+import { TelegramChannelLink } from "@/components/telegram-channel";
+import { articleText } from "@/lib/news/locale";
 import type { NewsArticle } from "@/lib/news/types";
 import type { ConflictPreviewEvent, ConflictPreviewFeed } from "@/features/global-conflict-map/preview/types";
 import { useLiveConflictFeed } from "@/features/global-conflict-map/preview/use-live-conflict-feed";
@@ -23,10 +24,10 @@ export function articlePath(article: NewsArticle) { return newsArticlePath(artic
 
 export function NewsChrome({ children }: { children: React.ReactNode }) {
   const { t, locale } = useLocale();
-  return <div className={styles.page} dir={localeDirection(locale)}>
+  return <div className={styles.page}>
     <header className={styles.header}><div className={styles.headerInner}><Link className={styles.wordmark} href={newsPath(locale)} prefetch={false} dir="ltr"><Image className={styles.brandMark} src="/brand/oddsfront-mark-v1.svg" alt="" width={30} height={23} unoptimized/><strong>OddsFront</strong><span> / {t("news")}</span></Link><SiteNavigation mode="news"/></div></header>
     <main className={styles.content}>{children}</main>
-    <footer className={styles.footer}><span>© {new Date().getUTCFullYear()} OddsFront</span><Link href="/news/about" prefetch={false}>{t("about")}</Link><Link href="/news/archive" prefetch={false}>{t("archive")}</Link><a href={newsPath(locale,"/rss.xml")}>{t("feed")}</a><a href="https://t.me/oddsfront" target="_blank" rel="noreferrer"><Send size={13}/>Telegram EN</a><a href="https://t.me/oddsfront_ru" target="_blank" rel="noreferrer"><Send size={13}/>Telegram RU</a></footer>
+    <footer className={styles.footer}><span>© {new Date().getUTCFullYear()} OddsFront</span><a href="https://t.me/oddsfront" target="_blank" rel="noreferrer"><Send size={13}/>Telegram EN</a><a href="https://t.me/oddsfront_ru" target="_blank" rel="noreferrer"><Send size={13}/>Telegram RU</a></footer>
   </div>;
 }
 
@@ -148,7 +149,7 @@ export function NewsArticleView({ article, initialFeed }: { article: NewsArticle
   // live edge response a moment before declaring the rail unavailable.
   const [settled,setSettled]=useState(false);useEffect(()=>{const timer=setTimeout(()=>setSettled(true),4_000);return ()=>clearTimeout(timer);},[]);
   const showUnavailable=settled||feed.dataMode==="live";
-  return <NewsChrome><Link className={styles.back} href={newsPath(locale)} prefetch={false}><ArrowLeft size={15}/>{t("back")}</Link><div className={styles.articleGrid}><article className={styles.article} lang={translated?locale:"en"} dir={localeDirection(translated?locale:"en")}>
+  return <NewsChrome><div className={styles.articleTop}><Link className={styles.back} href={newsPath(locale)} prefetch={false}><ArrowLeft size={15}/>{t("back")}</Link><TelegramChannelLink variant="cta"/></div><div className={styles.articleGrid}><article className={styles.article} lang={translated?locale:"en"}>
     <StoryArt key={article.slug} article={article} featured headingLevel="h1"/>
     <div className={styles.articleLead}><p>{text.description}</p><div className={styles.byline}><strong>{article.author}</strong><time dateTime={article.publishedAt}>{new Intl.DateTimeFormat(locale,{dateStyle:"medium",timeStyle:"short"}).format(new Date(article.publishedAt))}</time></div>{translated?<p className={styles.translationNote}>{text.editorReviewed?null:<>{t("translated")} · </>}<a href={newsArticlePath(article,"en")} hrefLang="en">{t("original")}</a></p>:null}</div>
     <div className={styles.prose}>{text.body.map((block,index)=>block.type==="heading"?<h2 key={index}>{block.text}</h2>:<p key={index}>{block.text}</p>)}</div>

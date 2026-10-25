@@ -24,9 +24,7 @@ function recentArticles(catalog: NewsCatalog, locale: Locale, now: number) {
 }
 
 function publicationLanguage(locale: Locale): string {
-  // Google News requires the ISO 639 language code except for Simplified
-  // Chinese, where its sitemap extension expects zh-cn.
-  return locale === "zh" ? "zh-cn" : locale.split("-", 1)[0];
+  return locale;
 }
 
 export function newsSitemapPartName(locale: Locale, part: number): string {

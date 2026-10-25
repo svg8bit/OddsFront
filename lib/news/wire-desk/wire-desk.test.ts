@@ -301,8 +301,8 @@ test("publish: reserved feed file names are never article slugs", async () => {
 });
 
 test("revalidation route allowlist", () => {
-  for (const ok of ["/news", "/ru/news", "/pt-br/news/topic/strikes", "/news/archive/2", "/en/news/some-story-slug", "/news-sitemaps/ru-1.xml", "/sitemaps/articles-1.xml", "/ru/news/rss.xml"]) assert.equal(isRevalidationPath(ok), true, ok);
-  for (const bad of ["/", "/api/news", "/news/../etc", "/xx/news", "/en/news/Bad_Slug", "https://oddsfront.com/news", "/sitemaps/../x.xml", 42]) assert.equal(isRevalidationPath(bad), false, String(bad));
+  for (const ok of ["/news", "/ru/news", "/ru/news/topic/strikes", "/news/archive/2", "/en/news/some-story-slug", "/news-sitemaps/ru-1.xml", "/sitemaps/articles-1.xml", "/ru/news/rss.xml"]) assert.equal(isRevalidationPath(ok), true, ok);
+  for (const bad of ["/", "/api/news", "/news/../etc", "/xx/news", "/de/news", "/news-sitemaps/zh-1.xml", "/en/news/Bad_Slug", "https://oddsfront.com/news", "/sitemaps/../x.xml", 42]) assert.equal(isRevalidationPath(bad), false, String(bad));
 });
 
 test("cover: frames the story's own country first and marks the location", () => {

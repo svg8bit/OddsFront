@@ -822,16 +822,6 @@ const CONSTRAINED_OMITTED_LAYER_IDS = new Set([
 
 const OCEANS: Record<Exclude<Locale,"en">, string[]> = {
   ru:["Северная Атлантика","Южная Атлантика","Индийский океан","Северный Тихий океан"],
-  uk:["Північна Атлантика","Південна Атлантика","Індійський океан","Північний Тихий океан"],
-  de:["Nordatlantik","Südatlantik","Indischer Ozean","Nordpazifik"],
-  es:["Atlántico Norte","Atlántico Sur","Océano Índico","Pacífico Norte"],
-  "pt-BR":["Atlântico Norte","Atlântico Sul","Oceano Índico","Pacífico Norte"],
-  fr:["Atlantique Nord","Atlantique Sud","Océan Indien","Pacifique Nord"],
-  zh:["北大西洋","南大西洋","印度洋","北太平洋"],
-  ko:["북대서양","남대서양","인도양","북태평양"],
-  vi:["Bắc Đại Tây Dương","Nam Đại Tây Dương","Ấn Độ Dương","Bắc Thái Bình Dương"],
-  fa:["اطلس شمالی","اطلس جنوبی","اقیانوس هند","آرام شمالی"],
-  he:["צפון האוקיינוס האטלנטי","דרום האוקיינוס האטלנטי","האוקיינוס ההודי","צפון האוקיינוס השקט"],
 };
 
 export function createPreviewMapStyle(
@@ -865,7 +855,7 @@ export function createPreviewMapStyle(
       if (locale === "en" || layer.type !== "symbol") return layer;
       const layout = { ...layer.layout, "text-font": ["OddsFront Unicode"], "text-letter-spacing": 0 };
       if (layer.source === "openmaptiles") {
-        layout["text-field"] = ["coalesce", ["get", `name:${locale === "pt-BR" ? "pt" : locale}`], ["get", `name_${locale}`], ...placeName.slice(1)] as ExpressionSpecification;
+        layout["text-field"] = ["coalesce", ["get", `name:${locale}`], ["get", `name_${locale}`], ...placeName.slice(1)] as ExpressionSpecification;
       }
       return { ...layer, layout };
     }),

@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { countryName, localeDirection, negotiateLocale, normalizeLocale } from "@/lib/news/locale";
+import { countryName, negotiateLocale, normalizeLocale } from "@/lib/news/locale";
 import { switchNewsLocalePath } from "@/lib/news/routing";
 import { message, type MessageKey } from "@/lib/news/messages";
 import type { Locale } from "@/lib/news/types";
@@ -35,7 +35,6 @@ export function LocaleProvider({ children, fixedLocale }: { children: React.Reac
   const [dictionary, setDictionary] = useState<{ locale: Locale; messages: Record<string,string> }>({ locale: "en", messages: {} });
   useEffect(() => {
     document.documentElement.lang = preferences.locale;
-    document.documentElement.dir = localeDirection(preferences.locale);
     if (preferences.locale === "en") return;
     const controller = new AbortController();
     fetch(`/api/localization?lang=${preferences.locale}`, { signal: controller.signal }).then(response => response.ok ? response.json() : null)

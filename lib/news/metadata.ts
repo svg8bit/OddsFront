@@ -8,11 +8,12 @@ import { newsDescription } from "./seo.ts";
 import type { Locale, NewsArticle } from "./types.ts";
 
 const OPEN_GRAPH_LOCALES: Record<Locale, string> = {
-  en: "en_US", zh: "zh_CN", ko: "ko_KR", vi: "vi_VN", de: "de_DE", es: "es_ES",
-  "pt-BR": "pt_BR", fr: "fr_FR", ru: "ru_RU", uk: "uk_UA", fa: "fa_IR", he: "he_IL",
+  en: "en_US", ru: "ru_RU",
 };
 
-export function newsMetadata(locale: Locale, country?: string): Metadata {
+const NOINDEX = { index: false, follow: true } as const;
+
+export function newsMetadata(locale: Locale, country?: string, indexable = true): Metadata {
   const englishPath = country ? `/news/${country}` : "/news";
   const canonical = country ? newsCountryPath(country, locale) : newsPath(locale);
   const label = !country || country === "world" ? message(locale, "latest") : countryName(country.toUpperCase(), locale);
@@ -27,6 +28,7 @@ export function newsMetadata(locale: Locale, country?: string): Metadata {
     },
     twitter: { card: "summary_large_image", title, description, images: [{ url: SOCIAL_PREVIEW_PATH, alt: "OddsFront" }] },
     other: { "content-language": locale },
+    ...(indexable ? {} : { robots: NOINDEX }),
   };
 }
 
@@ -73,8 +75,8 @@ export function articleStructuredData(article: NewsArticle, locale: Locale) {
   };
 }
 
-export function topicMetadata(topic: NewsCategory, locale: Locale): Metadata {
-  const base = newsMetadata(locale);
+export function topicMetadata(topic: NewsCategory, locale: Locale, indexable = true): Metadata {
+  const base = newsMetadata(locale, undefined, indexable);
   const label = categoryLabel(topic,locale);
   const title = `${label} — ${message(locale,"news")} | OddsFront`;
   const description = `${label}. ${newsDescription(locale)}`;
@@ -100,6 +102,8 @@ export function newsUtilityMetadata(page: "about" | "archive", pageNumber = 1): 
     alternates: { canonical },
     openGraph: { ...base.openGraph, title, description, url: canonical },
     twitter: { ...base.twitter, title, description },
+    // Archive pages repeat the /news listing; crawlers follow them to the articles.
+    ...(archive ? { robots: NOINDEX } : {}),
   };
 }
 

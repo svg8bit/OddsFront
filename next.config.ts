@@ -2,7 +2,9 @@ import type { NextConfig } from "next";
 
 const CANONICAL_ORIGIN = "https://oddsfront.com";
 // Keep in sync with LOCALES in lib/news/types.ts (lower-cased URL segments).
-const NEWS_LOCALE_SEGMENTS = "en|zh|ko|vi|de|es|pt-br|fr|ru|uk|fa|he";
+const NEWS_LOCALE_SEGMENTS = "en|ru";
+// Languages the site used to publish; their URLs now redirect to the English pages.
+const RETIRED_LOCALE_SEGMENTS = "zh|ko|vi|de|es|pt-br|fr|uk|fa|he";
 const REDIRECT_HOSTS = [
   "www.oddsfront.com",
   "oddsfront.vercel.app",
@@ -152,6 +154,19 @@ const nextConfig: NextConfig = {
       },
     ].map((redirect) => ({ ...redirect, missing: noLanguageQuery, permanent: true }));
 
+    // Retired languages: every news URL moves to its English page in one hop.
+    const retired = `/:retired(${RETIRED_LOCALE_SEGMENTS})`;
+    const retiredLocaleRedirects = [
+      { source: `${retired}/news`, destination: "/news" },
+      { source: `${retired}/news/world`, destination: "/news" },
+      { source: `${retired}/news/rss.xml`, destination: "/news/rss.xml" },
+      { source: `${retired}/news/topic/:topic`, destination: "/news/topic/:topic" },
+      { source: `${retired}/news/:country([a-z]{2})`, destination: "/news/:country" },
+      { source: `${retired}/news/:country(world|[a-z]{2})/:slug`, destination: "/en/news/:slug" },
+      { source: `${retired}/news/:slug`, destination: "/en/news/:slug" },
+      { source: `/social/news${retired}/:slug`, destination: "/social/news/en/:slug" },
+    ].map((redirect) => ({ ...redirect, permanent: true }));
+
     return [
       {
         source: "/global-conflict-map",
@@ -159,6 +174,7 @@ const nextConfig: NextConfig = {
         permanent: true,
       },
       ...newsRedirects,
+      ...retiredLocaleRedirects,
       ...canonicalHostRedirects,
     ];
   },
@@ -177,6 +193,11 @@ const nextConfig: NextConfig = {
           { key: "Cross-Origin-Opener-Policy", value: "unsafe-none" },
           { key: "Cache-Control", value: "public, max-age=0, must-revalidate" },
         ],
+      },
+      {
+        // Feeds are read by readers and used as sitemaps; they are not search results.
+        source: `/:locale(${NEWS_LOCALE_SEGMENTS})?/news/rss.xml`,
+        headers: [{ key: "X-Robots-Tag", value: "noindex" }],
       },
       {
         // TON wallets read the app manifest from their own origins.

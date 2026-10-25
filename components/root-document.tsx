@@ -1,7 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Analytics } from "@vercel/analytics/next";
 import { LocaleProvider } from "@/components/locale-provider";
-import { localeDirection } from "@/lib/news/locale";
 import type { Locale } from "@/lib/news/types";
 import {
   APP_ICON_PATH,
@@ -77,7 +76,7 @@ export function RootDocument({
     ],
   };
   return (
-    <html lang={locale} dir={localeDirection(locale)}>
+    <html lang={locale} dir="ltr">
       {/* This component is the document shell shared by both root layouts. */}
       {/* eslint-disable-next-line @next/next/no-head-element */}
       <head>

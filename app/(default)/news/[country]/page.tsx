@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { NewsOverview } from "@/components/news/news";
-import { newsOverviewProps } from "@/lib/news/index-page";
+import { listingIndexable, newsOverviewProps } from "@/lib/news/index-page";
 import { getNewsCatalog } from "@/lib/news/catalog";
 import { newsMetadata } from "@/lib/news/metadata";
 import { isNewsCountrySegment } from "@/lib/news/routing";
@@ -13,7 +13,8 @@ export function generateStaticParams(): { country: string }[] { return []; }
 type Props = { params: Promise<{ country: string }> };
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { country } = await params;
-  return isNewsCountrySegment(country) && country !== "world" ? newsMetadata("en", country) : {};
+  if (!isNewsCountrySegment(country) || country === "world") return {};
+  return newsMetadata("en", country, listingIndexable(await getNewsCatalog(), { country: country.toUpperCase() }));
 }
 export default async function DefaultNewsRoute({ params }: Props) {
   const { country } = await params;

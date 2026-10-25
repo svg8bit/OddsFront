@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { NewsOverview } from "@/components/news/news";
 import { getNewsCatalog } from "@/lib/news/catalog";
-import { newsOverviewProps } from "@/lib/news/index-page";
+import { listingIndexable, newsOverviewProps } from "@/lib/news/index-page";
 import { isNewsCategory } from "@/lib/news/categories";
 import { normalizeLocale } from "@/lib/news/locale";
 import { topicMetadata, topicStructuredData } from "@/lib/news/metadata";
@@ -12,7 +12,7 @@ export const revalidate=3600;
 export function generateStaticParams(): { topic: string }[] { return []; }
 export async function generateMetadata({params}:Props):Promise<Metadata> {
   const {locale:segment,topic}=await params;const locale=normalizeLocale(segment);
-  return locale&&locale!=="en"&&isNewsCategory(topic)?topicMetadata(topic,locale):{};
+  return locale&&locale!=="en"&&isNewsCategory(topic)?topicMetadata(topic,locale,listingIndexable(await getNewsCatalog(),{category:topic})):{};
 }
 export default async function TopicPage({params}:Props) {
   const {locale:segment,topic}=await params;const locale=normalizeLocale(segment);

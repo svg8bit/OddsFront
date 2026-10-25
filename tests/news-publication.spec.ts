@@ -6,13 +6,13 @@ import { spawn, spawnSync } from "node:child_process";
 import { once } from "node:events";
 import { CASUALTY_POLICY_REASON, validateNewsDraft, verifiedNewsAlert, violatesCasualtyPolicy } from "../lib/news/validation";
 import { buildNewsMarketAlerts, NEWS_ALERT_MINIMUM_MARKET_VOLUME, NEWS_ALERT_TTL_MS } from "../lib/news/alert-matching";
-import { normalizeLocale, negotiateLocale, localeDirection, regionFromLanguages } from "../lib/news/locale";
+import { normalizeLocale, negotiateLocale, regionFromLanguages } from "../lib/news/locale";
 import { validateMessageCoverage } from "../lib/news/messages";
 import { newsIndex } from "../lib/news/publication";
 import type { NewsArticle, NewsDraft, NewsCatalog } from "../lib/news/types";
 import seed from "../lib/news/catalog.seed.json";
 import { getConflictPreviewFixtureFeed } from "../features/global-conflict-map/preview/fixture";
-import { availableNewsArticlePath, switchNewsLocalePath } from "../lib/news/routing";
+import { articleLocales, availableNewsArticlePath, switchNewsLocalePath } from "../lib/news/routing";
 import { researchProblems, researchExclusions, researchPrompt } from "../lib/news/research";
 import { NEWS_SOURCES } from "../lib/news/sources";
 import { NEWS_DISCOVERY_FEEDS } from "../lib/news/feed-discovery";
@@ -42,29 +42,28 @@ test("search discovery stays bounded, delta-based, and excludes withdrawn URLs",
   const index = newsSitemapIndex(catalog, now.valueOf());
   expect(index).toContain("https://oddsfront.com/news-sitemaps/en-1.xml");
   expect(index).toContain("https://oddsfront.com/news-sitemaps/en-2.xml");
-  expect(index).toContain("https://oddsfront.com/news-sitemaps/pt-br-1.xml");
+  expect(index).toContain("https://oddsfront.com/news-sitemaps/ru-1.xml");
   const first = newsSitemap(catalog, "en", 1, now.valueOf())!;
   const second = newsSitemap(catalog, "en", 2, now.valueOf())!;
   expect(first.match(/<news:news>/g)).toHaveLength(NEWS_SITEMAP_URL_LIMIT);
   expect(second.match(/<news:news>/g)).toHaveLength(1);
-  expect(newsSitemap(catalog, "zh", 1, now.valueOf())).toContain("<news:language>zh-cn</news:language>");
+  expect(newsSitemap(catalog, "ru", 1, now.valueOf())).toContain("<news:language>ru</news:language>");
   const englishOnly = structuredClone(catalog);
   englishOnly.articles.forEach((article) => { article.translations = {}; });
-  expect(newsSitemapIndex(englishOnly, now.valueOf())).not.toContain("/news-sitemaps/fr-1.xml");
-  expect(newsSitemap(englishOnly, "fr", 1, now.valueOf())).not.toContain("<url>");
+  expect(newsSitemapIndex(englishOnly, now.valueOf())).not.toContain("/news-sitemaps/ru-1.xml");
+  expect(newsSitemap(englishOnly, "ru", 1, now.valueOf())).not.toContain("<url>");
 
   const core = coreSitemap(catalog);
   expect(core).toContain("https://oddsfront.com/news/about");
-  expect(core).toContain("<loc>https://oddsfront.com/news/archive/2</loc>");
-  expect(core).not.toContain("archive?page=");
+  expect(core).not.toContain("/news/archive");
   expect(core).toContain('hreflang="ru" href="https://oddsfront.com/ru/news"');
-  expect(core).not.toContain("<loc>https://oddsfront.com/ru/news</loc>");
+  expect(core).toContain("<loc>https://oddsfront.com/ru/news</loc>");
   expect(core).not.toContain("https://oddsfront.com/global-conflict-map");
   expect(core).not.toContain("https://oddsfront.com/news/world");
   const articlePart = articleSitemap(catalog, 1)!;
-  expect(articlePart.match(/<url>/g)).toHaveLength(SITEMAP_ARTICLE_BATCH_SIZE);
+  expect(articlePart.match(/<url>/g)).toHaveLength(SITEMAP_ARTICLE_BATCH_SIZE * articleLocales(catalog.articles[0]).length);
   expect(articlePart).toContain('hreflang="ru"');
-  expect(articlePart).not.toContain("<loc>https://oddsfront.com/ru/news/");
+  expect(articlePart).toContain("<loc>https://oddsfront.com/ru/news/");
   expect(newsRss(catalog, "en")).toContain('<atom:link href="https://pubsubhubbub.appspot.com/" rel="hub"/>');
 
   const initialCatalog = { ...catalog, articles: articles.slice(0, 2) } as NewsCatalog;
@@ -206,12 +205,12 @@ test("publisher exports English immediately and retains the edition after duplic
   }finally{await rm(directory,{recursive:true,force:true});}
 });
 
-test("language negotiation covers browser regions, aliases, fallback and RTL",()=>{
+test("language negotiation covers browser regions, retired languages and fallback",()=>{
   expect(validateMessageCoverage()).toBe(true);
   expect(negotiateLocale(["ja-JP","ru-RU"])).toBe("ru");expect(negotiateLocale(["ja-JP"])).toBe("en");
-  expect(normalizeLocale("pt-PT")).toBe("pt-BR");expect(normalizeLocale("zh-Hant-TW")).toBe("zh");expect(normalizeLocale("iw-IL")).toBe("he");
-  expect(regionFromLanguages(["zh-Hant-TW"])).toBe("TW");expect(localeDirection("fa")).toBe("rtl");expect(localeDirection("he")).toBe("rtl");
-  expect(switchNewsLocalePath("/ru/news","de")).toBe("/de/news");
+  expect(normalizeLocale("ru-UA")).toBe("ru");expect(normalizeLocale("pt-PT")).toBeNull();expect(normalizeLocale("zh-Hant-TW")).toBeNull();
+  expect(negotiateLocale(["de-DE","ru-RU"])).toBe("ru");expect(regionFromLanguages(["zh-Hant-TW"])).toBe("TW");
+  expect(switchNewsLocalePath("/ru/news","en")).toBe("/news");
   expect(switchNewsLocalePath("/news/archive","ru")).toBe("/news/archive");
   expect(availableNewsArticlePath({...seed.articles[0],translations:{}} as NewsArticle,"ru")).toBe(`/en/news/${seed.articles[0].slug}`);
 });

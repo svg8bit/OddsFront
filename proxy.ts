@@ -28,7 +28,7 @@ export function proxy(request: NextRequest) {
 export const config = {
   matcher: [
     { source: "/news/:path*", has: [{ type: "query", key: "lang" }] },
-    { source: "/:locale(en|zh|ko|vi|de|es|pt-br|fr|ru|uk|fa|he)/news/:path*", has: [{ type: "query", key: "lang" }] },
+    { source: "/:locale(en|ru)/news/:path*", has: [{ type: "query", key: "lang" }] },
     { source: "/news/archive", has: [{ type: "query", key: "page" }] },
   ],
 };

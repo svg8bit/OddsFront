@@ -5,7 +5,7 @@ import { ArticlePageContent } from "@/components/news/article-page";
 import { getNewsArticle, getNewsCatalog } from "@/lib/news/catalog";
 import { normalizeLocale } from "@/lib/news/locale";
 import { articleMetadata, newsMetadata } from "@/lib/news/metadata";
-import { newsOverviewProps } from "@/lib/news/index-page";
+import { listingIndexable, newsOverviewProps } from "@/lib/news/index-page";
 import { isNewsCountrySegment } from "@/lib/news/routing";
 
 type Props = { params: Promise<{ locale: string; country: string }> };
@@ -29,7 +29,10 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { locale: segment, country: slug } = await params;
   const locale = normalizeLocale(segment);
   if (!locale) return {};
-  if (isNewsCountrySegment(slug)) return isLocalizedCountryListing(locale, slug) ? newsMetadata(locale, slug) : {};
+  if (isNewsCountrySegment(slug)) {
+    if (!isLocalizedCountryListing(locale, slug)) return {};
+    return newsMetadata(locale, slug, listingIndexable(await getNewsCatalog(), { country: slug.toUpperCase() }));
+  }
   const article = await getNewsArticle(slug);
   return article && (locale === "en" || article.translations[locale]) ? articleMetadata(article, locale) : {};
 }

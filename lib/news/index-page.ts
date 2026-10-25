@@ -27,6 +27,14 @@ export function newsIndexPage(catalog: NewsCatalog, options: NewsIndexQuery = {}
     nextOffset: offset + page.length < filtered.length ? offset + page.length : null };
 }
 
+// Topic and country listings with fewer stories than this stay out of search
+// (noindex, follow) and out of the sitemap, so an empty or one-story listing is
+// never reported as a soft 404 or a thin page.
+export const MIN_INDEXABLE_LISTING_ARTICLES = 2;
+export function listingIndexable(catalog: NewsCatalog, options: Pick<NewsIndexQuery, "country" | "category">): boolean {
+  return newsIndexPage(catalog, options).total >= MIN_INDEXABLE_LISTING_ARTICLES;
+}
+
 export function newsOverviewProps(catalog: NewsCatalog, options: NewsIndexQuery = {}) {
   const page = newsIndexPage(catalog, options);
   return { initialArticles: page.articles, initialUpdatedAt: page.updatedAt, initialPopular: page.popular, initialTotal: page.total };

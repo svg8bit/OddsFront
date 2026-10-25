@@ -95,9 +95,9 @@ test("news remains lightweight and preserves language with topic navigation",asy
 test("switching a directly loaded localized page updates its server route",async({page})=>{
   await page.goto("/ru/news");
   await page.getByRole("button",{name:"Язык",exact:true}).click();
-  await page.getByRole("combobox",{name:"Язык",exact:true}).selectOption("de");
-  await expect(page).toHaveURL(/\/de\/news$/);
-  await expect(page.locator("html")).toHaveAttribute("lang","de");
+  await page.getByRole("combobox",{name:"Язык",exact:true}).selectOption("en");
+  await expect(page).toHaveURL(/\/news$/);
+  await expect(page.locator("html")).toHaveAttribute("lang","en");
 });
 
 test("long translated listing headlines remain inside unbranded covers", async ({ page }) => {
@@ -134,7 +134,7 @@ test("all localized article paths, unbranded covers, mobile and RTL layouts rema
     for(const language of LOCALES){
       const localizedPath=newsArticlePath(article,language);
       await page.goto(localizedPath);await expect(page.locator("html")).toHaveAttribute("lang",language);
-      await expect(page.locator("html")).toHaveAttribute("dir",language==="fa"||language==="he"?"rtl":"ltr");
+      await expect(page.locator("html")).toHaveAttribute("dir","ltr");
       await expect(page.locator("article h1")).not.toBeEmpty();
       const expectedTitle=language==="en"?article.title:article.translations[language].title;
       await expect(page.locator("article h1")).toHaveText(expectedTitle);
@@ -174,7 +174,7 @@ test("localized articles expose reciprocal search metadata and a branded 1200x63
   const image=PNG.sync.read(russianImage);
   expect({width:image.width,height:image.height}).toEqual({width:1200,height:630});
   const localizedHashes=[createHash("sha256").update(russianImage).digest("hex")];
-  for(const locale of ["zh","ko","fa","he"] as const){
+  for(const locale of ["en"] as const){
     const localizedResponse=await request.get(`/social/news/${locale}/${article.slug}`);
     expect(localizedResponse.ok()).toBe(true);
     const body=await localizedResponse.body();
@@ -183,8 +183,9 @@ test("localized articles expose reciprocal search metadata and a branded 1200x63
     localizedHashes.push(createHash("sha256").update(body).digest("hex"));
   }
   expect(new Set(localizedHashes).size).toBe(localizedHashes.length);
-  const persian=await (await request.get(newsArticlePath(article,"fa"))).text();
-  expect(persian).toMatch(/<html[^>]+lang="fa"[^>]+dir="rtl"/);
+  const retired=await request.get(`/fa/news/${article.slug}`,{maxRedirects:0});
+  expect(retired.status()).toBe(308);
+  expect(retired.headers().location).toBe(`/en/news/${article.slug}`);
   const robots=await (await request.get("/robots.txt")).text();
   expect(robots).toContain("Sitemap: https://oddsfront.com/news-sitemap.xml");
   const sitemapIndex=await (await request.get("/sitemap.xml")).text();

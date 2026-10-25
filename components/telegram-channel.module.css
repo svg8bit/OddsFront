@@ -1,0 +1,7 @@
+.icon{flex:none;display:block}
+.pill.pill:hover{border-color:#2aabee;color:#fff}
+.cta{display:inline-flex;align-items:center;gap:9px;min-height:36px;padding:7px 13px 7px 8px;border:1px solid #2aabee59;border-radius:999px;background:linear-gradient(180deg,#2aabee1f,#2aabee0d);color:#e6f3fb!important;font-size:12.5px;font-weight:560;letter-spacing:-.1px;line-height:1;text-decoration:none;white-space:nowrap;transition:border-color .16s ease,background-color .16s ease,transform .16s ease}
+.cta svg:last-child{color:#7fcdf3}
+.cta:hover{border-color:#2aabee;background-color:#2aabee26;transform:translateY(-1px)}
+.cta:focus-visible{outline:2px solid #7fcdf3;outline-offset:3px}
+@media(prefers-reduced-motion:reduce){.cta,.cta:hover{transition:none;transform:none}}

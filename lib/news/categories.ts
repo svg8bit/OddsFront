@@ -6,20 +6,10 @@ export type NewsCategory = typeof NEWS_CATEGORIES[number];
 const LABELS: Record<Locale, readonly string[]> = {
   en: ["Strikes", "Invasions", "Ceasefires", "Diplomacy", "Politics", "Energy", "Security", "Humanitarian", "World affairs"],
   ru: ["Удары", "Вторжения", "Перемирия", "Дипломатия", "Политика", "Энергетика", "Безопасность", "Гуманитарные события", "Мировые события"],
-  uk: ["Удари", "Вторгнення", "Перемир’я", "Дипломатія", "Політика", "Енергетика", "Безпека", "Гуманітарні події", "Світові події"],
-  zh: ["军事打击", "入侵", "停火", "外交", "政治", "能源", "安全", "人道事务", "国际事务"],
-  ko: ["공격", "침공", "휴전", "외교", "정치", "에너지", "안보", "인도주의", "국제 정세"],
-  vi: ["Các cuộc tấn công", "Xâm lược", "Ngừng bắn", "Ngoại giao", "Chính trị", "Năng lượng", "An ninh", "Nhân đạo", "Thế giới"],
-  de: ["Angriffe", "Invasionen", "Waffenruhen", "Diplomatie", "Politik", "Energie", "Sicherheit", "Humanitäres", "Weltgeschehen"],
-  es: ["Ataques", "Invasiones", "Altos el fuego", "Diplomacia", "Política", "Energía", "Seguridad", "Ayuda humanitaria", "Mundo"],
-  "pt-BR": ["Ataques", "Invasões", "Cessar-fogo", "Diplomacia", "Política", "Energia", "Segurança", "Ajuda humanitária", "Mundo"],
-  fr: ["Frappes", "Invasions", "Cessez-le-feu", "Diplomatie", "Politique", "Énergie", "Sécurité", "Humanitaire", "Monde"],
-  fa: ["حملات", "تهاجم", "آتش‌بس", "دیپلماسی", "سیاست", "انرژی", "امنیت", "امور بشردوستانه", "رویدادهای جهان"],
-  he: ["תקיפות", "פלישות", "הפסקות אש", "דיפלומטיה", "פוליטיקה", "אנרגיה", "ביטחון", "סוגיות הומניטריות", "אירועי העולם"],
 };
 
-const ALL: Record<Locale, string> = { en: "All news", ru: "Все новости", uk: "Усі новини", zh: "全部新闻", ko: "전체 뉴스", vi: "Tất cả tin tức", de: "Alle Nachrichten", es: "Todas las noticias", "pt-BR": "Todas as notícias", fr: "Toutes les actualités", fa: "همه اخبار", he: "כל החדשות" };
-const NAV: Record<Locale, string> = { en: "News categories", ru: "Категории новостей", uk: "Категорії новин", zh: "新闻分类", ko: "뉴스 분야", vi: "Chuyên mục tin tức", de: "Nachrichtenkategorien", es: "Categorías de noticias", "pt-BR": "Categorias de notícias", fr: "Rubriques", fa: "دسته‌بندی اخبار", he: "קטגוריות חדשות" };
+const ALL: Record<Locale, string> = { en: "All news", ru: "Все новости" };
+const NAV: Record<Locale, string> = { en: "News categories", ru: "Категории новостей" };
 
 export function isNewsCategory(value: string): value is NewsCategory { return (NEWS_CATEGORIES as readonly string[]).includes(value); }
 export function categoryLabel(category: NewsCategory, locale: Locale): string { return LABELS[locale][NEWS_CATEGORIES.indexOf(category)]; }
