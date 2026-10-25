@@ -160,7 +160,7 @@ export async function captureMapShot(browser: Browser, focus: MapFocus, siteUrl 
     }
     let popupOpen = false;
     // Only the post's own market gets an open popup: another market of the same event would show
-    // numbers that contradict the card's subtitle.
+    // numbers that contradict the caption.
     if (focus.eventId && focus.kind === "market") {
       const markerId = await page.evaluate(ids => ids.find(id => document.querySelector(`[data-market-event-id="${CSS.escape(id)}"]`)) ?? null, focus.groupIds);
       if (markerId) {
@@ -184,11 +184,10 @@ export async function captureMapShot(browser: Browser, focus: MapFocus, siteUrl 
   }
 }
 
-export type MapCardInput = { locale: HotDeskLocale; /** The short card headline, not the caption title. */ title: string; subtitle: string; direction: "up" | "down" | null; map: { png: Buffer; stripHeight: number } };
+// The picture carries only the headline (owner, 2026-10-25): the odds and the story are in the caption.
+export type MapCardInput = { locale: HotDeskLocale; /** The short card headline, not the caption title. */ title: string; map: { png: Buffer; stripHeight: number } };
 
-export function mapCardHtml({ locale, title, subtitle, direction, map }: MapCardInput, fonts: { bold: string; variable: string }) {
-  // Colour only the move ("▼ 1,3% за сутки"), keep the odds in white.
-  const [odds, ...moves] = subtitle.split(" · ");
+export function mapCardHtml({ locale, title, map }: MapCardInput, fonts: { bold: string; variable: string }) {
   const strip = Math.round(map.stripHeight);
   return `<!doctype html><html lang="${locale}"><head><meta charset="utf-8"><style>
 @font-face { font-family: "Inter Card"; src: url(data:font/woff2;base64,${fonts.variable}) format("woff2"); font-weight: 100 900; }
@@ -205,17 +204,12 @@ body { font-family: "Inter Card", sans-serif; color: #f8fafc; position: relative
 .brand svg { width: 44px; height: 33px; }
 .body { margin: auto 0; }
 .headline { font-family: "Inter Card Bold"; font-size: 64px; line-height: 1.07; letter-spacing: -0.028em; max-height: 360px; overflow: hidden; text-wrap: balance; text-shadow: 0 2px 24px rgba(0,0,0,0.35); }
-.subtitle { margin-top: 26px; font-size: 26px; font-weight: 500; color: #d3dbe8; letter-spacing: -0.005em; }
-.subtitle b { font-weight: 650; color: #f8fafc; }
-.subtitle .up { color: #4ade80; font-weight: 600; }
-.subtitle .down { color: #f87171; font-weight: 600; }
 .site { font-size: 19px; color: #8fa1bb; letter-spacing: 0.02em; }
 </style></head><body><div class="map"></div><div class="shade"></div>
 <div class="copy">
   <div class="brand"><svg viewBox="0 0 300 224"><defs><linearGradient id="m" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#7778FF"/><stop offset="1" stop-color="#5548FF"/></linearGradient></defs><path d="M106 0H178L72 224H0Z M228 0H300L194 224H122Z" fill="url(#m)"/></svg>OddsFront</div>
   <div class="body">
     <h1 class="headline" id="headline">${escapeHtml(title)}</h1>
-    <p class="subtitle"><b>${escapeHtml(odds ?? "")}</b>${moves.length ? ` · <span class="${direction ?? ""}">${escapeHtml(moves.join(" · "))}</span>` : ""}</p>
   </div>
   <div class="site">oddsfront.com</div>
 </div></body></html>`;
