@@ -142,7 +142,7 @@ export function BetSheet({ market }: { market: BinaryMarket }) {
   return (
     <section className={styles.betLayout}>
       <header className={styles.sheetHead}>
-        <MarketImage src={market.image} size={52} />
+        <MarketImage src={market.image} size={40} />
         <div className={styles.sheetHeadText}>
           {/* The source line is the Polymarket link (our referral code), as on the map. */}
           <button type="button" className={styles.sourceLink} disabled={!polymarketUrl} onClick={() => { if (polymarketUrl) { haptic("select"); app.openLink(polymarketUrl); } }}>

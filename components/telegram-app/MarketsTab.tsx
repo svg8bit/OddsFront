@@ -46,7 +46,7 @@ function MarketCard({ market }: { market: BinaryMarket }) {
   return (
     <article className={styles.marketCard}>
       <button type="button" className={styles.marketTop} onClick={() => open(0)}>
-        <MarketImage src={market.image} size={48} />
+        <MarketImage src={market.image} size={40} />
         <span className={styles.marketText}>
           <span className={styles.marketQuestion}>{marketQuestion(market, copy)}</span>
         </span>
