@@ -14,6 +14,8 @@ import { marketThumbnail, renderCards } from "../../lib/news/hot-desk/card.ts";
 import { chooseMapFocus, fetchMapFeed, loadCountryAnchors } from "../../lib/news/hot-desk/map-card.ts";
 import { EMPTY_STATE, hotDeskPolicy, marketResting, needsEvaluation, publicationBlock, recordPost, storyAlreadyPosted, type HotDeskState } from "../../lib/news/hot-desk/state.ts";
 import { botToken, telegramClient, TelegramRejection } from "../../lib/news/hot-desk/telegram-api.ts";
+import { fetchSiteArticles, matchSiteArticle } from "../../lib/news/hot-desk/site-article.ts";
+import { fetchTrendSignals, scoreStories, type ViralScore } from "../../lib/news/viral/signals.ts";
 
 const mode = process.argv.includes("--send") ? "send" : process.argv.includes("--preview") ? "preview" : "dry-run";
 const force = process.argv.includes("--force");
@@ -79,8 +81,13 @@ try {
   // An unchanged news cycle was already judged: skip the model call.
   if (tracked && !force && !topic && !needsEvaluation(state, clusters, policy, now)) finish("no-new-developments");
 
+  // What people discuss right now (Reddit, Google Trends, GDELT) for the widest stories.
+  const scored = clusters.toSorted((a, b) => b.coverage - a.coverage || Number(b.topStory) - Number(a.topStory)).slice(0, 40);
+  const scores = await scoreStories(scored, await fetchTrendSignals(), { now, stateFile: path.join(directory, "viral", "gdelt.json") }).catch(() => [] as ViralScore[]);
+  const viral = new Map(scored.flatMap((cluster, index) => (scores[index] ? [[cluster.id, scores[index]!] as const] : [])));
+
   const recent = state.posts.filter(post => now - Date.parse(post.at) <= policy.storyMemoryHours * 60 * 60_000).map(post => post.storyTitle);
-  const picks = acceptedStoryPicks(await editor(storySelectionPrompt(clusters, recent, now), STORY_SELECTION_SCHEMA), clusters, minHype);
+  const picks = acceptedStoryPicks(await editor(storySelectionPrompt(clusters, recent, now, viral), STORY_SELECTION_SCHEMA), clusters, minHype);
   if (tracked) {
     state = { ...state, evaluated: { at: new Date(now).toISOString(), fingerprints: clusters.filter(cluster => cluster.coverage >= 2).map(cluster => cluster.fingerprint).slice(0, 80) } };
     await atomic(stateFile, state);
@@ -90,6 +97,8 @@ try {
     feeds: collection.feeds,
     topStories: clusters.slice(0, 15).map(cluster => ({ id: cluster.id, title: cluster.title, coverage: cluster.coverage, outlets: cluster.outlets.slice(0, 6), topStory: cluster.topStory })),
     picks,
+    viral: [...viral.entries()].filter(([, value]) => value.score >= 30).toSorted((a, b) => b[1].score - a[1].score).slice(0, 10)
+      .map(([id, value]) => ({ title: clusters.find(cluster => cluster.id === id)?.title, ...value })),
   };
   const saveDraft = async (status: string) => atomic(path.join(output, `${stamp}-draft.json`), { status, mode, ...draft });
   if (!picks.length) { await saveDraft("no-hot-story"); finish("no-hot-story", { topStories: (draft.topStories as unknown[]).slice(0, 5) }); }
@@ -118,13 +127,16 @@ try {
   const locales: HotDeskLocale[] = ["en", "ru"];
   const focus = chooseMapFocus(mapFeed, market, pair.selection.countryCodes, await loadCountryAnchors());
   const cards = await renderCards(locales.map(locale => ({ locale, copy: pair.copy, market, history, thumbnail, focus })), process.cwd(), process.env.ODDSFRONT_HOT_DESK_MAP_URL || undefined);
-  const posts = locales.map((locale, index) => ({ locale, image: cards[index]!.png, card: cards[index]!, caption: hotDeskCaption(pair.copy, market, locale), keyboard: betKeyboard(market, locale) }));
+  // The headline links to the full site article when the wire desk already published the story.
+  const article = matchSiteArticle(pair.cluster, await fetchSiteArticles(), Date.now());
+  const posts = locales.map((locale, index) => ({ locale, image: cards[index]!.png, card: cards[index]!, caption: hotDeskCaption(pair.copy, market, locale, article ? article[locale] : null), keyboard: betKeyboard(market, locale) }));
   for (const post of posts) await writeFile(path.join(output, `${stamp}-${post.locale}.png`), post.image, { mode: 0o600 });
   Object.assign(draft, {
     story: { id: pair.cluster.id, title: pair.cluster.title, outlets: pair.cluster.outlets, coverage: pair.cluster.coverage, hype: pair.pick.hype, category: pair.pick.category },
     selection: pair.selection,
     market: { id: market.id, question: market.question, event: market.eventTitle, chance: market.chance, yesPrice: market.yesPrice, noPrice: market.noPrice, dayChange: market.dayChange, volume: Math.round(market.volume), endDate: market.endDate },
     mapFocus: focus,
+    article,
     posts: posts.map(post => ({ locale: post.locale, caption: post.caption, keyboard: post.keyboard, image: path.join(output, `${stamp}-${post.locale}.png`), card: { style: post.card.style, mapFocus: post.card.mapFocus, popupOpen: post.card.popupOpen, fallbackReason: post.card.fallbackReason } })),
   });
   await saveDraft("ready");

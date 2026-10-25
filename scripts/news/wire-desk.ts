@@ -16,7 +16,8 @@ import { spawnSync } from "node:child_process";
 import path from "node:path";
 import type { Browser } from "@playwright/test";
 import { executeSubscriptionWriter, WriterUsageLimitError } from "../../lib/news/writer.ts";
-import { collectWireHeadlines, openStories, storiesNeedingEvaluation, wireStories } from "../../lib/news/wire-desk/leads.ts";
+import { collectWireHeadlines, openStories, readableSiblings, storiesNeedingEvaluation, wireStories } from "../../lib/news/wire-desk/leads.ts";
+import { fetchTrendSignals, scoreStories } from "../../lib/news/viral/signals.ts";
 import { acceptedPicks, promptStories, SELECTION_SCHEMA, SELECTION_SYSTEM_PROMPT, selectionPrompt, type WirePick } from "../../lib/news/wire-desk/selection.ts";
 import { gatherSources, type FetchOutcome, type SourceText } from "../../lib/news/wire-desk/source-text.ts";
 import { storyMarkets, type StoryMarket } from "../../lib/news/wire-desk/markets.ts";
@@ -128,6 +129,12 @@ try {
   if (!publish && loaded.bootstrapped && !catalog.articles.length) catalog = (await loadCatalog(path.join(directory, "none"), livePublicDirectory)).catalog;
   const recent = catalog.articles.filter(article => !article.withdrawal && now - Date.parse(article.publishedAt) <= 48 * 3_600_000);
 
+  // Virality (Reddit, Google Trends, GDELT) orders the editor's list and is shown to the editor.
+  const candidates = promptStories(open);
+  const scores = await scoreStories(candidates, await fetchTrendSignals(), { now, stateFile: path.join(path.dirname(directory), "viral", "gdelt.json") }).catch(() => [] as Awaited<ReturnType<typeof scoreStories>>);
+  candidates.forEach((story, index) => { if (scores[index]) story.viral = scores[index]; });
+  receipt.viral = candidates.filter(story => story.viral && story.viral.score >= 30).toSorted((a, b) => b.viral!.score - a.viral!.score).slice(0, 10).map(story => ({ title: story.title, score: story.viral!.score, signals: story.viral!.signals }));
+
   const maxPicks = Math.min(articleAllowance(state, policy, now), Number.isFinite(maxArg) && maxArg > 0 ? maxArg : Infinity);
   const selection = JSON.parse(await callWriter("selectionCalls", selectionPrompt(open, recent.map(article => ({ title: article.title, publishedAt: article.publishedAt })), Math.max(1, maxPicks), now, policy.minCoverage), SELECTION_SCHEMA, SELECTION_SYSTEM_PROMPT, "selection", 150_000)) as unknown;
   // Every eligible story the editor saw is judged; it is asked again only after the re-evaluation window or when it changes.
@@ -166,7 +173,7 @@ try {
       let sources: SourceText[]; let markets: StoryMarket[]; let outcomes: FetchOutcome[] = [];
       if (cached) { ({ sources, markets } = cached); result.cachedDraft = true; }
       else {
-        const gathered = await gatherSources(members, 3);
+        const gathered = await gatherSources([...members, ...readableSiblings(fingerprint, members, collection.headlines)], 3);
         sources = gathered.sources; outcomes = gathered.outcomes;
         markets = await storyMarkets(pick.marketQueries).catch(() => []);
       }

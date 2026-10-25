@@ -823,7 +823,7 @@ export function ActivityRail({
                       data-referral-code={POLYMARKET_REFERRAL_CODE}
                       title="Polymarket · DropsBot referral"
                     >
-                      Market <ExternalLink size={12} aria-hidden="true" />
+                      {locale === "en" ? "Market" : "Рынок"} <ExternalLink size={12} aria-hidden="true" />
                     </a>
                   ) : null}
                 </div>

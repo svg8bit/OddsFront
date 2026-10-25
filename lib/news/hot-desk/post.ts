@@ -90,12 +90,14 @@ export function escapeHtml(text: string) {
 
 export const CAPTION_LIMIT = 1024;
 
-export function hotDeskCaption(copy: HotDeskCopy, market: Pick<HotDeskMarket, "question" | "chance" | "dayChange">, locale: HotDeskLocale) {
+export function hotDeskCaption(copy: HotDeskCopy, market: Pick<HotDeskMarket, "question" | "chance" | "dayChange">, locale: HotDeskLocale, articleUrl: string | null = null) {
   const ru = locale === "ru";
+  const title = escapeHtml(ru ? copy.titleRu : copy.titleEn);
   const change = formatChange(market.dayChange, locale);
   const odds = `${ru ? "Да" : "Yes"} — <b>${formatPercent(market.chance, locale)}</b>${change ? ` · ${change}` : ""}`;
   const caption = [
-    `⚡️ <b>${escapeHtml(ru ? copy.titleRu : copy.titleEn)}</b>`,
+    // The headline opens the full OddsFront article when the site already carries the story.
+    `⚡️ <b>${articleUrl ? `<a href="${escapeHtml(articleUrl)}">${title}</a>` : title}</b>`,
     escapeHtml(ru ? copy.contextRu : copy.contextEn),
     // The odds belong to the market's own question, labelled as such, never to the headline.
     `📊 <b>${ru ? "Рынок" : "Market"}:</b> ${escapeHtml(ru ? copy.marketQuestionRu : market.question)}\n${odds}`,

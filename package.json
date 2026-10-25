@@ -40,7 +40,8 @@
     "news:edition": "node scripts/news/run-edition.mjs",
     "news:wire-desk": "node scripts/news/wire-desk.ts",
     "news:telegram": "node scripts/news/telegram.ts",
-    "news:hot-desk": "node scripts/news/hot-desk.ts"
+    "news:hot-desk": "node scripts/news/hot-desk.ts",
+    "test:viral": "node --test lib/news/viral/viral.test.ts"
   },
   "dependencies": {
     "@polymarket/client": "0.12.0",
