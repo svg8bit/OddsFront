@@ -11,6 +11,6 @@ export const metadata: Metadata = {
 };
 
 export const dynamic = "force-static";
-export const revalidate = 300;
+export const revalidate = 900;
 
 export default GlobalConflictMapPage;

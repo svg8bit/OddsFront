@@ -594,6 +594,33 @@ async function getSingleFlightLiveConflictPreviewFeed() {
   }
 }
 
+// The map page HTML is only the first paint: the browser fetches /api/global-conflict-events on entry
+// (use-live-conflict-feed). Next regenerates a page at the shortest revalidate of the caches it reads, so
+// reading the 60 s live entry rebuilt the 400 KB home page on almost every visit (~300 ISR writes a day,
+// 2026-10-31). The page reads a copy of its own that lives as long as the page (and the market strip).
+export const PAGE_FEED_REVALIDATE_SECONDS = 15 * 60;
+
+const getCachedPageConflictPreviewFeed = unstable_cache(
+  buildLiveConflictPreviewFeed,
+  ["oddsfront-live-conflict-feed-v6-geopolitics-page"],
+  {
+    revalidate: PAGE_FEED_REVALIDATE_SECONDS,
+    tags: ["oddsfront-live-conflict-feed"],
+  },
+);
+
+export async function getConflictPreviewFeedForPage(): Promise<ConflictPreviewFeed> {
+  try {
+    return await getCachedPageConflictPreviewFeed();
+  } catch (error) {
+    console.warn(
+      "Polymarket conflict preview feed unavailable for the page; using deterministic fallback.",
+      error instanceof Error ? error.message : "Unknown error",
+    );
+    return getConflictPreviewFixtureFeed();
+  }
+}
+
 export async function getConflictPreviewFeed(): Promise<ConflictPreviewFeed> {
   try {
     return await getSingleFlightLiveConflictPreviewFeed();
