@@ -6,7 +6,7 @@ import { foreignElectionMarket, normalizeMarket, type GammaMarket } from "./mark
 import { betKeyboard, copyProblems, formatChange, formatPercent, hotDeskCaption, miniAppBetUrl, oddsLine, type HotDeskCopy } from "./post.ts";
 import { acceptedPair, acceptedStoryPicks } from "./editor.ts";
 import { EMPTY_STATE, hotDeskPolicy, marketResting, needsEvaluation, publicationBlock, recordPost, storyAlreadyPosted, type HotDeskState } from "./state.ts";
-import { priceChartSvg } from "./card.ts";
+import { priceChartSvg, withRetries } from "./card.ts";
 import { chooseMapFocus, projectToScreen, zoomAnchor, type MapFeedEvent } from "./map-card.ts";
 
 const NOW = Date.parse("2026-10-25T12:00:00Z");
@@ -218,6 +218,15 @@ test("map focusing projects coordinates like MapLibre and keeps zoom anchors on 
   // Doubling around 2M - T lands the marker on the target.
   assert.deepEqual(zoomAnchor({ x: 700, y: 400 }, { x: 768, y: 438 }, { left: 24, top: 60, right: 1256, bottom: 660 }), { x: 632, y: 362 });
   assert.deepEqual(zoomAnchor({ x: 1250, y: 30 }, { x: 768, y: 438 }, { left: 24, top: 60, right: 1256, bottom: 660 }), { x: 1256, y: 60 });
+});
+
+test("a map shot that fails on a cold load is retried before the card falls back", async () => {
+  let calls = 0;
+  assert.equal(await withRetries(async () => { calls += 1; if (calls < 3) throw new Error("Map camera did not settle"); return "map"; }), "map");
+  assert.equal(calls, 3);
+  calls = 0;
+  await assert.rejects(withRetries(async () => { calls += 1; throw new Error("Map camera did not settle"); }), /did not settle/);
+  assert.equal(calls, 3);
 });
 
 test("a topic run merges every differently worded report of one story", () => {
