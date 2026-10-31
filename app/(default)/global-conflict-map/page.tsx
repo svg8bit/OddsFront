@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import { ConflictMapPreviewLoader } from "@/features/global-conflict-map/preview/conflict-map-preview-loader";
 import { getDropstabMarketStrip } from "@/lib/dropstab-market-strip";
 import { buildOddsFrontSocialMetadata } from "@/lib/oddsfront-site";
-import { getConflictPreviewFeed } from "@/lib/polymarket-conflict-preview";
+import { getConflictPreviewFeedForPage } from "@/lib/polymarket-conflict-preview";
 
 export const metadata: Metadata = {
   ...buildOddsFrontSocialMetadata("/global-conflict-map"),
@@ -13,11 +13,12 @@ export const metadata: Metadata = {
 };
 
 export const dynamic = "force-static";
-export const revalidate = 300;
+// Same window as the page's feed copy and the market strip; the browser refreshes live data on entry.
+export const revalidate = 900;
 
 export default async function GlobalConflictMapPage() {
   const [initialFeed, initialMarketStrip] = await Promise.all([
-    getConflictPreviewFeed(),
+    getConflictPreviewFeedForPage(),
     getDropstabMarketStrip(),
   ]);
   if (
