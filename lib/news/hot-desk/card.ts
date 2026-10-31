@@ -176,6 +176,15 @@ export function marketPlaque({ locale, copy, market, thumbnail }: CardInput): Ma
 }
 export type PostCard = { png: Buffer; style: "map" | "classic"; mapFocus: MapFocus["kind"] | null; popupOpen: boolean; fallbackReason: string | null };
 
+const MAP_ATTEMPTS = 3;
+
+/** Runs `task` up to `attempts` times: a cold first map load sometimes misses the camera deadline. */
+export async function withRetries<T>(task: () => Promise<T>, attempts = MAP_ATTEMPTS): Promise<T> {
+  for (let attempt = 1; ; attempt += 1) {
+    try { return await task(); } catch (error) { if (attempt >= attempts) throw error; }
+  }
+}
+
 /**
  * Both locale cards in one browser: the live-map card when the map can frame
  * the story, otherwise (or on any map failure) the classic card. Never throws
@@ -199,15 +208,16 @@ export async function renderCards(inputs: readonly PostCardInput[], root = proce
   };
   try {
     const cards: PostCard[] = [];
-    // Both locales share one English map shot of the same focus.
-    const shots = new Map<string, Awaited<ReturnType<typeof captureMapShot>>>();
+    // Both locales share one English map shot of the same focus, so they never differ in style.
+    const shots = new Map<string, ReturnType<typeof captureMapShot>>();
     for (const input of inputs) {
       let fallbackReason = input.focus ? null : "no related marker or country on the map";
       if (input.focus) {
         try {
           const key = JSON.stringify(input.focus);
-          const map = shots.get(key) ?? await captureMapShot(browser, input.focus, siteUrl);
-          shots.set(key, map);
+          const focus = input.focus;
+          if (!shots.has(key)) shots.set(key, withRetries(() => captureMapShot(browser, focus, siteUrl)));
+          const map = await shots.get(key)!;
           const html = mapCardHtml({ locale: input.locale, title: input.locale === "ru" ? input.copy.cardTitleRu : input.copy.cardTitleEn, map, plaque: marketPlaque(input) }, fonts);
           cards.push({ png: await compose(html, MAP_VIEWPORT.width, MAP_VIEWPORT.height, MAP_SCALE, [62, 40]), style: "map", mapFocus: input.focus.kind, popupOpen: map.popupOpen, fallbackReason: null });
           continue;
